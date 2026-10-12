@@ -1,0 +1,36 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model GameState {
+  id      String @id
+  payload Json   @db.JsonB
+  version BigInt @default(0)
+
+  @@map("game_state")
+}
+
+model LoginThrottle {
+  key             String   @id
+  attempts        Int      @default(0)
+  windowStartedAt DateTime @db.Timestamptz(3) @map("window_started_at")
+
+  @@map("login_throttles")
+}
+
+model AuthSession {
+  tokenHash  String   @id @map("token_hash")
+  firebaseUid String @map("firebase_uid")
+  role       String
+  teamId     String?  @map("team_id")
+  expiresAt  DateTime @db.Timestamptz(3) @map("expires_at")
+
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
