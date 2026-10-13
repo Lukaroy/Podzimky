@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Drak a město",
-  description: "Týmová hra v terénu.",
+  title: "Podzimky 2026",
+  description: "Podzimky 2026",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

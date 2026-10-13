@@ -34,3 +34,11 @@ model AuthSession {
   @@index([expiresAt])
   @@map("auth_sessions")
 }
+
+model TeamQrCredential {
+  teamId    String   @id @map("team_id")
+  tokenHash String   @unique @map("token_hash")
+  createdAt DateTime @default(now()) @db.Timestamptz(3) @map("created_at")
+
+  @@map("team_qr_credentials")
+}

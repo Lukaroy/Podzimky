@@ -16,13 +16,16 @@ import {
   Camera,
   CheckCircle2,
   ClipboardCheck,
+  Eye,
+  EyeOff,
   Images,
   LayoutDashboard,
   LogOut,
   MapPin,
+  Menu,
+  QrCode,
   ScanLine,
-  ShieldCheck,
-  Sparkles,
+  Trash2,
   Users,
   X,
   Zap,
@@ -43,6 +46,7 @@ type StationType =
 
 type SubmissionStatus = "pending" | "approved" | "rejected";
 type Screen = "team-login" | "admin-login" | "team-dashboard" | "admin-panel";
+type AuthVisualMode = "sunset" | "interior";
 
 type Station = {
   id: string;
@@ -140,6 +144,35 @@ function classNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
 }
 
+function AuthVisualModePicker({
+  mode,
+  onChange,
+}: {
+  mode: AuthVisualMode;
+  onChange: (mode: AuthVisualMode) => void;
+}) {
+  return (
+    <div className="auth-mode-switch" role="group" aria-label="Vzhled přihlašovací stránky">
+      <button
+        type="button"
+        className={classNames("auth-mode-option", mode === "sunset" && "auth-mode-option-active")}
+        aria-pressed={mode === "sunset"}
+        onClick={() => onChange("sunset")}
+      >
+        Západ slunce
+      </button>
+      <button
+        type="button"
+        className={classNames("auth-mode-option", mode === "interior" && "auth-mode-option-active")}
+        aria-pressed={mode === "interior"}
+        onClick={() => onChange("interior")}
+      >
+        Chrám zevnitř
+      </button>
+    </div>
+  );
+}
+
 function AdminIcon({ name }: { name: "overview" | "teams" | "stations" | "review" | "media" | "flash" }) {
   const icons = {
     overview: LayoutDashboard,
@@ -151,33 +184,6 @@ function AdminIcon({ name }: { name: "overview" | "teams" | "stations" | "review
   };
   const Icon = icons[name];
   return <Icon aria-hidden="true" size={18} strokeWidth={1.8} className="shrink-0" />;
-}
-
-function LoginLandscape() {
-  return (
-    <svg
-      aria-hidden="true"
-      className="auth-landscape-art"
-      viewBox="0 0 760 440"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <circle cx="574" cy="112" r="43" fill="#C97B58" />
-      <path d="M0 270 137 113l93 104 113-151 169 201 76-95 172 151v117H0V270Z" fill="#D5D9C8" />
-      <path d="m25 276 112-129 72 81-50-14-22 24-34-7-30 41-48 12Z" fill="#F0E9D8" />
-      <path d="m270 225 73-132 117 143-51-25-31 19-38-22-22 19-24-9-16 14Z" fill="#F0E9D8" />
-      <path d="m463 246 49-63 48 64-22-7-18 12-19-10-14 9-11-6Z" fill="#F0E9D8" />
-      <path d="M0 322c96-36 157-43 246-15 70 23 127 30 201 8 91-27 173-22 313 17v108H0V322Z" fill="#8D9C84" />
-      <path d="M0 355c94-32 174-17 253 9 83 28 161 19 232-3 91-28 176-23 275 5v74H0v-85Z" fill="#687D6D" />
-      <path d="M0 394c110-25 171-14 256 10 94 27 172 21 265-4 81-22 156-17 239 5v35H0v-46Z" fill="#435F51" />
-      <path d="M526 316v-38h36v38m-49-38h63l-31-28-32 28Zm-7 0h77" stroke="#6E4030" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M535 316v-17h18v17" stroke="#6E4030" strokeWidth="4" />
-      <path d="M76 367c92-54 169-38 238-1 50 26 111 33 168 12 48-17 89-19 136-9" stroke="#E4D9BC" strokeWidth="3" strokeDasharray="3 11" strokeLinecap="round" />
-      <circle cx="77" cy="367" r="7" fill="#B84B37" />
-      <circle cx="618" cy="369" r="7" fill="#B84B37" />
-      <path d="M90 338c11-8 22-8 34 0m-18-15c6-4 12-4 18 0m382-194c10-8 20-8 30 0m-19-15c5-4 10-4 15 0" stroke="#8A8F79" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
 }
 
 function isValidUid(uid: string) {
@@ -265,6 +271,11 @@ export default function Page() {
   const latestGameStateRef = useRef(gameState);
   const [saveRevision, setSaveRevision] = useState(0);
   const [screen, setScreen] = useState<Screen>("team-login");
+  const [authVisualMode, setAuthVisualMode] = useState<AuthVisualMode>("sunset");
+  const [showTeamPassword, setShowTeamPassword] = useState(false);
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
+  const [teamQrScannerOpen, setTeamQrScannerOpen] = useState(false);
+  const [teamQrScanMessage, setTeamQrScanMessage] = useState("Umístěte přihlašovací QR kód do rámečku.");
   const [teamForm, setTeamForm] = useState({ name: "", password: "" });
   const [adminForm, setAdminForm] = useState({ email: "", password: "" });
   const teamNameInputRef = useRef<HTMLInputElement | null>(null);
@@ -273,6 +284,10 @@ export default function Page() {
   const adminPasswordInputRef = useRef<HTMLInputElement | null>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null);
+  const [teamQrBusyId, setTeamQrBusyId] = useState<string | null>(null);
+  const [generatedTeamQr, setGeneratedTeamQr] = useState<{ teamId: string; value: string } | null>(null);
+  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const cameraPermissionRequestedRef = useRef(false);
@@ -599,6 +614,38 @@ export default function Page() {
     };
   }, [scannerOpen, handleScanResult]);
 
+  const completeTeamLogin = useCallback(async (customToken: string) => {
+    const auth = getFirebaseAuth();
+    await setPersistence(auth, inMemoryPersistence);
+    const credential = await signInWithCustomToken(auth, customToken);
+    const response = await fetch("/api/auth/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken: await credential.user.getIdToken() }),
+    });
+    const result = await response.json() as {
+      user?: { role: "team"; teamId: string };
+      state?: GameState;
+      error?: string;
+    };
+    if (!response.ok || !result.user || !result.state) {
+      throw new Error(result.error ?? "Přihlášení týmu se nezdařilo.");
+    }
+    const state = normalizeGameState(result.state);
+    lastPersistedStateRef.current = JSON.stringify(state);
+    const team = state.teams.find((item) => item.id === result.user?.teamId);
+    if (!team) throw new Error("Přihlášený tým nebyl nalezen.");
+    setGameState(state);
+    setTeamId(team.id);
+    setTeamForm({ name: team.name, password: "" });
+    setIsAuthenticated(true);
+    setError("");
+    setScreen("team-dashboard");
+    setSelectedStationId(
+      state.stations.find((station) => station.order === getNextOrder(team, state.stations))?.id ?? null,
+    );
+  }, []);
+
   const handleTeamLogin = async () => {
     const enteredName = teamNameInputRef.current?.value ?? teamForm.name;
     const enteredPassword = teamPasswordInputRef.current?.value ?? teamForm.password;
@@ -615,39 +662,104 @@ export default function Page() {
       if (!loginResponse.ok || !loginResult.customToken) {
         throw new Error(loginResult.error ?? "Nesprávné přihlašovací údaje týmu.");
       }
-      const auth = getFirebaseAuth();
-      await setPersistence(auth, inMemoryPersistence);
-      const credential = await signInWithCustomToken(auth, loginResult.customToken);
-      const response = await fetch("/api/auth/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken: await credential.user.getIdToken() }),
-      });
-      const result = await response.json() as {
-        user?: { role: "team"; teamId: string };
-        state?: GameState;
-        error?: string;
-      };
-      if (!response.ok || !result.user || !result.state) {
-        throw new Error(result.error ?? "Nesprávné přihlašovací údaje týmu.");
-      }
-      const state = normalizeGameState(result.state);
-      lastPersistedStateRef.current = JSON.stringify(state);
-      const team = state.teams.find((item) => item.id === result.user?.teamId);
-      if (!team) throw new Error("Přihlášený tým nebyl nalezen.");
-      setGameState(state);
-      setTeamId(team.id);
-      setTeamForm({ name: team.name, password: "" });
-      setIsAuthenticated(true);
-      setError("");
-      setScreen("team-dashboard");
-      setSelectedStationId(
-        state.stations.find((station) => station.order === getNextOrder(team, state.stations))?.id ?? null,
-      );
+      await completeTeamLogin(loginResult.customToken);
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : "Přihlášení týmu se nezdařilo.");
     }
   };
+
+  const handleTeamQrLogin = useCallback(async (decodedText: string) => {
+    const prefix = "podzimky-team-login:";
+    if (!decodedText.startsWith(prefix)) {
+      setError("Tento QR kód není přihlašovací kód týmu.");
+      setTeamQrScanMessage("Tento kód není určený k přihlášení týmu.");
+      return;
+    }
+
+    try {
+      setError("");
+      setTeamQrScanMessage("Kód načten, ověřuji přihlášení…");
+      const response = await fetch("/api/auth/qr-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: decodedText.slice(prefix.length) }),
+      });
+      const result = await response.json() as { customToken?: string; error?: string };
+      if (!response.ok || !result.customToken) {
+        throw new Error(result.error ?? "QR kód není platný.");
+      }
+      await completeTeamLogin(result.customToken);
+    } catch (loginError) {
+      const message = loginError instanceof Error ? loginError.message : "Přihlášení přes QR kód se nezdařilo.";
+      setError(message);
+      setTeamQrScanMessage(message);
+    }
+  }, [completeTeamLogin]);
+
+  useEffect(() => {
+    if (!teamQrScannerOpen) return;
+
+    const scanner = new Html5Qrcode("team-qr-login-reader", {
+      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+      useBarCodeDetectorIfSupported: true,
+      verbose: false,
+    });
+    let isDisposed = false;
+    let startSettled = false;
+    let hasScanned = false;
+
+    void scanner.start(
+      { facingMode: { exact: "environment" } },
+      {
+        fps: 12,
+        qrbox: (viewfinderWidth, viewfinderHeight) => {
+          const size = Math.floor(Math.min(viewfinderWidth * 0.82, viewfinderHeight * 0.72, 360));
+          return { width: size, height: size };
+        },
+        videoConstraints: {
+          facingMode: { exact: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      },
+      (decodedText) => {
+        if (isDisposed || hasScanned) return;
+        hasScanned = true;
+        setTeamQrScannerOpen(false);
+        void handleTeamQrLogin(decodedText);
+      },
+      () => undefined,
+    ).then(async () => {
+      startSettled = true;
+      if (isDisposed && scanner.isScanning) await scanner.stop();
+      if (isDisposed) scanner.clear();
+    }).catch((scanError: unknown) => {
+      startSettled = true;
+      if (!isDisposed) {
+        const errorName = scanError instanceof Error ? scanError.name : "";
+        const message = errorName === "NotAllowedError" || errorName === "PermissionDeniedError"
+          ? "Přístup ke kameře je zablokovaný. Povolte kameru v nastavení webu."
+          : errorName === "NotFoundError" || errorName === "DevicesNotFoundError"
+            ? "Nepodařilo se najít zadní kameru tohoto zařízení."
+            : "Kameru se nepodařilo spustit. Zkontrolujte oprávnění.";
+        setTeamQrScanMessage(message);
+        setError(message);
+      } else {
+        scanner.clear();
+      }
+    });
+
+    return () => {
+      isDisposed = true;
+      if (scanner.isScanning) {
+        void scanner.stop().then(() => scanner.clear()).catch((stopError: unknown) => {
+          console.error("QR login scanner could not be stopped cleanly.", stopError);
+        });
+      } else if (startSettled) {
+        scanner.clear();
+      }
+    };
+  }, [teamQrScannerOpen, handleTeamQrLogin]);
 
   const handleAdminLogin = async () => {
     const enteredEmail = adminUsernameInputRef.current?.value ?? adminForm.email;
@@ -967,6 +1079,50 @@ export default function Page() {
     setError("");
   };
 
+  const handleRemoveTeam = async (team: Team) => {
+    if (!window.confirm(`Opravdu odstranit tým „${team.name}“? Odstraní se také jeho odevzdané úkoly a výsledky.`)) {
+      return;
+    }
+
+    setDeletingTeamId(team.id);
+    setError("");
+    try {
+      const response = await fetch(`/api/team/${encodeURIComponent(team.id)}`, { method: "DELETE" });
+      const result = await response.json() as { error?: string; state?: GameState };
+      if (!response.ok || !result.state) {
+        throw new Error(result.error ?? "Tým se nepodařilo odstranit.");
+      }
+      const state = normalizeGameState(result.state);
+      lastPersistedStateRef.current = JSON.stringify(state);
+      setGameState(state);
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : "Tým se nepodařilo odstranit.");
+    } finally {
+      setDeletingTeamId(null);
+    }
+  };
+
+  const handleGenerateTeamQr = async (team: Team) => {
+    if (!window.confirm(`Vygenerováním nového QR kódu přestane fungovat předchozí kód pro tým ${team.name}. Pokračovat?`)) {
+      return;
+    }
+
+    setTeamQrBusyId(team.id);
+    setError("");
+    try {
+      const response = await fetch(`/api/team/${encodeURIComponent(team.id)}/qr-login`, { method: "POST" });
+      const result = await response.json() as { token?: string; error?: string };
+      if (!response.ok || !result.token) {
+        throw new Error(result.error ?? "Přihlašovací QR kód se nepodařilo vytvořit.");
+      }
+      setGeneratedTeamQr({ teamId: team.id, value: `podzimky-team-login:${result.token}` });
+    } catch (qrError) {
+      setError(qrError instanceof Error ? qrError.message : "Přihlašovací QR kód se nepodařilo vytvořit.");
+    } finally {
+      setTeamQrBusyId(null);
+    }
+  };
+
   const moveStation = (stationId: string, direction: "up" | "down") => {
     setGameState((previous) => {
       const nextStations = [...previous.stations];
@@ -1114,11 +1270,8 @@ export default function Page() {
 
   if (isLoadingGameState) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f6f0e7] text-[#1d1a17]">
-        <div className="rounded-[28px] border border-[#d8c8a4] bg-[#fffdfa] px-6 py-5 text-center shadow-[0_20px_45px_rgba(126,87,35,0.08)]">
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#805f26]">Nahrávám hru</p>
-          <h1 className="mt-2 text-2xl font-black">Připravuji databázi hry…</h1>
-        </div>
+      <main className="auth-loading flex min-h-screen items-center justify-center">
+        <div className="auth-loading-mark">Podzimky 2026</div>
       </main>
     );
   }
@@ -1127,152 +1280,166 @@ export default function Page() {
     <main className="app-root min-h-screen bg-[#f4f5f7] text-[#202633]">
       {screen === "team-login" && (
         <div className="auth-page login-page">
+          <Image
+            src={authVisualMode === "sunset" ? "/podzimky-palace-sunset-hd.jpg" : "/podzimky-palace-interior-hd.jpg"}
+            alt=""
+            fill
+            preload
+            sizes="100vw"
+            quality={95}
+            className="auth-photo"
+          />
+          <div aria-hidden="true" className="auth-photo-shade" />
           <div className="auth-frame">
             <header className="auth-topbar">
-              <div className="auth-brand">
-                <span aria-hidden="true" className="auth-brand-seal">龍</span>
-                <span>
-                  <span className="auth-brand-name">Drak a město</span>
-                  <span className="auth-brand-caption">Týmová hra v terénu</span>
-                </span>
-              </div>
+              <AuthVisualModePicker mode={authVisualMode} onChange={setAuthVisualMode} />
               <button
                 className="auth-quiet-button"
                 onClick={() => setScreen("admin-login")}
               >
-                <ShieldCheck size={16} /> Pro pořadatele
+                Administrace
               </button>
             </header>
 
             <div className="auth-layout">
               <section className="auth-story" aria-labelledby="team-welcome">
-                <p className="auth-kicker"><span /> Výprava začíná tady</p>
-                <h1 id="team-welcome">Za branou<br />čeká vaše cesta.</h1>
-                <p className="auth-story-copy">Seberte tým, najděte první značku a vydejte se po stopách dračího města.</p>
-                <LoginLandscape />
-                <p className="auth-story-note"><MapPin size={15} /> Hra se otevírá po přihlášení týmu</p>
+                <h1 id="team-welcome">Podzimky 2026</h1>
               </section>
 
-              <section className="login-card auth-form" aria-labelledby="team-login-title">
-                <div className="auth-form-heading">
-                  <p className="auth-form-label">PŘIHLÁŠENÍ TÝMU</p>
-                  <h2 id="team-login-title">Vstupte do hry</h2>
-                  <p>Použijte údaje, které vám předal pořadatel.</p>
-                </div>
+              <section className="login-card auth-form" aria-label="Přihlášení týmu">
                 <div className="auth-fields">
                   <label className="auth-label">
-                    Název týmu
+                    Tým
                     <input
                       ref={teamNameInputRef}
                       value={teamForm.name}
                       onChange={(event) => setTeamForm((current) => ({ ...current, name: event.target.value }))}
                       className="auth-input"
-                      placeholder="např. DRAČÍ STRÁŽ"
+                      autoComplete="username"
+                      placeholder="Zadejte název týmu"
                     />
                   </label>
 
                   <label className="auth-label">
                     Heslo
-                    <input
-                      ref={teamPasswordInputRef}
-                      type="password"
-                      value={teamForm.password}
-                      onChange={(event) => setTeamForm((current) => ({ ...current, password: event.target.value }))}
-                      className="auth-input"
-                      placeholder="Zadejte heslo"
-                    />
+                    <span className="auth-password-wrap">
+                      <input
+                        ref={teamPasswordInputRef}
+                        type={showTeamPassword ? "text" : "password"}
+                        value={teamForm.password}
+                        onChange={(event) => setTeamForm((current) => ({ ...current, password: event.target.value }))}
+                        className="auth-input"
+                        autoComplete="current-password"
+                        placeholder="Zadejte heslo týmu"
+                      />
+                      <button
+                        type="button"
+                        className="auth-password-toggle"
+                        onClick={() => setShowTeamPassword((visible) => !visible)}
+                        aria-label={showTeamPassword ? "Skrýt heslo" : "Zobrazit heslo"}
+                        aria-pressed={showTeamPassword}
+                      >
+                        {showTeamPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </span>
                   </label>
 
                   {error ? <p className="auth-error">{error}</p> : null}
 
                   <button onClick={handleTeamLogin} className="auth-submit">
-                    Pokračovat <ArrowRight size={18} />
+                    Vstoupit <ArrowRight size={18} />
+                  </button>
+                  <div className="auth-login-divider"><span>nebo</span></div>
+                  <button
+                    type="button"
+                    className="auth-qr-login"
+                    onClick={() => {
+                      setError("");
+                      setTeamQrScanMessage("Umístěte přihlašovací QR kód do rámečku.");
+                      setTeamQrScannerOpen(true);
+                    }}
+                  >
+                    <QrCode size={17} /> Přihlásit přes QR kód
                   </button>
                 </div>
-                <p className="auth-form-footnote">Nemáte přihlašovací údaje? Obraťte se na pořadatele hry.</p>
               </section>
             </div>
-
-            <footer className="auth-footer">
-              <span>Drak a město</span>
-              <span>Společná výprava, společný cíl.</span>
-            </footer>
           </div>
         </div>
       )}
 
       {screen === "admin-login" && (
         <div className="auth-page auth-admin-page">
+          <Image
+            src={authVisualMode === "sunset" ? "/podzimky-palace-sunset-hd.jpg" : "/podzimky-palace-interior-hd.jpg"}
+            alt=""
+            fill
+            preload
+            sizes="100vw"
+            quality={95}
+            className="auth-photo"
+          />
+          <div aria-hidden="true" className="auth-photo-shade" />
           <div className="auth-frame">
             <header className="auth-topbar">
-              <div className="auth-brand">
-                <span aria-hidden="true" className="auth-brand-seal">龍</span>
-                <span>
-                  <span className="auth-brand-name">Drak a město</span>
-                  <span className="auth-brand-caption">Zázemí výpravy</span>
-                </span>
-              </div>
+              <AuthVisualModePicker mode={authVisualMode} onChange={setAuthVisualMode} />
               <button className="auth-quiet-button" onClick={() => setScreen("team-login")}>
-                <ArrowLeft size={16} /> Zpět ke hře
+                <ArrowLeft size={16} /> Zpět
               </button>
             </header>
 
             <div className="auth-layout">
               <section className="auth-story" aria-labelledby="admin-welcome">
-                <p className="auth-kicker"><span /> Pro pořadatele</p>
-                <h1 id="admin-welcome">Město je<br />ve vašich rukou.</h1>
-                <p className="auth-story-copy">Spravujte týmy, stanoviště i průběh hry z jednoho místa.</p>
-                <LoginLandscape />
-                <p className="auth-story-note"><ShieldCheck size={15} /> Přístup je určen pouze organizátorům</p>
+                <h1 id="admin-welcome">Podzimky 2026</h1>
               </section>
 
-              <section className="login-card auth-form" aria-labelledby="admin-login-title">
-                <div className="auth-form-heading">
-                  <p className="auth-form-label">ZÁZEMÍ HRY</p>
-                  <h2 id="admin-login-title">Administrace</h2>
-                  <p>Přihlaste se účtem organizátora.</p>
-                </div>
-
+              <section className="login-card auth-form" aria-label="Přihlášení administrátora">
                 <div className="auth-fields">
                   <label className="auth-label">
-                    E-mail administrátora
+                    E-mail
                     <input
                       ref={adminUsernameInputRef}
                       type="email"
                       value={adminForm.email}
                       onChange={(event) => setAdminForm((current) => ({ ...current, email: event.target.value }))}
                       autoComplete="username"
-                      placeholder="admin@example.com"
+                      placeholder="Zadejte e-mail administrátora"
                       className="auth-input"
                     />
                   </label>
 
                   <label className="auth-label">
                     Heslo
-                    <input
-                      ref={adminPasswordInputRef}
-                      type="password"
-                      value={adminForm.password}
-                      onChange={(event) => setAdminForm((current) => ({ ...current, password: event.target.value }))}
-                      autoComplete="current-password"
-                      className="auth-input"
-                    />
+                    <span className="auth-password-wrap">
+                      <input
+                        ref={adminPasswordInputRef}
+                        type={showAdminPassword ? "text" : "password"}
+                        value={adminForm.password}
+                        onChange={(event) => setAdminForm((current) => ({ ...current, password: event.target.value }))}
+                        autoComplete="current-password"
+                        placeholder="Zadejte heslo administrátora"
+                        className="auth-input"
+                      />
+                      <button
+                        type="button"
+                        className="auth-password-toggle"
+                        onClick={() => setShowAdminPassword((visible) => !visible)}
+                        aria-label={showAdminPassword ? "Skrýt heslo" : "Zobrazit heslo"}
+                        aria-pressed={showAdminPassword}
+                      >
+                        {showAdminPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </span>
                   </label>
 
                   {error ? <p className="auth-error">{error}</p> : null}
 
                   <button onClick={handleAdminLogin} className="auth-submit">
-                    <ShieldCheck size={18} /> Přihlásit se
+                    Přihlásit se
                   </button>
                 </div>
-                <p className="auth-form-footnote">Potřebujete přístup? Ozvěte se správci hry.</p>
               </section>
             </div>
-
-            <footer className="auth-footer">
-              <span>Drak a město</span>
-              <span>Organizační zázemí hry</span>
-            </footer>
           </div>
         </div>
       )}
@@ -1300,9 +1467,9 @@ export default function Page() {
             <header className="player-header sticky top-2 z-20 mb-5 rounded-2xl border p-4 text-[#1e293b] shadow-sm sm:px-5">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  <span aria-hidden="true" className="player-seal flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold"><Sparkles size={19} /></span>
+                  <span aria-hidden="true" className="player-seal flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold">龍</span>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#8c929b]">Drak a město · Tým</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#8c929b]">Podzimky 2026</p>
                     <h1 className="truncate text-lg font-bold tracking-tight text-[#1f2937] sm:text-xl">{activeTeam.name}</h1>
                   </div>
                 </div>
@@ -1694,15 +1861,15 @@ export default function Page() {
         <div className="admin-shell mx-auto max-w-screen-2xl px-4 py-6 pb-16">
           <header className="admin-header mb-5 flex items-center justify-between rounded-2xl border p-4 text-[#1e293b] shadow-sm">
             <div className="flex items-center gap-4">
-              <div className="admin-brand-mark flex h-10 w-10 items-center justify-center rounded-xl"><Sparkles size={20} /></div>
+              <div aria-hidden="true" className="admin-brand-mark flex h-10 w-10 items-center justify-center rounded-xl">印</div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8c929b]">Drak a město</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8c929b]">Podzimky 2026</p>
                 <h1 className="mt-0.5 whitespace-nowrap text-lg font-bold text-[#1f2937] sm:text-xl">Správa hry</h1>
               </div>
             </div>
             <button
               onClick={() => void handleLogout()}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#e4e7eb] bg-white px-3 py-2 text-sm font-semibold text-[#596273] transition hover:bg-[#f6f7f9]"
+              className="admin-logout inline-flex items-center gap-2 rounded-xl border border-[#e4e7eb] bg-white px-3 py-2 text-sm font-semibold text-[#596273] transition hover:bg-[#f6f7f9]"
             >
               <LogOut size={16} /> Odhlásit
             </button>
@@ -1742,9 +1909,20 @@ export default function Page() {
           </div>
 
           <div className="grid gap-3 lg:grid-cols-[190px_minmax(0,1fr)]">
-            <aside className="admin-nav h-fit rounded-xl border border-[#e2d8c7] bg-[#fffdfa] p-2 shadow-[0_6px_18px_rgba(25,19,12,0.04)] lg:sticky lg:top-4">
-              <p className="px-2 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#88775e]">Herní správa</p>
-              <nav aria-label="Správa hry" className="admin-nav-items grid grid-cols-2 gap-1 lg:block lg:space-y-1">
+            <aside id="admin-navigation" className="admin-nav h-fit rounded-xl border border-[#e2d8c7] bg-[#fffdfa] p-2 shadow-[0_6px_18px_rgba(25,19,12,0.04)] lg:sticky lg:top-4">
+              <button
+                type="button"
+                className="admin-menu-toggle"
+                aria-expanded={isAdminMenuOpen}
+                aria-controls="admin-navigation-items"
+                onClick={() => setIsAdminMenuOpen((open) => !open)}
+              >
+                {isAdminMenuOpen ? <X size={17} /> : <Menu size={17} />}
+                <span>Herní správa</span>
+                {isAdminMenuOpen ? <span className="admin-menu-current">{adminTab === "overview" ? "Přehled" : adminTab === "teams" ? "Týmy" : adminTab === "stations" ? "Stanoviště" : adminTab === "submissions" ? "Schvalování" : adminTab === "media" ? "Galerie" : "Přepady"}</span> : null}
+              </button>
+              <p className="admin-nav-label px-2 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#88775e]">Herní správa</p>
+              <nav id="admin-navigation-items" aria-label="Správa hry" className={classNames("admin-nav-items grid grid-cols-2 gap-1 lg:block lg:space-y-1", !isAdminMenuOpen && "admin-nav-items-collapsed")}>
                 {[
                   { key: "overview", label: "Přehled", icon: "overview" as const },
                   { key: "teams", label: "Týmy", icon: "teams" as const },
@@ -1755,7 +1933,10 @@ export default function Page() {
                 ].map((item) => (
                   <button
                     key={item.key}
-                    onClick={() => setAdminTab(item.key as typeof adminTab)}
+                    onClick={() => {
+                      setAdminTab(item.key as typeof adminTab);
+                      setIsAdminMenuOpen(false);
+                    }}
                     aria-current={adminTab === item.key ? "page" : undefined}
                     className={classNames(
                       "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold transition",
@@ -1856,10 +2037,10 @@ export default function Page() {
 
           {adminTab === "teams" && (
             <section className="rounded-2xl border border-[#e3d9c9] bg-[#fffdfa] p-5 shadow-[0_8px_22px_rgba(25,19,12,0.05)]">
-              <div className="mb-5 flex items-center justify-between gap-4">
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <h2 className="text-2xl font-bold text-[#201c19]">Týmy</h2>
-                  <p className="mt-1 text-sm text-[#675d53]">{gameState.teams.length} týmů ve hře</p>
+                  <p className="mt-1 text-sm text-[#675d53]">{gameState.teams.length} {gameState.teams.length === 1 ? "tým ve hře" : gameState.teams.length >= 2 && gameState.teams.length <= 4 ? "týmy ve hře" : "týmů ve hře"}</p>
                 </div>
               </div>
               <div className="grid gap-2 md:grid-cols-2">
@@ -1870,15 +2051,27 @@ export default function Page() {
                     (submission) => submission.teamId === team.id && submission.status === "pending",
                   ).length;
                   return (
-                    <article key={team.id} className="rounded-xl border border-[#e8dccb] bg-[#faf7f1] p-3">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <article key={team.id} className="admin-team-card rounded-xl border border-[#e8dccb] bg-[#faf7f1] p-3">
+                      <div className="flex items-start justify-between gap-3">
                         <div>
                           <h3 className="text-lg font-bold text-[#211d1a]">{team.name}</h3>
                           <p className="mt-1 text-sm text-[#675d53]">
                             {completed} z {gameState.stations.length} stanovišť
                           </p>
                         </div>
-                        <span className="rounded-full bg-[#f2dfb2] px-2.5 py-1 text-xs font-bold text-[#7a4e1a]">{percent}%</span>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className="rounded-full bg-[#f2dfb2] px-2.5 py-1 text-xs font-bold text-[#7a4e1a]">{percent}%</span>
+                          <button
+                            type="button"
+                            onClick={() => void handleRemoveTeam(team)}
+                            disabled={deletingTeamId === team.id}
+                            aria-label={`Odstranit tým ${team.name}`}
+                            title="Odstranit tým"
+                            className="admin-danger-button"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
                       <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#efe6d4]">
                         <div className="h-full rounded-full bg-[#7d4d19]" style={{ width: `${percent}%` }} />
@@ -1886,25 +2079,61 @@ export default function Page() {
                       <p className="mt-3 text-xs text-[#675d53]">
                         {teamPending > 0 ? `${teamPending} úkol čeká na schválení` : team.flashMissionId ? "Má aktivní přepad" : "Bez čekajících úkolů"}
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => void handleGenerateTeamQr(team)}
+                        disabled={teamQrBusyId === team.id}
+                        className="mt-3 inline-flex items-center gap-2 rounded-lg border border-[#d8c6a2] bg-white px-3 py-2 text-xs font-semibold text-[#553d2d] transition hover:bg-[#f7f0e4] disabled:opacity-60"
+                      >
+                        <QrCode size={15} />
+                        {teamQrBusyId === team.id ? "Vytvářím kód…" : "Vytvořit přihlašovací QR"}
+                      </button>
+                      {generatedTeamQr?.teamId === team.id && (
+                        <div className="mt-3 flex items-center gap-3 rounded-lg border border-[#e5d9c7] bg-white p-3">
+                          <QRCodeSVG
+                            value={generatedTeamQr.value}
+                            size={112}
+                            level="Q"
+                            marginSize={3}
+                            title={`Přihlašovací QR kód týmu ${team.name}`}
+                          />
+                          <p className="max-w-48 text-xs leading-relaxed text-[#675d53]">
+                            Tento kód umožní přihlášení k týmu. Uchovávejte ho bezpečně.
+                          </p>
+                        </div>
+                      )}
                     </article>
                   );
                 })}
+                {gameState.teams.length === 0 && (
+                  <p className="rounded-xl border border-dashed border-[#d9d0c2] p-5 text-sm text-[#716d63] md:col-span-2">
+                    Zatím tu nejsou žádné týmy. Přidejte první tým ve formuláři níže.
+                  </p>
+                )}
               </div>
               <div className="mt-6 grid gap-3 border-t border-[#ece3d5] pt-5 md:grid-cols-[1fr_1fr_auto]">
+                <label className="admin-field-label">
+                  Název týmu
                 <input
                   value={teamFormAdmin.name}
                   onChange={(event) => setTeamFormAdmin((current) => ({ ...current, name: event.target.value }))}
-                  placeholder="Název nového týmu"
+                  placeholder="např. DRAČÍ STRÁŽ"
+                  aria-label="Název nového týmu"
                   className="rounded-lg border border-[#d8c6a2] bg-white p-3 text-sm"
                 />
+                </label>
+                <label className="admin-field-label">
+                  Heslo
                 <input
                   value={teamFormAdmin.password}
                   type="password"
                   onChange={(event) => setTeamFormAdmin((current) => ({ ...current, password: event.target.value }))}
-                  placeholder="Heslo týmu"
+                  placeholder="Alespoň 8 znaků"
+                  aria-label="Heslo nového týmu"
                   className="rounded-lg border border-[#d8c6a2] bg-white p-3 text-sm"
                 />
-                <button onClick={handleAddTeam} className="rounded-lg bg-[#a4332b] px-5 py-3 text-sm font-bold text-white">
+                </label>
+                <button onClick={handleAddTeam} className="admin-add-team self-end rounded-lg bg-[#a4332b] px-5 py-3 text-sm font-bold text-white">
                   Přidat tým
                 </button>
               </div>
@@ -2231,6 +2460,45 @@ export default function Page() {
             </section>
           )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {teamQrScannerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
+          <div className="scanner-modal w-full max-w-md rounded-2xl p-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#f4ead8] text-[#7a3d2e]"><QrCode size={20} /></span>
+                <div>
+                  <h3 className="text-lg font-bold text-[#30251e]">Přihlášení QR kódem</h3>
+                  <p className="text-xs text-[#75685c]">Naskenujte kód svého týmu</p>
+                </div>
+              </div>
+              <button
+                aria-label="Zavřít přihlašovací skener"
+                onClick={() => setTeamQrScannerOpen(false)}
+                className="rounded-lg p-2 text-[#68707d] transition hover:bg-[#f1ede6]"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="qr-camera-frame relative overflow-hidden rounded-xl">
+              <div id="team-qr-login-reader" className="qr-reader-element overflow-hidden rounded-xl bg-[#111827]" />
+              <div className="qr-camera-guide" aria-hidden="true">
+                <div className="qr-camera-target"><span /><span /><span /><span /></div>
+              </div>
+              <div className="qr-camera-caption"><Camera size={14} /> Zarovnejte přihlašovací QR do rámečku</div>
+            </div>
+            <p role="status" className="mt-3 flex min-h-10 items-center gap-2 rounded-lg bg-[#f4f0e8] px-3 py-2 text-sm text-[#584e44]">
+              <Camera size={16} className="shrink-0 text-[#7a3d2e]" /> {teamQrScanMessage}
+            </p>
+            <button
+              onClick={() => setTeamQrScannerOpen(false)}
+              className="mt-3 w-full rounded-lg border border-[#d9cbb7] bg-white px-3 py-2.5 text-sm font-semibold text-[#4d4339] transition hover:bg-[#f7f2e9]"
+            >
+              Zavřít
+            </button>
           </div>
         </div>
       )}
