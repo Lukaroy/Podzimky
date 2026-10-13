@@ -1,7 +1,7 @@
 "use client";
 
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
-import { upload } from "@vercel/blob/client";
+import { put } from "@vercel/blob/client";
 import {
   inMemoryPersistence,
   setPersistence,
@@ -868,16 +868,49 @@ export default function Page() {
         const extension = extensions[file.type];
         const activeTeam = gameState.teams[0];
         if (!extension || !activeTeam) throw new Error("Nepodporovaný formát souboru.");
-        const blob = await upload(
-          `team-${activeTeam.id}/${crypto.randomUUID()}.${extension}`,
-          file,
-          {
-            access: "private",
-            handleUploadUrl: "/api/media/upload",
-            contentType: file.type,
-            multipart: file.size > 4.5 * 1024 * 1024,
-          },
-        );
+        const pathname = `team-${activeTeam.id}/${crypto.randomUUID()}.${extension}`;
+        const multipart = file.size > 4.5 * 1024 * 1024;
+        const tokenResponse = await fetch("/api/media/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "blob.generate-client-token",
+            payload: { pathname, multipart, clientPayload: null },
+          }),
+        });
+        const tokenResponseBody = await tokenResponse.text();
+        let tokenResult: {
+          clientToken?: string;
+          error?: string;
+        } = {};
+        try {
+          tokenResult = JSON.parse(tokenResponseBody) as typeof tokenResult;
+        } catch {
+          // Keep the HTTP status useful when a proxy returns a non-JSON error page.
+        }
+        if (!tokenResponse.ok || !tokenResult.clientToken) {
+          throw new Error(
+            tokenResult.error ??
+              `Server nevydal oprávnění k nahrávání (HTTP ${tokenResponse.status}). Zkuste se znovu přihlásit; pokud chyba trvá, zkontrolujte logy Vercelu pro /api/media/upload.`,
+          );
+        }
+
+        let blob: Awaited<ReturnType<typeof put>>;
+        try {
+          blob = await put(
+            pathname,
+            file,
+            {
+              access: "private",
+              token: tokenResult.clientToken,
+              contentType: file.type,
+              multipart,
+            },
+          );
+        } catch (uploadError) {
+          const message = uploadError instanceof Error ? uploadError.message : "";
+          throw new Error(`Soubor se nepodařilo uložit do Blob úložiště: ${message || "neznámá chyba"}`);
+        }
         mediaUrl = `/api/media/${blob.pathname}`;
         if (!isStoredMediaUrl(mediaUrl)) throw new Error("Server vrátil neplatný odkaz na soubor.");
       }

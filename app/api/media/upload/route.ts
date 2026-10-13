@@ -22,6 +22,15 @@ export async function POST(request: Request) {
   if (!user || user.role !== "team") {
     return NextResponse.json({ error: "Přihlaste se jako tým." }, { status: 401 });
   }
+  if (!process.env.BLOB_READ_WRITE_TOKEN?.trim()) {
+    return NextResponse.json(
+      {
+        code: "BLOB_NOT_CONFIGURED",
+        error: "Nahrávání fotek není na serveru nakonfigurované. Chybí BLOB_READ_WRITE_TOKEN.",
+      },
+      { status: 503 },
+    );
+  }
 
   try {
     const body = await request.json() as HandleUploadBody;
@@ -42,9 +51,13 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(result);
   } catch (error) {
+    console.error("Vercel Blob could not generate a client upload token.", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Nahrání souboru se nepodařilo." },
-      { status: 400 },
+      {
+        code: "BLOB_TOKEN_GENERATION_FAILED",
+        error: "Vercel Blob odmítl vytvořit nahrávací oprávnění. Zkontrolujte nastavení Blob úložiště.",
+      },
+      { status: 503 },
     );
   }
 }
