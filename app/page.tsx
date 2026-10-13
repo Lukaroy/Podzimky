@@ -26,6 +26,7 @@ import {
   LogOut,
   MapPin,
   Menu,
+  Plus,
   QrCode,
   ScanLine,
   Play,
@@ -35,7 +36,7 @@ import {
   Zap,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getFirebaseAuth } from "@/lib/firebase-client";
 
@@ -147,6 +148,50 @@ function getStationById(stations: Station[], stationId?: string | null) {
 
 function classNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
+}
+
+function AdminDialog({
+  title,
+  description,
+  onClose,
+  children,
+}: {
+  title: string;
+  description: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      className="admin-dialog-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section role="dialog" aria-modal="true" aria-labelledby="admin-dialog-title" className="admin-dialog">
+        <header className="admin-dialog-header">
+          <div className="admin-dialog-seal" aria-hidden="true">印</div>
+          <div className="min-w-0 flex-1">
+            <p className="admin-eyebrow">Herní dílna</p>
+            <h2 id="admin-dialog-title">{title}</h2>
+            <p>{description}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Zavřít okno" className="admin-dialog-close">
+            <X size={19} />
+          </button>
+        </header>
+        {children}
+      </section>
+    </div>
+  );
 }
 
 function AuthVisualModePicker({
@@ -293,6 +338,11 @@ export default function Page() {
   const [teamQrBusyId, setTeamQrBusyId] = useState<string | null>(null);
   const [generatedTeamQr, setGeneratedTeamQr] = useState<{ teamId: string; value: string } | null>(null);
   const [galleryPage, setGalleryPage] = useState(0);
+  const [teamPage, setTeamPage] = useState(0);
+  const [stationPage, setStationPage] = useState(0);
+  const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
+  const [isStationDialogOpen, setIsStationDialogOpen] = useState(false);
+  const [stationFormStep, setStationFormStep] = useState<0 | 1 | 2>(0);
   const [presentationIndex, setPresentationIndex] = useState<number | null>(null);
   const [flashDraft, setFlashDraft] = useState("");
   const [isSubmittingFlash, setIsSubmittingFlash] = useState(false);
@@ -1099,6 +1149,8 @@ export default function Page() {
       };
     });
     setVisibleStationQr(newStation.id);
+    setStationPage(Math.floor(gameState.stations.length / managementPageSize));
+    setIsStationDialogOpen(false);
 
     setAdminStationForm({
       title: "",
@@ -1152,6 +1204,8 @@ export default function Page() {
     });
 
     setTeamFormAdmin({ name: "", password: "" });
+    setTeamPage(Math.floor(gameState.teams.length / managementPageSize));
+    setIsTeamDialogOpen(false);
     setError("");
   };
 
@@ -1171,6 +1225,7 @@ export default function Page() {
       const state = normalizeGameState(result.state);
       lastPersistedStateRef.current = JSON.stringify(state);
       setGameState(state);
+      setTeamPage((page) => Math.min(page, Math.max(0, Math.ceil(state.teams.length / managementPageSize) - 1)));
     } catch (removeError) {
       setError(removeError instanceof Error ? removeError.message : "Tým se nepodařilo odstranit.");
     } finally {
@@ -1220,6 +1275,7 @@ export default function Page() {
   };
 
   const removeStation = (stationId: string) => {
+    setStationPage((page) => Math.min(page, Math.max(0, Math.ceil((gameState.stations.length - 1) / managementPageSize) - 1)));
     setGameState((previous) => ({
       ...previous,
       stations: previous.stations
@@ -1376,6 +1432,11 @@ export default function Page() {
     galleryPage * galleryPageSize,
     (galleryPage + 1) * galleryPageSize,
   );
+  const managementPageSize = 8;
+  const teamPageCount = Math.ceil(gameState.teams.length / managementPageSize);
+  const stationPageCount = Math.ceil(gameState.stations.length / managementPageSize);
+  const visibleTeams = gameState.teams.slice(teamPage * managementPageSize, (teamPage + 1) * managementPageSize);
+  const visibleStations = gameState.stations.slice(stationPage * managementPageSize, (stationPage + 1) * managementPageSize);
   const completedStationsCount = activeTeam ? activeTeam.completedStations.length : 0;
   const hasFinishedGame = Boolean(activeTeam && gameState.stations.length > 0 && completedStationsCount >= gameState.stations.length);
 
@@ -2064,8 +2125,8 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-[190px_minmax(0,1fr)]">
-            <aside id="admin-navigation" className="admin-nav h-fit rounded-xl border border-[#e2d8c7] bg-[#fffdfa] p-2 shadow-[0_6px_18px_rgba(25,19,12,0.04)] lg:sticky lg:top-4">
+          <div className="space-y-4">
+            <aside id="admin-navigation" className="admin-nav rounded-xl border border-[#e2d8c7] bg-[#fffdfa] p-2 shadow-[0_6px_18px_rgba(25,19,12,0.04)]">
               <button
                 type="button"
                 className="admin-menu-toggle"
@@ -2078,7 +2139,7 @@ export default function Page() {
                 {isAdminMenuOpen ? <span className="admin-menu-current">{adminTab === "overview" ? "Přehled" : adminTab === "teams" ? "Týmy" : adminTab === "stations" ? "Stanoviště" : adminTab === "submissions" ? "Schvalování" : adminTab === "media" ? "Galerie" : "Přepady"}</span> : null}
               </button>
               <p className="admin-nav-label px-2 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#88775e]">Herní správa</p>
-              <nav id="admin-navigation-items" aria-label="Správa hry" className={classNames("admin-nav-items grid grid-cols-2 gap-1 lg:block lg:space-y-1", !isAdminMenuOpen && "admin-nav-items-collapsed")}>
+              <nav id="admin-navigation-items" aria-label="Správa hry" className={classNames("admin-nav-items grid grid-cols-2 gap-1 sm:grid-cols-3 xl:grid-cols-6", !isAdminMenuOpen && "admin-nav-items-collapsed")}>
                 {[
                   { key: "overview", label: "Přehled", icon: "overview" as const },
                   { key: "teams", label: "Týmy", icon: "teams" as const },
@@ -2192,15 +2253,24 @@ export default function Page() {
           )}
 
           {adminTab === "teams" && (
+            <>
             <section className="rounded-2xl border border-[#e3d9c9] bg-[#fffdfa] p-5 shadow-[0_8px_22px_rgba(25,19,12,0.05)]">
               <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
                 <div>
+                  <p className="admin-eyebrow">Správa výpravy</p>
                   <h2 className="text-2xl font-bold text-[#201c19]">Týmy</h2>
-                  <p className="mt-1 text-sm text-[#675d53]">{gameState.teams.length} {gameState.teams.length === 1 ? "tým ve hře" : gameState.teams.length >= 2 && gameState.teams.length <= 4 ? "týmy ve hře" : "týmů ve hře"}</p>
+                  <p className="mt-1 text-sm text-[#675d53]">{gameState.teams.length} týmů · přehled po 8</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => { setError(""); setIsTeamDialogOpen(true); }}
+                  className="admin-primary-button"
+                >
+                  <Plus size={17} /> Přidat tým
+                </button>
               </div>
               <div className="grid gap-2 md:grid-cols-2">
-                {gameState.teams.map((team) => {
+                {visibleTeams.map((team) => {
                   const completed = team.completedStations.length;
                   const percent = Math.round((completed / Math.max(gameState.stations.length, 1)) * 100);
                   const teamPending = gameState.submissions.filter(
@@ -2277,46 +2347,84 @@ export default function Page() {
                 })}
                 {gameState.teams.length === 0 && (
                   <p className="rounded-xl border border-dashed border-[#d9d0c2] p-5 text-sm text-[#716d63] md:col-span-2">
-                    Zatím tu nejsou žádné týmy. Přidejte první tým ve formuláři níže.
+                    Zatím tu nejsou žádné týmy. Vytvořte první tým.
                   </p>
                 )}
               </div>
-              <div className="mt-6 grid gap-3 border-t border-[#ece3d5] pt-5 md:grid-cols-[1fr_1fr_auto]">
-                <label className="admin-field-label">
-                  Název týmu
-                <input
-                  value={teamFormAdmin.name}
-                  onChange={(event) => setTeamFormAdmin((current) => ({ ...current, name: event.target.value }))}
-                  placeholder="např. DRAČÍ STRÁŽ"
-                  aria-label="Název nového týmu"
-                  className="rounded-lg border border-[#d8c6a2] bg-white p-3 text-sm"
-                />
-                </label>
-                <label className="admin-field-label">
-                  Heslo
-                <input
-                  value={teamFormAdmin.password}
-                  type="password"
-                  onChange={(event) => setTeamFormAdmin((current) => ({ ...current, password: event.target.value }))}
-                  placeholder="Alespoň 8 znaků"
-                  aria-label="Heslo nového týmu"
-                  className="rounded-lg border border-[#d8c6a2] bg-white p-3 text-sm"
-                />
-                </label>
-                <button onClick={handleAddTeam} className="admin-add-team self-end rounded-lg bg-[#a4332b] px-5 py-3 text-sm font-bold text-white">
-                  Přidat tým
-                </button>
-              </div>
-              {error && <p className="mt-3 rounded-lg bg-[#fce7e6] px-3 py-2 text-sm text-[#8b2d2d]">{error}</p>}
+              {teamPageCount > 1 && (
+                <div className="admin-pagination">
+                  <span>{teamPage * managementPageSize + 1}–{Math.min((teamPage + 1) * managementPageSize, gameState.teams.length)} z {gameState.teams.length}</span>
+                  <div>
+                    <button type="button" onClick={() => setTeamPage((page) => Math.max(0, page - 1))} disabled={teamPage === 0}>Předchozí</button>
+                    <button type="button" onClick={() => setTeamPage((page) => Math.min(teamPageCount - 1, page + 1))} disabled={teamPage + 1 >= teamPageCount}>Další</button>
+                  </div>
+                </div>
+              )}
             </section>
+            {isTeamDialogOpen && (
+              <AdminDialog
+                title="Nový tým"
+                description="Zvolte název a přístupové heslo. QR přihlášení lze vytvořit po uložení."
+                onClose={() => setIsTeamDialogOpen(false)}
+              >
+                <div className="admin-dialog-body">
+                  <label className="admin-field-label">
+                    Název týmu
+                    <input
+                      autoFocus
+                      value={teamFormAdmin.name}
+                      onChange={(event) => setTeamFormAdmin((current) => ({ ...current, name: event.target.value }))}
+                      placeholder="Například: Dračí stráž"
+                      maxLength={80}
+                      className="w-full rounded-xl border p-3 text-sm"
+                    />
+                  </label>
+                  <label className="admin-field-label mt-4">
+                    Heslo pro hráče
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      value={teamFormAdmin.password}
+                      onChange={(event) => setTeamFormAdmin((current) => ({ ...current, password: event.target.value }))}
+                      placeholder="Alespoň 8 znaků"
+                      className="w-full rounded-xl border p-3 text-sm"
+                    />
+                  </label>
+                  {error && <p role="alert" className="mt-4 rounded-xl bg-[#fce7e6] px-3 py-2 text-sm text-[#8b2d2d]">{error}</p>}
+                  <div className="admin-dialog-actions">
+                    <button type="button" onClick={() => setIsTeamDialogOpen(false)} className="admin-secondary-button">Zrušit</button>
+                    <button type="button" onClick={handleAddTeam} className="admin-primary-button">Vytvořit tým</button>
+                  </div>
+                </div>
+              </AdminDialog>
+            )}
+            </>
           )}
 
           {adminTab === "stations" && (
+            <>
             <section className="rounded-[24px] bg-[#fffdfa] p-3 shadow-[0_12px_30px_rgba(20,16,14,0.08)]">
-              <h2 className="mb-3 text-lg font-bold text-[#201c19]">Stanoviště</h2>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3 px-1">
+                <div>
+                  <p className="admin-eyebrow">Trasa výpravy</p>
+                  <h2 className="text-xl font-bold text-[#201c19]">Stanoviště</h2>
+                  <p className="mt-1 text-sm text-[#675d53]">{gameState.stations.length} míst · pořadí řídí trasu</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError("");
+                    setStationFormStep(0);
+                    setIsStationDialogOpen(true);
+                  }}
+                  className="admin-primary-button"
+                >
+                  <Plus size={17} /> Přidat stanoviště
+                </button>
+              </div>
 
               <div className="space-y-2">
-                {gameState.stations.map((station) => (
+                {visibleStations.map((station) => (
                   <div key={station.id} className="rounded-lg border border-[#e1d4b6] bg-[#faf6ef] px-3 py-2.5">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex min-w-0 items-center gap-3">
@@ -2385,11 +2493,42 @@ export default function Page() {
                     )}
                   </div>
                 ))}
+                {gameState.stations.length === 0 && (
+                  <p className="rounded-xl border border-dashed border-[#d9d0c2] p-5 text-sm text-[#716d63]">Trasa zatím nemá stanoviště. Přidejte první místo.</p>
+                )}
               </div>
+              {stationPageCount > 1 && (
+                <div className="admin-pagination">
+                  <span>{stationPage * managementPageSize + 1}–{Math.min((stationPage + 1) * managementPageSize, gameState.stations.length)} z {gameState.stations.length}</span>
+                  <div>
+                    <button type="button" onClick={() => setStationPage((page) => Math.max(0, page - 1))} disabled={stationPage === 0}>Předchozí</button>
+                    <button type="button" onClick={() => setStationPage((page) => Math.min(stationPageCount - 1, page + 1))} disabled={stationPage + 1 >= stationPageCount}>Další</button>
+                  </div>
+                </div>
+              )}
 
-              <details className="mt-3 rounded-xl border border-[#e6d7ab] bg-[#fffaf1] p-3">
-                <summary className="cursor-pointer text-sm font-bold text-[#8f3529]">Přidat nové stanoviště</summary>
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
+            </section>
+            {isStationDialogOpen && (
+              <AdminDialog
+                title="Nové stanoviště"
+                description="Připravte místo a zadání ve třech rychlých krocích."
+                onClose={() => setIsStationDialogOpen(false)}
+              >
+                <div className="admin-dialog-body">
+                  <div className="admin-stepper" aria-label="Kroky nového stanoviště">
+                    {["Místo", "Úkol", "Pravidla"].map((label, index) => (
+                      <button
+                        key={label}
+                        type="button"
+                        aria-current={stationFormStep === index ? "step" : undefined}
+                        onClick={() => setStationFormStep(index as 0 | 1 | 2)}
+                      >
+                        <span>{index + 1}</span>{label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                  <div className="contents" style={{ display: stationFormStep === 0 ? "contents" : "none" }}>
                   <label className="admin-field-label">
                     Název stanoviště
                     <input
@@ -2471,6 +2610,8 @@ export default function Page() {
                       className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
                     />
                   </label>
+                  </div>
+                  <div className="contents" style={{ display: stationFormStep === 1 ? "contents" : "none" }}>
                   <label className="admin-field-label md:col-span-2">
                     Zadání úkolu
                     <textarea
@@ -2628,6 +2769,8 @@ export default function Page() {
                       </button>
                     </div>
                   )}
+                  </div>
+                  <div className="contents" style={{ display: stationFormStep === 2 ? "contents" : "none" }}>
                   <label className="flex items-start gap-3 rounded-xl border border-[#e1d4b6] bg-white p-3 text-sm text-[#4d3b2a] md:col-span-2">
                     <input
                       type="checkbox"
@@ -2645,16 +2788,35 @@ export default function Page() {
                       </span>
                     </span>
                   </label>
+                  </div>
                 </div>
                 {error && <p className="mt-3 rounded-xl bg-[#fce7e6] px-3 py-2 text-sm text-[#8b2d2d]">{error}</p>}
-                <button
-                  onClick={handleAddStation}
-                  className="mt-4 w-full rounded-xl bg-[#a4332b] px-4 py-3 text-sm font-bold text-[#fffdf9]"
-                >
-                  Přidat stanoviště
-                </button>
-              </details>
-            </section>
+                <div className="admin-dialog-actions">
+                  <button
+                    type="button"
+                    onClick={() => stationFormStep === 0 ? setIsStationDialogOpen(false) : setStationFormStep((step) => (step - 1) as 0 | 1 | 2)}
+                    className="admin-secondary-button"
+                  >
+                    {stationFormStep === 0 ? "Zrušit" : "Zpět"}
+                  </button>
+                  {stationFormStep < 2 ? (
+                    <button
+                      type="button"
+                      onClick={() => setStationFormStep((step) => (step + 1) as 0 | 1 | 2)}
+                      className="admin-primary-button"
+                    >
+                      Pokračovat <ChevronRight size={16} />
+                    </button>
+                  ) : (
+                    <button type="button" onClick={handleAddStation} className="admin-primary-button">
+                      Uložit stanoviště
+                    </button>
+                  )}
+                </div>
+                </div>
+              </AdminDialog>
+            )}
+            </>
           )}
 
           {adminTab === "submissions" && (

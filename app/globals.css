@@ -1439,16 +1439,16 @@ video {
 
 .admin-shell {
   max-width: 1560px;
-  color: #20283a;
+  color: #302720;
 }
 
 .admin-header {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 1.35rem;
   background:
-    radial-gradient(ellipse at 88% -35%, rgba(231, 192, 122, 0.34), transparent 42%),
-    linear-gradient(120deg, #182238, #26344f 62%, #3c3a47);
-  box-shadow: 0 18px 40px rgba(28, 38, 57, 0.2);
+    radial-gradient(ellipse at 88% -35%, rgba(222, 184, 112, 0.28), transparent 42%),
+    linear-gradient(120deg, #63251f, #87362b 62%, #5e3027);
+  box-shadow: 0 18px 40px rgba(83, 39, 29, 0.19);
 }
 
 .admin-brand-mark {
@@ -1458,73 +1458,72 @@ video {
 
 .admin-metric {
   min-height: 82px;
-  border: 1px solid #e4e8ef;
-  border-left-width: 1px;
+  border: 1px solid #e8ddc8;
   border-radius: 1.1rem;
-  background: linear-gradient(145deg, #fff, #f9fafc);
-  box-shadow: 0 8px 22px rgba(29, 42, 66, 0.055);
+  background: linear-gradient(145deg, #fffdf8, #f8f1e5);
+  box-shadow: 0 8px 22px rgba(92, 59, 33, 0.06);
 }
 
 .admin-metric-icon {
   width: 42px;
   height: 42px;
   border-radius: 0.95rem;
-  background: #eef1f7;
-  color: #435574;
+  background: #f3e8d6;
+  color: #8a3a2d;
 }
 
 .admin-nav {
-  border-color: #e4e8ef;
+  border-color: #e5d8c1;
   border-radius: 1.2rem;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 10px 26px rgba(29, 42, 66, 0.06);
-  backdrop-filter: blur(14px);
+  background: rgba(255, 252, 245, 0.95);
+  box-shadow: 0 10px 26px rgba(92, 59, 33, 0.06);
+  backdrop-filter: blur(12px);
 }
 
 .admin-nav button[aria-current="page"] {
   border-radius: 0.85rem;
-  background: linear-gradient(115deg, #26344f, #394b6d);
-  box-shadow: 0 6px 14px rgba(38, 52, 79, 0.18);
+  background: linear-gradient(115deg, #6d2b24, #8a392d);
+  box-shadow: 0 6px 14px rgba(102, 45, 34, 0.17);
 }
 
 .admin-content > section,
 .admin-content > div > section,
 .admin-content section {
-  border-color: #e5e9f0;
+  border-color: #e6dbc8;
   border-radius: 1.25rem;
-  background-color: #fff;
-  box-shadow: 0 10px 28px rgba(29, 42, 66, 0.055);
+  background-color: #fffdf8;
+  box-shadow: 0 10px 28px rgba(83, 57, 35, 0.06);
 }
 
 .admin-content h2,
 .admin-content h3 {
-  color: #20283a;
+  color: #382b22;
 }
 
 .admin-content input,
 .admin-content textarea,
 .admin-content select {
-  border-color: #dfe4ed;
+  border-color: #ddceb2;
   border-radius: 0.8rem;
 }
 
 .admin-content input:focus,
 .admin-content textarea:focus,
 .admin-content select:focus {
-  border-color: #627ba4;
-  outline-color: rgba(87, 113, 157, 0.18);
+  border-color: #a54030;
+  outline-color: rgba(165, 64, 48, 0.16);
 }
 
 .admin-media-card {
-  border-color: #e3e7ef;
+  border-color: #e5d8c1;
   border-radius: 1rem;
-  background: #fbfcfe;
+  background: #fffaf1;
   transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
 .admin-media-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 14px 26px rgba(29, 42, 66, 0.1);
+  box-shadow: 0 14px 26px rgba(92, 59, 33, 0.1);
 }
 
 .player-shell {
@@ -1534,8 +1533,8 @@ video {
 .player-header {
   border-color: rgba(255, 255, 255, 0.78);
   border-radius: 1.35rem;
-  background: rgba(255, 255, 255, 0.93);
-  box-shadow: 0 14px 34px rgba(38, 43, 54, 0.09);
+  background: rgba(255, 253, 248, 0.95);
+  box-shadow: 0 14px 34px rgba(75, 51, 31, 0.09);
   backdrop-filter: blur(18px);
 }
 
@@ -1546,43 +1545,307 @@ video {
 }
 
 .player-shell section {
-  border-color: #e5e9f0;
+  border-color: #e5d8c1;
   border-radius: 1.25rem;
-  background: #fff;
-  box-shadow: 0 10px 28px rgba(29, 42, 66, 0.055);
+  background: #fffdf8;
+  box-shadow: 0 10px 28px rgba(83, 57, 35, 0.06);
 }
 
 .player-route details > summary {
-  border-color: #e8eaf0;
+  border-color: #e8dcc3;
   border-radius: 0.8rem;
-  background: #f6f7fa;
+  background: #f7efdf;
 }
 
 .player-mission {
-  border-color: #e5e9f0;
+  border-color: #e5d8c1;
 }
 
 .player-mission-banner {
   background:
-    radial-gradient(ellipse at 90% 0%, rgba(222, 182, 108, 0.2), transparent 45%),
-    linear-gradient(115deg, #202b41, #374760);
+    radial-gradient(ellipse at 90% 0%, rgba(222, 184, 112, 0.18), transparent 45%),
+    linear-gradient(115deg, #51251f, #76352a);
 }
 
 .player-finish {
   border-color: #e3e9e1;
   background:
-    radial-gradient(ellipse at 50% 0%, rgba(98, 150, 106, 0.11), transparent 65%),
-    #fff;
+    radial-gradient(ellipse at 50% 0%, rgba(82, 109, 91, 0.11), transparent 65%),
+    #fffdf8;
 }
 
 .admin-menu-toggle {
   border-radius: 0.8rem;
-  background: #f1f3f7;
+  background: #f3ead9;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .admin-media-card,
   .admin-media-card:hover {
     transform: none;
+  }
+}
+
+.admin-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+.admin-shell::before {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  background-color: #f3f0e8;
+  background-image:
+    radial-gradient(ellipse at 12% 15%, rgba(165, 64, 48, 0.045), transparent 28%),
+    repeating-linear-gradient(0deg, transparent 0 31px, rgba(167, 134, 81, 0.035) 32px);
+  content: "";
+  pointer-events: none;
+}
+
+.admin-header,
+.admin-shell h1,
+.admin-shell h2,
+.admin-shell h3 {
+  font-family: var(--font-display);
+}
+
+.admin-nav button[aria-current="page"] svg {
+  color: #efd9a7;
+}
+
+.admin-dialog-backdrop {
+  position: fixed;
+  z-index: 70;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  background: rgba(31, 24, 20, 0.58);
+  padding: 1rem;
+  backdrop-filter: blur(5px);
+}
+
+.admin-dialog {
+  width: min(100%, 720px);
+  max-height: min(92dvh, 900px);
+  overflow: hidden;
+  border: 1px solid #dbc9a7;
+  border-radius: 1.35rem;
+  background: #fffdf8;
+  box-shadow: 0 28px 90px rgba(35, 23, 17, 0.34);
+  animation: admin-dialog-enter 150ms ease-out;
+}
+
+.admin-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  border-bottom: 1px solid #eadfc9;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(167, 134, 81, 0.18), transparent 45%),
+    linear-gradient(120deg, #f8f1e5, #fffdf8);
+  padding: 1.15rem 1.25rem;
+}
+
+.admin-dialog-seal {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #9b3d30;
+  border-radius: 0.35rem;
+  background: #a54030;
+  color: #fff8eb;
+  font-family: "KaiTi", "STKaiti", Georgia, serif;
+  font-size: 1.3rem;
+}
+
+.admin-eyebrow {
+  margin: 0 0 0.25rem;
+  color: #8b4b35;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.admin-dialog-header h2 {
+  margin: 0;
+  color: #35271f;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.admin-dialog-header p:last-child {
+  margin: 0.35rem 0 0;
+  color: #746555;
+  font-size: 0.83rem;
+  line-height: 1.45;
+}
+
+.admin-dialog-close {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #e6dac5;
+  border-radius: 0.7rem;
+  background: #fffdf8;
+  color: #655548;
+}
+
+.admin-dialog-body {
+  max-height: calc(min(92dvh, 900px) - 100px);
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+.admin-stepper {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.admin-stepper button {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid #e8ddc8;
+  border-radius: 0.75rem;
+  background: #faf6ed;
+  padding: 0.45rem 0.65rem;
+  color: #706251;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.admin-stepper button[aria-current="step"] {
+  border-color: #a54030;
+  background: #f8ece5;
+  color: #7d3027;
+}
+
+.admin-stepper button span {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: #ece1ce;
+  font-size: 0.72rem;
+}
+
+.admin-stepper button[aria-current="step"] span {
+  background: #a54030;
+  color: white;
+}
+
+.admin-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  margin-top: 1.2rem;
+  border-top: 1px solid #eadfc9;
+  padding-top: 1rem;
+}
+
+.admin-primary-button,
+.admin-secondary-button {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  padding: 0.65rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 750;
+  transition: transform 120ms ease, filter 120ms ease;
+}
+
+.admin-primary-button {
+  border: 1px solid #8f3529;
+  background: linear-gradient(120deg, #a54030, #873429);
+  color: #fff9ed;
+  box-shadow: 0 5px 14px rgba(126, 47, 36, 0.16);
+}
+
+.admin-secondary-button {
+  border: 1px solid #dfd2bd;
+  background: #fffdf8;
+  color: #594a3b;
+}
+
+.admin-primary-button:hover,
+.admin-secondary-button:hover {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+
+.admin-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  border-top: 1px solid #eadfc9;
+  padding-top: 0.8rem;
+  color: #766856;
+  font-size: 0.76rem;
+}
+
+.admin-pagination > div {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.admin-pagination button {
+  min-height: 34px;
+  border: 1px solid #e1d4bf;
+  border-radius: 0.6rem;
+  background: #fffdf8;
+  padding: 0.35rem 0.7rem;
+  color: #634736;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.admin-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+@keyframes admin-dialog-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 560px) {
+  .admin-dialog-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .admin-dialog {
+    max-height: 94dvh;
+    border-radius: 1.2rem 1.2rem 0 0;
+  }
+
+  .admin-dialog-body {
+    max-height: calc(94dvh - 100px);
+    padding: 1rem;
+  }
+
+  .admin-stepper button {
+    justify-content: center;
+    font-size: 0.7rem;
   }
 }
