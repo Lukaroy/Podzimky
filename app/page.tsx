@@ -1,6 +1,6 @@
 "use client";
 
-import { Html5Qrcode, Html5QrcodeScanner } from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { upload } from "@vercel/blob/client";
 import {
   inMemoryPersistence,
@@ -10,6 +10,23 @@ import {
   signOut,
 } from "firebase/auth";
 import Image from "next/image";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Camera,
+  CheckCircle2,
+  ClipboardCheck,
+  Images,
+  LayoutDashboard,
+  LogOut,
+  MapPin,
+  ScanLine,
+  ShieldCheck,
+  Sparkles,
+  Users,
+  X,
+  Zap,
+} from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -124,18 +141,41 @@ function classNames(...values: Array<string | false | null | undefined>) {
 }
 
 function AdminIcon({ name }: { name: "overview" | "teams" | "stations" | "review" | "media" | "flash" }) {
-  const iconPaths = {
-    overview: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
-    teams: <><path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="10" cy="7" r="4" /><path d="M20 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></>,
-    stations: <><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></>,
-    review: <><path d="m5 12 4 4L19 6" /><circle cx="12" cy="12" r="9" /></>,
-    media: <><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8.5" cy="9" r="1.5" /><path d="m21 15-5-5L5 20" /></>,
-    flash: <path d="m13 2-3 8H5l6 12 3-8h5L13 2Z" />,
+  const icons = {
+    overview: LayoutDashboard,
+    teams: Users,
+    stations: MapPin,
+    review: ClipboardCheck,
+    media: Images,
+    flash: Zap,
   };
+  const Icon = icons[name];
+  return <Icon aria-hidden="true" size={18} strokeWidth={1.8} className="shrink-0" />;
+}
 
+function LoginLandscape() {
   return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
-      {iconPaths[name]}
+    <svg
+      aria-hidden="true"
+      className="auth-landscape-art"
+      viewBox="0 0 760 440"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <circle cx="574" cy="112" r="43" fill="#C97B58" />
+      <path d="M0 270 137 113l93 104 113-151 169 201 76-95 172 151v117H0V270Z" fill="#D5D9C8" />
+      <path d="m25 276 112-129 72 81-50-14-22 24-34-7-30 41-48 12Z" fill="#F0E9D8" />
+      <path d="m270 225 73-132 117 143-51-25-31 19-38-22-22 19-24-9-16 14Z" fill="#F0E9D8" />
+      <path d="m463 246 49-63 48 64-22-7-18 12-19-10-14 9-11-6Z" fill="#F0E9D8" />
+      <path d="M0 322c96-36 157-43 246-15 70 23 127 30 201 8 91-27 173-22 313 17v108H0V322Z" fill="#8D9C84" />
+      <path d="M0 355c94-32 174-17 253 9 83 28 161 19 232-3 91-28 176-23 275 5v74H0v-85Z" fill="#687D6D" />
+      <path d="M0 394c110-25 171-14 256 10 94 27 172 21 265-4 81-22 156-17 239 5v35H0v-46Z" fill="#435F51" />
+      <path d="M526 316v-38h36v38m-49-38h63l-31-28-32 28Zm-7 0h77" stroke="#6E4030" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M535 316v-17h18v17" stroke="#6E4030" strokeWidth="4" />
+      <path d="M76 367c92-54 169-38 238-1 50 26 111 33 168 12 48-17 89-19 136-9" stroke="#E4D9BC" strokeWidth="3" strokeDasharray="3 11" strokeLinecap="round" />
+      <circle cx="77" cy="367" r="7" fill="#B84B37" />
+      <circle cx="618" cy="369" r="7" fill="#B84B37" />
+      <path d="M90 338c11-8 22-8 34 0m-18-15c6-4 12-4 18 0m382-194c10-8 20-8 30 0m-19-15c5-4 10-4 15 0" stroke="#8A8F79" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -333,19 +373,33 @@ export default function Page() {
 
     cameraPermissionRequestedRef.current = true;
     let isMounted = true;
+    const permissionRequest = navigator.mediaDevices?.getUserMedia
+      ? navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            facingMode: { exact: "environment" },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        })
+      : Promise.reject(new Error("Camera API unavailable"));
 
-    Html5Qrcode.getCameras()
-      .then((cameras) => {
+    void permissionRequest
+      .then((stream) => {
+        stream.getTracks().forEach((track) => track.stop());
         if (!isMounted) return;
-        setScanMessage(
-          cameras.length > 0
-            ? "Kamera je povolena. Namiřte ji na QR kód stanoviště."
-            : "Kamera nebyla nalezena. Zkontrolujte, že je připojena a povolena.",
-        );
+        setScanMessage("Zadní kamera je povolena. Namiřte ji na QR kód stanoviště.");
       })
-      .catch(() => {
+      .catch((cameraError: unknown) => {
         if (isMounted) {
-          setScanMessage("Povolte přístup ke kameře v nastavení webu a zkuste skenování znovu.");
+          const errorName = cameraError instanceof Error ? cameraError.name : "";
+          setScanMessage(
+            errorName === "NotFoundError" || errorName === "OverconstrainedError"
+              ? "Nepodařilo se najít zadní kameru tohoto zařízení."
+              : errorName === "NotAllowedError" || errorName === "PermissionDeniedError"
+                ? "Povolte přístup ke kameře v nastavení webu a zkuste skenování znovu."
+                : "Kamera není dostupná. Otevřete hru přes zabezpečené HTTPS připojení.",
+          );
         }
       });
 
@@ -478,29 +532,70 @@ export default function Page() {
   useEffect(() => {
     if (!scannerOpen) return;
 
-    const scanner = new Html5QrcodeScanner(
-      "qr-reader-element",
+    const scanner = new Html5Qrcode("qr-reader-element", {
+      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+      useBarCodeDetectorIfSupported: true,
+      verbose: false,
+    });
+    let isDisposed = false;
+    let startSettled = false;
+    let hasScanned = false;
+
+    const clearScanner = () => {
+      scanner.clear();
+    };
+
+    void scanner.start(
+      { facingMode: { exact: "environment" } },
       {
-        fps: 10,
+        fps: 12,
         qrbox: (viewfinderWidth, viewfinderHeight) => {
-          const size = Math.floor(Math.min(viewfinderWidth * 0.8, viewfinderHeight * 0.72, 340));
+          const size = Math.floor(Math.min(viewfinderWidth * 0.82, viewfinderHeight * 0.72, 360));
           return { width: size, height: size };
         },
-        rememberLastUsedCamera: true,
+        videoConstraints: {
+          facingMode: { exact: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
       },
-      false,
-    );
-
-    scanner.render(
       (decodedText) => {
-        handleScanResult(decodedText);
+        if (isDisposed || hasScanned) return;
+        hasScanned = true;
+        setScanMessage("QR kód načten, ověřuji stanoviště…");
         setScannerOpen(false);
+        void handleScanResult(decodedText);
       },
       () => undefined,
-    );
+    ).then(async () => {
+      startSettled = true;
+      if (isDisposed && scanner.isScanning) await scanner.stop();
+      if (isDisposed) clearScanner();
+    }).catch((scanError: unknown) => {
+      startSettled = true;
+      if (!isDisposed) {
+        const errorName = scanError instanceof Error ? scanError.name : "";
+        setScanMessage(
+          errorName === "NotAllowedError" || errorName === "PermissionDeniedError"
+            ? "Přístup ke kameře je zablokovaný. Povolte kameru v nastavení webu a zkuste to znovu."
+            : errorName === "NotFoundError" || errorName === "DevicesNotFoundError"
+              ? "Nepodařilo se najít zadní kameru tohoto zařízení."
+              : "Kameru se nepodařilo spustit. Zkontrolujte oprávnění a zkuste to znovu.",
+        );
+      } else {
+        clearScanner();
+      }
+    });
 
     return () => {
-      scanner.clear().catch(() => undefined);
+      isDisposed = true;
+      if (scanner.isScanning) {
+        void scanner.stop().then(clearScanner).catch((stopError: unknown) => {
+          console.error("QR scanner could not be stopped cleanly.", stopError);
+        });
+      } else if (startSettled) {
+        clearScanner();
+      }
     };
   }, [scannerOpen, handleScanResult]);
 
@@ -1029,107 +1124,155 @@ export default function Page() {
   }
 
   return (
-    <main className="app-root min-h-screen bg-[#f6f0e7] text-[#1d1a17]">
+    <main className="app-root min-h-screen bg-[#f4f5f7] text-[#202633]">
       {screen === "team-login" && (
-        <div className="login-page flex min-h-screen items-center justify-center px-4 py-8">
-          <section className="login-card w-full max-w-[430px] rounded-2xl border bg-[#fffdfa] p-6 shadow-[0_22px_70px_rgba(80,19,14,0.14)] sm:p-8">
-            <div className="mb-7 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span aria-hidden="true" className="login-seal flex h-11 w-11 items-center justify-center rounded-xl text-xl font-bold text-[#fff8e8]">福</span>
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#8f3529]">Drak a město</p>
-                  <p className="mt-0.5 text-xs text-[#8a796b]">Dobrodružství začíná</p>
-                </div>
+        <div className="auth-page login-page">
+          <div className="auth-frame">
+            <header className="auth-topbar">
+              <div className="auth-brand">
+                <span aria-hidden="true" className="auth-brand-seal">龍</span>
+                <span>
+                  <span className="auth-brand-name">Drak a město</span>
+                  <span className="auth-brand-caption">Týmová hra v terénu</span>
+                </span>
               </div>
               <button
-                className="rounded-lg px-3 py-2 text-sm font-semibold text-[#8f3529] transition hover:bg-[#f8eee2]"
-                onClick={() => {
-                  setScreen("admin-login");
-                }}
+                className="auth-quiet-button"
+                onClick={() => setScreen("admin-login")}
               >
-                Admin
+                <ShieldCheck size={16} /> Pro pořadatele
               </button>
+            </header>
+
+            <div className="auth-layout">
+              <section className="auth-story" aria-labelledby="team-welcome">
+                <p className="auth-kicker"><span /> Výprava začíná tady</p>
+                <h1 id="team-welcome">Za branou<br />čeká vaše cesta.</h1>
+                <p className="auth-story-copy">Seberte tým, najděte první značku a vydejte se po stopách dračího města.</p>
+                <LoginLandscape />
+                <p className="auth-story-note"><MapPin size={15} /> Hra se otevírá po přihlášení týmu</p>
+              </section>
+
+              <section className="login-card auth-form" aria-labelledby="team-login-title">
+                <div className="auth-form-heading">
+                  <p className="auth-form-label">PŘIHLÁŠENÍ TÝMU</p>
+                  <h2 id="team-login-title">Vstupte do hry</h2>
+                  <p>Použijte údaje, které vám předal pořadatel.</p>
+                </div>
+                <div className="auth-fields">
+                  <label className="auth-label">
+                    Název týmu
+                    <input
+                      ref={teamNameInputRef}
+                      value={teamForm.name}
+                      onChange={(event) => setTeamForm((current) => ({ ...current, name: event.target.value }))}
+                      className="auth-input"
+                      placeholder="např. DRAČÍ STRÁŽ"
+                    />
+                  </label>
+
+                  <label className="auth-label">
+                    Heslo
+                    <input
+                      ref={teamPasswordInputRef}
+                      type="password"
+                      value={teamForm.password}
+                      onChange={(event) => setTeamForm((current) => ({ ...current, password: event.target.value }))}
+                      className="auth-input"
+                      placeholder="Zadejte heslo"
+                    />
+                  </label>
+
+                  {error ? <p className="auth-error">{error}</p> : null}
+
+                  <button onClick={handleTeamLogin} className="auth-submit">
+                    Pokračovat <ArrowRight size={18} />
+                  </button>
+                </div>
+                <p className="auth-form-footnote">Nemáte přihlašovací údaje? Obraťte se na pořadatele hry.</p>
+              </section>
             </div>
 
-            <h1 className="border-t border-[#efe2d0] pt-5 text-3xl font-black tracking-tight">Přihlášení do hry</h1>
-            <div className="mt-6 space-y-4">
-              <label className="block text-sm font-semibold text-[#3f3428]">
-                Název týmu
-                <input
-                  ref={teamNameInputRef}
-                  value={teamForm.name}
-                  onChange={(event) => setTeamForm((current) => ({ ...current, name: event.target.value }))}
-                  className="mt-2 w-full rounded-xl border border-[#e3d5c1] bg-[#fcf8f1] px-4 py-3 text-base outline-none transition focus:border-[#ad4434] focus:ring-2 focus:ring-[#ad4434]/10"
-                  placeholder="např. DRAČÍ STRÁŽ"
-                />
-              </label>
-
-              <label className="block text-sm font-semibold text-[#3f3428]">
-                Heslo
-                <input
-                  ref={teamPasswordInputRef}
-                  type="password"
-                  value={teamForm.password}
-                  onChange={(event) => setTeamForm((current) => ({ ...current, password: event.target.value }))}
-                  className="mt-2 w-full rounded-xl border border-[#e3d5c1] bg-[#fcf8f1] px-4 py-3 text-base outline-none transition focus:border-[#ad4434] focus:ring-2 focus:ring-[#ad4434]/10"
-                  placeholder="Zadejte heslo"
-                />
-              </label>
-
-              {error ? <p className="rounded-xl bg-[#fce7e6] px-3 py-2 text-sm text-[#8b2d2d]">{error}</p> : null}
-
-              <button
-                onClick={handleTeamLogin}
-                className="mt-2 w-full rounded-xl bg-[#a4332b] px-4 py-3 text-base font-bold text-[#fffdf9] shadow-lg shadow-[#7d4d19]/20 transition hover:bg-[#85271f]"
-              >
-                Přihlásit se
-              </button>
-            </div>
-          </section>
+            <footer className="auth-footer">
+              <span>Drak a město</span>
+              <span>Společná výprava, společný cíl.</span>
+            </footer>
+          </div>
         </div>
       )}
 
       {screen === "admin-login" && (
-        <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-4 py-10">
-          <div className="w-full rounded-[28px] border border-[#d7c5a5] bg-[#fffdfa] p-6 shadow-[0_20px_40px_rgba(121,87,42,0.1)]">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#744c17]">Administrátor</p>
-            <h2 className="mt-2 text-3xl font-black text-[#201c19]">Přihlášení</h2>
-
-            <div className="mt-6 space-y-4">
-              <label className="block text-sm font-semibold text-[#382f29]">
-                E-mail administrátora
-                <input
-                  ref={adminUsernameInputRef}
-                  type="email"
-                  value={adminForm.email}
-                  onChange={(event) => setAdminForm((current) => ({ ...current, email: event.target.value }))}
-                  autoComplete="username"
-                  placeholder="admin@example.com"
-                  className="mt-2 w-full rounded-2xl border border-[#d9cab0] bg-[#faf5ee] px-4 py-3 text-base outline-none"
-                />
-              </label>
-
-              <label className="block text-sm font-semibold text-[#382f29]">
-                Heslo
-                <input
-                  ref={adminPasswordInputRef}
-                  type="password"
-                  value={adminForm.password}
-                  onChange={(event) => setAdminForm((current) => ({ ...current, password: event.target.value }))}
-                  autoComplete="current-password"
-                  className="mt-2 w-full rounded-2xl border border-[#d9cab0] bg-[#faf5ee] px-4 py-3 text-base outline-none"
-                />
-              </label>
-
-              {error ? <p className="rounded-xl bg-[#fbe8db] px-3 py-2 text-sm text-[#853d1b]">{error}</p> : null}
-
-              <button
-                onClick={handleAdminLogin}
-                className="w-full rounded-2xl bg-[#1d1a17] px-4 py-3 text-base font-bold text-white"
-              >
-                Přihlásit admina
+        <div className="auth-page auth-admin-page">
+          <div className="auth-frame">
+            <header className="auth-topbar">
+              <div className="auth-brand">
+                <span aria-hidden="true" className="auth-brand-seal">龍</span>
+                <span>
+                  <span className="auth-brand-name">Drak a město</span>
+                  <span className="auth-brand-caption">Zázemí výpravy</span>
+                </span>
+              </div>
+              <button className="auth-quiet-button" onClick={() => setScreen("team-login")}>
+                <ArrowLeft size={16} /> Zpět ke hře
               </button>
+            </header>
+
+            <div className="auth-layout">
+              <section className="auth-story" aria-labelledby="admin-welcome">
+                <p className="auth-kicker"><span /> Pro pořadatele</p>
+                <h1 id="admin-welcome">Město je<br />ve vašich rukou.</h1>
+                <p className="auth-story-copy">Spravujte týmy, stanoviště i průběh hry z jednoho místa.</p>
+                <LoginLandscape />
+                <p className="auth-story-note"><ShieldCheck size={15} /> Přístup je určen pouze organizátorům</p>
+              </section>
+
+              <section className="login-card auth-form" aria-labelledby="admin-login-title">
+                <div className="auth-form-heading">
+                  <p className="auth-form-label">ZÁZEMÍ HRY</p>
+                  <h2 id="admin-login-title">Administrace</h2>
+                  <p>Přihlaste se účtem organizátora.</p>
+                </div>
+
+                <div className="auth-fields">
+                  <label className="auth-label">
+                    E-mail administrátora
+                    <input
+                      ref={adminUsernameInputRef}
+                      type="email"
+                      value={adminForm.email}
+                      onChange={(event) => setAdminForm((current) => ({ ...current, email: event.target.value }))}
+                      autoComplete="username"
+                      placeholder="admin@example.com"
+                      className="auth-input"
+                    />
+                  </label>
+
+                  <label className="auth-label">
+                    Heslo
+                    <input
+                      ref={adminPasswordInputRef}
+                      type="password"
+                      value={adminForm.password}
+                      onChange={(event) => setAdminForm((current) => ({ ...current, password: event.target.value }))}
+                      autoComplete="current-password"
+                      className="auth-input"
+                    />
+                  </label>
+
+                  {error ? <p className="auth-error">{error}</p> : null}
+
+                  <button onClick={handleAdminLogin} className="auth-submit">
+                    <ShieldCheck size={18} /> Přihlásit se
+                  </button>
+                </div>
+                <p className="auth-form-footnote">Potřebujete přístup? Ozvěte se správci hry.</p>
+              </section>
             </div>
+
+            <footer className="auth-footer">
+              <span>Drak a město</span>
+              <span>Organizační zázemí hry</span>
+            </footer>
           </div>
         </div>
       )}
@@ -1154,44 +1297,43 @@ export default function Page() {
           </div>
         ) : (
           <div className="player-shell mx-auto max-w-5xl px-3 py-4 pb-24 sm:px-5 sm:py-6">
-            <header className="player-header sticky top-2 z-20 mb-4 rounded-2xl p-4 text-[#fff8ed] shadow-[0_14px_32px_rgba(87,22,15,0.18)] sm:px-5">
+            <header className="player-header sticky top-2 z-20 mb-5 rounded-2xl border p-4 text-[#1e293b] shadow-sm sm:px-5">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  <span aria-hidden="true" className="player-seal flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold">龍</span>
+                  <span aria-hidden="true" className="player-seal flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold"><Sparkles size={19} /></span>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#efd9a7]">Drak a město</p>
-                    <h1 className="truncate text-lg font-bold tracking-tight sm:text-xl">{activeTeam.name}</h1>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#8c929b]">Drak a město · Tým</p>
+                    <h1 className="truncate text-lg font-bold tracking-tight text-[#1f2937] sm:text-xl">{activeTeam.name}</h1>
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                 <button
                   onClick={() => {
-                    setScanMessage("Pro skenování QR kódu povolte prohlížeči přístup ke kameře.");
+                    setScanMessage("Spouštím zadní kameru…");
                     setScannerOpen(true);
                   }}
-                  className="rounded-lg bg-[#e2bd70] px-3 py-2.5 text-xs font-bold text-[#40251c] transition hover:bg-[#f0d18b] sm:px-4 sm:text-sm"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#a4332b] px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-[#85271f] sm:px-4 sm:text-sm"
                 >
-                  <span className="sm:hidden">Skenovat</span>
-                  <span className="hidden sm:inline">Naskenovat QR</span>
+                  <ScanLine size={16} />
+                  <span>Skenovat QR</span>
                 </button>
                 <button
                   onClick={() => void handleLogout()}
                   aria-label="Odhlásit se"
-                  className="rounded-lg border border-white/20 bg-white/5 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-white/10 sm:text-sm"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[#e4e7eb] bg-white px-3 py-2.5 text-xs font-semibold text-[#596273] transition hover:bg-[#f6f7f9] sm:text-sm"
                 >
-                  <span className="sm:hidden">↪</span>
-                  <span className="hidden sm:inline">Odhlásit</span>
+                  <LogOut size={16} /><span className="hidden sm:inline">Odhlásit</span>
                 </button>
                 </div>
               </div>
               <div className="mt-4 border-t border-white/15 pt-3">
                 <div className="mb-2 flex items-center justify-between text-xs">
-                  <span className="text-[#f0dfc4]">Postup výpravy</span>
-                  <span className="font-semibold text-[#f4d68f]">{completedStationsCount} / {gameState.stations.length}</span>
+                  <span className="text-[#6f7783]">Postup výpravy</span>
+                  <span className="font-semibold text-[#a4332b]">{completedStationsCount} / {gameState.stations.length}</span>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-black/25">
+                <div className="h-1.5 overflow-hidden rounded-full bg-[#eceef1]">
                   <div
-                    className="h-full rounded-full bg-[#e2bd70] transition-all"
+                    className="h-full rounded-full bg-[#a4332b] transition-all"
                     style={{ width: `${Math.min((completedStationsCount / Math.max(gameState.stations.length, 1)) * 100, 100)}%` }}
                   />
                 </div>
@@ -1267,7 +1409,7 @@ export default function Page() {
               <section className="player-mission order-1 overflow-hidden rounded-2xl border border-[#e4d4ba] bg-[#fffdfa] shadow-[0_12px_30px_rgba(29,25,20,0.08)] lg:order-2">
                 {hasFinishedGame ? (
                   <div className="player-finish p-6 text-center sm:p-8">
-                    <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#f5dfaa] text-2xl text-[#8f3529]">✓</span>
+                    <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e8f5ed] text-[#25804a]"><CheckCircle2 size={30} /></span>
                     <p className="mt-4 text-xs font-bold uppercase tracking-[0.18em] text-[#8f3529]">Výprava dokončena</p>
                     <h2 className="mt-2 text-2xl font-bold text-[#2c211b]">Skvělá práce, {activeTeam.name}</h2>
                     <p className="mt-2 text-sm text-[#6d5b47]">Prošli jste všechna stanoviště.</p>
@@ -1309,7 +1451,7 @@ export default function Page() {
                             <p className="mt-2 text-base leading-6 text-[#392d23]">{station.clue || "Nápovědu doplní organizátor."}</p>
                             <button
                               onClick={() => {
-                                setScanMessage("Pro skenování QR kódu povolte prohlížeči přístup ke kameře.");
+                                setScanMessage("Spouštím zadní kameru…");
                                 setScannerOpen(true);
                               }}
                               className="mt-4 w-full rounded-lg bg-[#a4332b] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#85271f]"
@@ -1550,19 +1692,19 @@ export default function Page() {
 
       {screen === "admin-panel" && (
         <div className="admin-shell mx-auto max-w-screen-2xl px-4 py-6 pb-16">
-          <header className="admin-header mb-4 flex items-center justify-between rounded-xl border p-4 text-[#fff8ed] shadow-[0_10px_25px_rgba(87,22,15,0.17)]">
+          <header className="admin-header mb-5 flex items-center justify-between rounded-2xl border p-4 text-[#1e293b] shadow-sm">
             <div className="flex items-center gap-4">
-              <div className="admin-brand-mark flex h-10 w-10 items-center justify-center rounded-lg font-serif text-xl font-bold">福</div>
+              <div className="admin-brand-mark flex h-10 w-10 items-center justify-center rounded-xl"><Sparkles size={20} /></div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#efd9a7]">Drak a město</p>
-                <h1 className="mt-0.5 whitespace-nowrap text-lg font-bold sm:text-xl">Operační centrum</h1>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8c929b]">Drak a město</p>
+                <h1 className="mt-0.5 whitespace-nowrap text-lg font-bold text-[#1f2937] sm:text-xl">Správa hry</h1>
               </div>
             </div>
             <button
               onClick={() => void handleLogout()}
-              className="rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#e4e7eb] bg-white px-3 py-2 text-sm font-semibold text-[#596273] transition hover:bg-[#f6f7f9]"
             >
-              Odhlásit
+              <LogOut size={16} /> Odhlásit
             </button>
           </header>
 
@@ -2095,22 +2237,30 @@ export default function Page() {
 
       {scannerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
-          <div className="w-full max-w-md rounded-[28px] bg-[#fffdfa] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+          <div className="scanner-modal w-full max-w-md rounded-[28px] bg-[#fffdfa] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-xl font-black text-[#1d1a17]">Naskenovat QR</h3>
-              <button onClick={() => setScannerOpen(false)} className="rounded-full bg-[#f5efe6] px-3 py-1 text-sm font-bold text-[#4f4339]">Zavřít</button>
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f8eceb] text-[#a4332b]"><ScanLine size={20} /></span>
+                <div>
+                  <h3 className="text-lg font-bold text-[#1d1a17]">Naskenovat QR</h3>
+                  <p className="text-xs text-[#68707d]">Používá se zadní kamera zařízení</p>
+                </div>
+              </div>
+              <button aria-label="Zavřít skener" onClick={() => setScannerOpen(false)} className="rounded-xl p-2 text-[#68707d] transition hover:bg-[#f1f2f4]"><X size={20} /></button>
             </div>
-            <p className="mb-3 rounded-xl bg-[#f1e4c9] px-3 py-2 text-sm text-[#6d4d20]">
-              Pro skenování QR kódu povolte v okně prohlížeče přístup ke kameře. Pokud jste přístup dříve zamítli, změňte oprávnění kamery v nastavení webu.
+            <div className="qr-camera-frame relative overflow-hidden rounded-2xl">
+              <div id="qr-reader-element" className="qr-reader-element overflow-hidden rounded-2xl bg-[#111827]" />
+              <div className="qr-camera-guide" aria-hidden="true">
+                <div className="qr-camera-target"><span /><span /><span /><span /></div>
+              </div>
+              <div className="qr-camera-caption"><Camera size={14} /> Zarovnejte QR kód do rámečku</div>
+            </div>
+            <p role="status" className="mt-3 flex min-h-10 items-center gap-2 rounded-xl bg-[#f5f6f8] px-3 py-2 text-sm text-[#58606d]">
+              <Camera size={16} className="shrink-0 text-[#a4332b]" /> {scanMessage}
             </p>
-            <p className="mb-2 text-center text-sm font-bold text-[#554b42]">
-              Namiřte kameru tak, aby se celý QR kód vešel do zlatého rámečku.
-            </p>
-            <div id="qr-reader-element" className="qr-reader-element overflow-hidden rounded-2xl border border-[#e8dcc0] bg-[#f7f3ee]" />
-            <p className="mt-4 text-sm text-[#554b42]">{scanMessage}</p>
             <div className="mt-3 flex gap-3">
-              <button onClick={handleManualUid} className="flex-1 rounded-xl bg-[#f1e4c9] px-3 py-2 text-sm font-bold text-[#6d4d20]">Zadat UID ručně</button>
-              <button onClick={() => setScannerOpen(false)} className="flex-1 rounded-xl bg-[#1d1a17] px-3 py-2 text-sm font-bold text-white">Zrušit</button>
+              <button onClick={handleManualUid} className="flex-1 rounded-xl border border-[#e2e5e9] bg-white px-3 py-2.5 text-sm font-semibold text-[#4d5563] transition hover:bg-[#f5f6f8]">Zadat UID ručně</button>
+              <button onClick={() => setScannerOpen(false)} className="flex-1 rounded-xl bg-[#a4332b] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#85271f]">Zavřít</button>
             </div>
           </div>
         </div>
