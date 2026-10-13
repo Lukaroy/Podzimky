@@ -52,6 +52,7 @@ export type Team = {
   id: string;
   name: string;
   password: string;
+  startedAt?: string;
   completedStations: string[];
   scannedStationIds: string[];
   flashMissionId?: string;
@@ -107,6 +108,7 @@ export function normalizeGameState(value?: Partial<GameState> | null): GameState
       ? safeValue.teams.map((team) => ({
           ...team,
           scannedStationIds: Array.isArray(team.scannedStationIds) ? team.scannedStationIds : [],
+          startedAt: typeof team.startedAt === "string" ? team.startedAt : undefined,
         }))
       : [],
     submissions: Array.isArray(safeValue.submissions) ? safeValue.submissions : [],

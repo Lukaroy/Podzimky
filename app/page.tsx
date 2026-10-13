@@ -16,6 +16,7 @@ import {
   ArrowRight,
   Camera,
   CheckCircle2,
+  Clock,
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
@@ -93,6 +94,7 @@ type Team = {
   id: string;
   name: string;
   password: string;
+  startedAt?: string;
   completedStations: string[];
   scannedStationIds: string[];
   flashMissionId?: string;
@@ -243,6 +245,80 @@ function isStoredMediaUrl(url: string | undefined): url is string {
   return Boolean(url && /^\/api\/media\/team-[A-Za-z0-9_-]{1,128}\/[0-9a-f-]{36}\.(jpg|png|webp|gif|avif|mp4|webm|mov)$/i.test(url));
 }
 
+async function uploadTeamMedia(file: File, teamId: string) {
+  const extensions: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "image/avif": "avif",
+    "video/mp4": "mp4",
+    "video/webm": "webm",
+    "video/quicktime": "mov",
+  };
+  const extension = extensions[file.type];
+  if (!extension) throw new Error("Nepodporovaný formát souboru.");
+  if (file.size === 0 || file.size > 50 * 1024 * 1024) {
+    throw new Error("Soubor musí mít velikost do 50 MB.");
+  }
+  const pathname = `team-${teamId}/${crypto.randomUUID()}.${extension}`;
+  const multipart = file.size > 4.5 * 1024 * 1024;
+  const tokenResponse = await fetch("/api/media/upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: "blob.generate-client-token",
+      payload: { pathname, multipart, clientPayload: null },
+    }),
+  });
+  const tokenResponseBody = await tokenResponse.text();
+  let tokenResult: { clientToken?: string; error?: string } = {};
+  try {
+    tokenResult = JSON.parse(tokenResponseBody) as typeof tokenResult;
+  } catch {
+    // Preserve the HTTP status when a proxy returns a non-JSON error page.
+  }
+  if (!tokenResponse.ok || !tokenResult.clientToken) {
+    throw new Error(tokenResult.error ?? `Server nevydal oprávnění k nahrávání (HTTP ${tokenResponse.status}).`);
+  }
+
+  let blob: Awaited<ReturnType<typeof put>>;
+  try {
+    blob = await put(pathname, file, {
+      access: "private",
+      token: tokenResult.clientToken,
+      contentType: file.type,
+      multipart,
+    });
+  } catch (uploadError) {
+    const message = uploadError instanceof Error ? uploadError.message : "";
+    throw new Error(`Soubor se nepodařilo uložit do Blob úložiště: ${message || "neznámá chyba"}`);
+  }
+  const mediaUrl = `/api/media/${blob.pathname}`;
+  if (!isStoredMediaUrl(mediaUrl)) throw new Error("Server vrátil neplatný odkaz na soubor.");
+  return mediaUrl;
+}
+
+function formatElapsedTime(startedAt: string | undefined, now: number) {
+  if (!startedAt) return "Čeká na start";
+  const startTime = Date.parse(startedAt);
+  if (!Number.isFinite(startTime)) return "Čas nedostupný";
+  const totalSeconds = Math.max(0, Math.floor((now - startTime) / 1000));
+  const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, "0");
+  const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, "0");
+  const seconds = (totalSeconds % 60).toString().padStart(2, "0");
+  return `${hours}:${minutes}:${seconds}`;
+}
+
+function ElapsedClock({ startedAt, className = "" }: { startedAt?: string; className?: string }) {
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return <span className={className}><Clock aria-hidden="true" size={13} /> {formatElapsedTime(startedAt, now)}</span>;
+}
+
 function createUniqueStationUid(stations: Station[]) {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const existingUids = new Set(stations.map((station) => station.uid.toUpperCase()));
@@ -345,6 +421,8 @@ export default function Page() {
   const [stationFormStep, setStationFormStep] = useState<0 | 1 | 2>(0);
   const [presentationIndex, setPresentationIndex] = useState<number | null>(null);
   const [flashDraft, setFlashDraft] = useState("");
+  const [flashMediaFile, setFlashMediaFile] = useState<File | null>(null);
+  const [flashMediaPreview, setFlashMediaPreview] = useState("");
   const [isSubmittingFlash, setIsSubmittingFlash] = useState(false);
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
@@ -923,64 +1001,9 @@ export default function Page() {
       let mediaUrl: string | undefined;
       if (isMediaSubmission) {
         const file = mediaFiles[station.id];
-        const extensions: Record<string, string> = {
-          "image/jpeg": "jpg",
-          "image/png": "png",
-          "image/webp": "webp",
-          "image/gif": "gif",
-          "image/avif": "avif",
-          "video/mp4": "mp4",
-          "video/webm": "webm",
-          "video/quicktime": "mov",
-        };
-        const extension = extensions[file.type];
-        const activeTeam = gameState.teams[0];
-        if (!extension || !activeTeam) throw new Error("Nepodporovaný formát souboru.");
-        const pathname = `team-${activeTeam.id}/${crypto.randomUUID()}.${extension}`;
-        const multipart = file.size > 4.5 * 1024 * 1024;
-        const tokenResponse = await fetch("/api/media/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "blob.generate-client-token",
-            payload: { pathname, multipart, clientPayload: null },
-          }),
-        });
-        const tokenResponseBody = await tokenResponse.text();
-        let tokenResult: {
-          clientToken?: string;
-          error?: string;
-        } = {};
-        try {
-          tokenResult = JSON.parse(tokenResponseBody) as typeof tokenResult;
-        } catch {
-          // Keep the HTTP status useful when a proxy returns a non-JSON error page.
-        }
-        if (!tokenResponse.ok || !tokenResult.clientToken) {
-          throw new Error(
-            tokenResult.error ??
-              `Server nevydal oprávnění k nahrávání (HTTP ${tokenResponse.status}). Zkuste se znovu přihlásit; pokud chyba trvá, zkontrolujte logy Vercelu pro /api/media/upload.`,
-          );
-        }
-
-        let blob: Awaited<ReturnType<typeof put>>;
-        try {
-          blob = await put(
-            pathname,
-            file,
-            {
-              access: "private",
-              token: tokenResult.clientToken,
-              contentType: file.type,
-              multipart,
-            },
-          );
-        } catch (uploadError) {
-          const message = uploadError instanceof Error ? uploadError.message : "";
-          throw new Error(`Soubor se nepodařilo uložit do Blob úložiště: ${message || "neznámá chyba"}`);
-        }
-        mediaUrl = `/api/media/${blob.pathname}`;
-        if (!isStoredMediaUrl(mediaUrl)) throw new Error("Server vrátil neplatný odkaz na soubor.");
+        const activeTeam = gameState.teams.find((team) => team.id === teamId);
+        if (!activeTeam) throw new Error("Přihlášený tým nebyl nalezen.");
+        mediaUrl = await uploadTeamMedia(file, activeTeam.id);
       }
 
       const response = await fetch("/api/team/submissions", {
@@ -1038,6 +1061,29 @@ export default function Page() {
     setScannerOpen(false);
     setManualUidDraft("");
     setManualUidOpen(true);
+    setError("");
+  };
+
+  const handleFlashFileUpload = (file: File | null) => {
+    if (flashMediaPreview) {
+      URL.revokeObjectURL(flashMediaPreview);
+      mediaPreviewUrlsRef.current = mediaPreviewUrlsRef.current.filter((url) => url !== flashMediaPreview);
+    }
+    setFlashMediaFile(null);
+    setFlashMediaPreview("");
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"].includes(file.type)) {
+      setError("Použijte fotografii JPG, PNG, WebP, GIF nebo AVIF.");
+      return;
+    }
+    if (file.size === 0 || file.size > 50 * 1024 * 1024) {
+      setError("Fotografie musí mít velikost do 50 MB.");
+      return;
+    }
+    const preview = URL.createObjectURL(file);
+    mediaPreviewUrlsRef.current.push(preview);
+    setFlashMediaFile(file);
+    setFlashMediaPreview(preview);
     setError("");
   };
 
@@ -1349,14 +1395,29 @@ export default function Page() {
 
   const submitFlashMission = async (team: Team) => {
     if (!team.flashMissionId) return;
+    const mission = gameState.flashMissions.find((item) => item.id === team.flashMissionId);
+    if (mission?.type === "photo" && !flashMediaFile) {
+      setError("Nejprve nahrajte fotografii k přepadovému úkolu.");
+      return;
+    }
+    if (mission?.type !== "photo" && !flashDraft.trim()) {
+      setError("Napište odpověď před odesláním.");
+      return;
+    }
 
     setIsSubmittingFlash(true);
     setError("");
     try {
+      const mediaUrl = mission?.type === "photo" && flashMediaFile
+        ? await uploadTeamMedia(flashMediaFile, team.id)
+        : undefined;
       const response = await fetch("/api/team/flash", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: flashDraft }),
+        body: JSON.stringify({
+          content: mission?.type === "photo" ? "" : flashDraft,
+          ...(mediaUrl ? { mediaUrl } : {}),
+        }),
       });
       const result = await response.json() as { state?: GameState; error?: string };
       if (!response.ok || !result.state) {
@@ -1365,6 +1426,13 @@ export default function Page() {
       const state = normalizeGameState(result.state);
       lastPersistedStateRef.current = JSON.stringify(state);
       setGameState(state);
+      if (flashMediaPreview) {
+        URL.revokeObjectURL(flashMediaPreview);
+        mediaPreviewUrlsRef.current = mediaPreviewUrlsRef.current.filter((url) => url !== flashMediaPreview);
+      }
+      setFlashMediaFile(null);
+      setFlashMediaPreview("");
+      setFlashDraft("");
     } catch (missionError) {
       setError(missionError instanceof Error ? missionError.message : "Přepadový úkol se nepodařilo odeslat.");
     } finally {
@@ -1638,7 +1706,10 @@ export default function Page() {
               <h1 className="mt-3 text-3xl font-black text-[#281d15]">{activeFlashMission.title}</h1>
               <p className="mt-3 whitespace-pre-wrap text-base leading-relaxed text-[#5d4536]">{activeFlashMission.description}</p>
               <div className="mt-5 rounded-2xl border border-[#e7cf9e] bg-[#fffaf1] p-4 text-sm text-[#483b2e]">
-                Napište odpověď nebo popište, jak jste zadání splnili. {activeFlashMission.requiresApproval
+                {activeFlashMission.type === "photo"
+                  ? "Vyfoťte splnění úkolu a nahrajte fotografii."
+                  : "Napište odpověď nebo popište, jak jste zadání splnili."}{" "}
+                {activeFlashMission.requiresApproval
                   ? "Po odeslání ji zkontroluje pořadatel."
                   : "Po odeslání můžete pokračovat ve hře."}
               </div>
@@ -1654,22 +1725,50 @@ export default function Page() {
                     </p>
                   )}
                   {error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe5e1] p-3 text-sm text-[#693025]">{error}</p>}
-                  <label className="mt-5 block text-sm font-bold text-[#483b2e]" htmlFor="flash-answer">Vaše odpověď</label>
-                  <textarea
-                    id="flash-answer"
-                    value={flashDraft}
-                    onChange={(event) => setFlashDraft(event.target.value)}
-                    maxLength={10_000}
-                    rows={5}
-                    className="mt-2 w-full rounded-2xl border border-[#dcc58f] bg-white p-4 text-base text-[#30251e] outline-none focus:ring-4 focus:ring-[#d59a39]/20"
-                    placeholder="Popište řešení nebo splnění úkolu…"
-                  />
-                  <div className="mt-2 flex items-center justify-between text-xs text-[#806b4e]">
-                    <span>Odpověď je potřeba vyplnit.</span><span>{flashDraft.length}/10 000</span>
-                  </div>
+                  {activeFlashMission.type === "photo" ? (
+                    <div className="mt-5">
+                      <label className="block text-sm font-bold text-[#483b2e]" htmlFor="flash-photo">
+                        Fotografie splnění
+                      </label>
+                      <input
+                        id="flash-photo"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+                        capture="environment"
+                        onChange={(event) => handleFlashFileUpload(event.target.files?.[0] ?? null)}
+                        className="mt-2 block w-full rounded-xl border border-[#dcc58f] bg-white p-3 text-sm"
+                      />
+                      {flashMediaPreview && (
+                        <Image
+                          src={flashMediaPreview}
+                          alt="Náhled fotografie k přepadovému úkolu"
+                          width={960}
+                          height={640}
+                          unoptimized
+                          className="mt-3 max-h-72 w-full rounded-xl bg-[#f1ece4] object-contain"
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <label className="mt-5 block text-sm font-bold text-[#483b2e]" htmlFor="flash-answer">Vaše odpověď</label>
+                      <textarea
+                        id="flash-answer"
+                        value={flashDraft}
+                        onChange={(event) => setFlashDraft(event.target.value)}
+                        maxLength={10_000}
+                        rows={5}
+                        className="mt-2 w-full rounded-2xl border border-[#dcc58f] bg-white p-4 text-base text-[#30251e] outline-none focus:ring-4 focus:ring-[#d59a39]/20"
+                        placeholder="Popište řešení nebo splnění úkolu…"
+                      />
+                      <div className="mt-2 flex items-center justify-between text-xs text-[#806b4e]">
+                        <span>Odpověď je potřeba vyplnit.</span><span>{flashDraft.length}/10 000</span>
+                      </div>
+                    </>
+                  )}
                   <button
                     onClick={() => void submitFlashMission(activeTeam)}
-                    disabled={!flashDraft.trim() || isSubmittingFlash}
+                    disabled={(activeFlashMission.type === "photo" ? !flashMediaFile : !flashDraft.trim()) || isSubmittingFlash}
                     className="mt-5 w-full rounded-2xl bg-[#d59a39] px-4 py-3 text-base font-bold text-[#1d1a17] transition hover:bg-[#e2ad54] disabled:cursor-not-allowed disabled:opacity-55"
                   >
                     {isSubmittingFlash ? "Odesílám…" : "Odeslat odpověď"}
@@ -1687,6 +1786,7 @@ export default function Page() {
                   <div className="min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#8c929b]">Podzimky 2026</p>
                     <h1 className="truncate text-lg font-bold tracking-tight text-[#1f2937] sm:text-xl">{activeTeam.name}</h1>
+                    <ElapsedClock startedAt={activeTeam.startedAt} className="player-clock mt-0.5 inline-flex items-center gap-1 font-mono text-xs font-semibold tabular-nums text-[#8b3329]" />
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -2136,10 +2236,10 @@ export default function Page() {
                 onClick={() => setIsAdminMenuOpen((open) => !open)}
               >
                 {isAdminMenuOpen ? <X size={17} /> : <Menu size={17} />}
-                <span>Herní správa</span>
+                <span>Řídicí středisko</span>
                 {isAdminMenuOpen ? <span className="admin-menu-current">{adminTab === "overview" ? "Přehled" : adminTab === "teams" ? "Týmy" : adminTab === "stations" ? "Stanoviště" : adminTab === "submissions" ? "Schvalování" : adminTab === "media" ? "Galerie" : "Přepady"}</span> : null}
               </button>
-              <p className="admin-nav-label px-2 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#88775e]">Herní správa</p>
+              <p className="admin-nav-label px-2 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#88775e]">Dračí velín</p>
               <nav id="admin-navigation-items" aria-label="Správa hry" className={classNames("admin-nav-items grid grid-cols-2 gap-1 sm:grid-cols-3 xl:grid-cols-6", !isAdminMenuOpen && "admin-nav-items-collapsed")}>
                 {[
                   { key: "overview", label: "Přehled", icon: "overview" as const },
@@ -2294,6 +2394,9 @@ export default function Page() {
                           <h3 className="text-lg font-bold text-[#211d1a]">{team.name}</h3>
                           <p className="mt-1 text-sm text-[#675d53]">
                             {completed} z {gameState.stations.length} stanovišť
+                          </p>
+                          <p className="admin-team-clock mt-1 inline-flex items-center gap-1.5 font-mono text-xs font-semibold tabular-nums text-[#8b3329]">
+                            <ElapsedClock startedAt={team.startedAt} />
                           </p>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
@@ -2854,8 +2957,10 @@ export default function Page() {
                       </div>
                       <p className="mt-2 text-sm font-semibold text-[#52473d]">{mission ? `Přepadový úkol · ${mission.title}` : station?.title ?? "Stanoviště"}</p>
                       {mission && <p className="mt-2 whitespace-pre-wrap rounded-lg bg-white p-3 text-sm text-[#52473d]"><span className="font-bold">Zadání: </span>{mission.description}</p>}
-                      <p className="mt-2 text-xs text-[#6f5a49]">Důkaz: {submission.evidence}</p>
-                      {isStoredMediaUrl(submission.mediaUrl) && station?.type === "photo" && (
+                      {mission?.type === "photo"
+                        ? <p className="mt-2 text-xs font-semibold text-[#6f5a49]">Důkaz: fotografie</p>
+                        : <p className="mt-2 whitespace-pre-wrap text-xs text-[#6f5a49]">Důkaz: {submission.evidence}</p>}
+                      {isStoredMediaUrl(submission.mediaUrl) && (mission?.type === "photo" || station?.type === "photo") && (
                         <Image
                           src={submission.mediaUrl}
                           alt={`Fotografie od týmu ${teamName}`}
@@ -2908,10 +3013,13 @@ export default function Page() {
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {visibleMediaSubmissions.map((submission) => {
                     const station = getStationById(gameState.stations, submission.stationId);
+                    const mission = submission.missionId
+                      ? gameState.flashMissions.find((item) => item.id === submission.missionId)
+                      : undefined;
                     const team = gameState.teams.find((item) => item.id === submission.teamId);
                     const mediaUrl = submission.mediaUrl;
                     if (!isStoredMediaUrl(mediaUrl)) return null;
-                    const isPhoto = station?.type === "photo";
+                    const isPhoto = /\.(jpg|png|webp|gif|avif)$/i.test(mediaUrl);
                     return (
                       <article key={submission.id} className="admin-media-card overflow-hidden rounded-xl border border-[#e7d7b4] bg-[#fffaf3]">
                         {isPhoto ? (
@@ -2935,7 +3043,9 @@ export default function Page() {
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-bold text-[#2b2523]">{team?.name ?? "Tým"}</p>
-                              <p className="mt-1 truncate text-xs text-[#6f5a49]">{station?.title ?? "Odstraněné stanoviště"}</p>
+                              <p className="mt-1 truncate text-xs text-[#6f5a49]">
+                                {mission?.title ?? (submission.missionId ? "Přepadový úkol" : station?.title ?? "Odstraněné stanoviště")}
+                              </p>
                             </div>
                             <span className="shrink-0 rounded-full bg-[#f6ddab] px-2 py-1 text-[10px] font-bold text-[#7c5516]">
                               {submission.status === "pending" ? "Čeká" : submission.status === "approved" ? "Schváleno" : "Zamítnuto"}
@@ -2990,10 +3100,13 @@ export default function Page() {
               {presentationIndex !== null && mediaSubmissions[presentationIndex] && (() => {
                 const submission = mediaSubmissions[presentationIndex];
                 const station = getStationById(gameState.stations, submission.stationId);
+                const mission = submission.missionId
+                  ? gameState.flashMissions.find((item) => item.id === submission.missionId)
+                  : undefined;
                 const team = gameState.teams.find((item) => item.id === submission.teamId);
                 const mediaUrl = submission.mediaUrl;
                 if (!isStoredMediaUrl(mediaUrl)) return null;
-                const isPhoto = station?.type === "photo";
+                const isPhoto = /\.(jpg|png|webp|gif|avif)$/i.test(mediaUrl);
                 return (
                   <div
                     role="dialog"
@@ -3004,7 +3117,9 @@ export default function Page() {
                     <div className="flex max-h-full w-full max-w-6xl flex-col">
                       <div className="mb-3 flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-bold">{team?.name ?? "Tým"} · {station?.title ?? "Galerie"}</p>
+                          <p className="truncate text-sm font-bold">
+                            {team?.name ?? "Tým"} · {mission?.title ?? (submission.missionId ? "Přepadový úkol" : station?.title ?? "Galerie")}
+                          </p>
                           <p className="text-xs text-white/65">{presentationIndex + 1} / {mediaSubmissions.length}</p>
                         </div>
                         <button
@@ -3105,6 +3220,20 @@ export default function Page() {
                   />
                 </label>
                 <label className="admin-field-label">
+                  Způsob odevzdání
+                  <select
+                    value={flashMissionForm.type === "photo" ? "photo" : "text"}
+                    onChange={(event) => setFlashMissionForm((current) => ({
+                      ...current,
+                      type: event.target.value === "photo" ? "photo" : "text",
+                    }))}
+                    className="w-full rounded-xl border border-[#d8c6a2] bg-[#faf5ee] p-3 text-sm"
+                  >
+                    <option value="text">Textová odpověď</option>
+                    <option value="photo">Fotografie</option>
+                  </select>
+                </label>
+                <label className="admin-field-label">
                   Komu se výzva zobrazí
                   <select
                     value={flashMissionForm.targets}
@@ -3171,9 +3300,14 @@ export default function Page() {
                     {gameState.flashMissions.map((mission) => (
                       <article key={mission.id} className="rounded-xl border border-[#e7d7b4] bg-[#fffaf3] p-4">
                         <div className="flex items-start justify-between gap-3">
-                          <h3 className="font-bold text-[#2b2523]">{mission.title}</h3>
+                          <div className="min-w-0">
+                            <h3 className="font-bold text-[#2b2523]">{mission.title}</h3>
+                            <p className="mt-1 text-[11px] font-semibold text-[#795b42]">
+                              {mission.type === "photo" ? "Fotografický důkaz" : "Textová odpověď"}
+                            </p>
+                          </div>
                           <span className="shrink-0 rounded-full bg-[#f6ddab] px-2 py-1 text-[10px] font-bold text-[#7c5516]">
-                            {mission.requiresApproval ? "Schvaluje pořadatel" : "Automaticky"}
+                            {mission.requiresApproval ? "Ke schválení" : "Automaticky"}
                           </span>
                         </div>
                         <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm text-[#675d53]">{mission.description}</p>

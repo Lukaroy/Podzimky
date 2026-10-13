@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { createTeamCustomToken } from "@/lib/firebase-admin";
 import { verifyRequestOrigin } from "@/lib/auth";
 import { getPrisma } from "@/lib/db";
-import { readGameState } from "@/lib/game-store";
+import { updateGameState } from "@/lib/game-store";
 
 export async function POST(request: Request) {
   if (!verifyRequestOrigin(request)) {
@@ -31,8 +31,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "QR kód není platný nebo už byl zneplatněn." }, { status: 401 });
   }
 
-  const state = await readGameState();
-  if (!state.teams.some((team) => team.id === credential.teamId)) {
+  let teamExists = false;
+  await updateGameState((state) => {
+    teamExists = state.teams.some((team) => team.id === credential.teamId);
+    if (!teamExists) return state;
+    const startedAt = new Date().toISOString();
+    return {
+      ...state,
+      teams: state.teams.map((team) =>
+        team.id === credential.teamId
+          ? { ...team, startedAt: team.startedAt ?? startedAt }
+          : team,
+      ),
+    };
+  });
+  if (!teamExists) {
     await getPrisma().teamQrCredential.deleteMany({ where: { teamId: credential.teamId } });
     return NextResponse.json({ error: "Tým už neexistuje." }, { status: 403 });
   }

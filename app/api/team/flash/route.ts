@@ -1,8 +1,18 @@
 import { randomUUID } from "node:crypto";
+import { head } from "@vercel/blob";
 import { NextResponse } from "next/server";
 
 import { getSession, getSessionToken, sanitizeGameState, verifyRequestOrigin } from "@/lib/auth";
 import { updateGameState, type Submission } from "@/lib/game-store";
+
+const PHOTO_URL_PATTERN = /^\/api\/media\/(team-[A-Za-z0-9_-]{1,128}\/[0-9a-f-]{36}\.(jpg|png|webp|gif|avif))$/i;
+const PHOTO_TYPES: Record<string, string> = {
+  jpg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+  avif: "image/avif",
+};
 
 export async function POST(request: Request) {
   if (!verifyRequestOrigin(request)) {
@@ -13,16 +23,42 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Přihlaste se jako tým." }, { status: 401 });
   }
 
-  let body: { content?: unknown };
+  let body: { content?: unknown; mediaUrl?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Neplatné odevzdání." }, { status: 400 });
   }
-  if (typeof body.content !== "string" || !body.content.trim() || body.content.trim().length > 10_000) {
-    return NextResponse.json({ error: "Napište odpověď (maximálně 10 000 znaků)." }, { status: 400 });
+  if (
+    (body.content !== undefined && typeof body.content !== "string") ||
+    (body.mediaUrl !== undefined && typeof body.mediaUrl !== "string") ||
+    (typeof body.content === "string" && body.content.length > 10_000)
+  ) {
+    return NextResponse.json({ error: "Neplatné odevzdání." }, { status: 400 });
   }
-  const answer = body.content.trim();
+  const answer = typeof body.content === "string" ? body.content.trim() : "";
+  let mediaUrl: string | undefined;
+  if (typeof body.mediaUrl === "string") {
+    const match = PHOTO_URL_PATTERN.exec(body.mediaUrl);
+    if (!match) return NextResponse.json({ error: "Přepadový úkol přijímá pouze fotografii." }, { status: 400 });
+    const pathname = match[1];
+    if (!pathname.startsWith(`team-${user.teamId}/`)) {
+      return NextResponse.json({ error: "Nahraný soubor nepatří tomuto týmu." }, { status: 403 });
+    }
+    const extension = pathname.split(".").at(-1)?.toLowerCase() ?? "";
+    try {
+      const blob = await head(pathname);
+      if (blob.size === 0 || blob.size > 50 * 1024 * 1024 || blob.contentType !== PHOTO_TYPES[extension]) {
+        return NextResponse.json({ error: "Nahraná fotografie neodpovídá povolenému formátu nebo velikosti." }, { status: 400 });
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === "BlobNotFoundError") {
+        return NextResponse.json({ error: "Nahraná fotografie nebyla nalezena." }, { status: 400 });
+      }
+      throw error;
+    }
+    mediaUrl = `/api/media/${pathname}`;
+  }
 
   let submission: Submission | undefined;
   try {
@@ -33,6 +69,14 @@ export async function POST(request: Request) {
       if (!mission || !mission.targetTeamIds.includes(team.id)) {
         throw new Error("Přepadový úkol už není dostupný tomuto týmu.");
       }
+      if (mission.type !== "photo" && mission.type !== "text") {
+        throw new Error("Tento typ přepadového úkolu není podporovaný.");
+      }
+      if (mission.type === "photo" && !mediaUrl) throw new Error("Nahrajte fotografii k přepadovému úkolu.");
+      if (mission.type !== "photo" && (!answer || answer.length > 10_000)) {
+        throw new Error("Napište odpověď (maximálně 10 000 znaků).");
+      }
+      if (mission.type !== "photo" && mediaUrl) throw new Error("Tento přepadový úkol nepřijímá fotografii.");
       if (current.submissions.some((item) => item.missionId === mission.id && item.teamId === team.id && item.status === "pending")) {
         throw new Error("Odpověď už čeká na schválení.");
       }
@@ -44,7 +88,8 @@ export async function POST(request: Request) {
         teamId: team.id,
         status: mission.requiresApproval ? "pending" : "approved",
         content: mission.description,
-        evidence: answer,
+        evidence: mediaUrl ?? answer,
+        ...(mediaUrl ? { mediaUrl } : {}),
         comment: "",
         createdAt: new Date().toISOString(),
       };

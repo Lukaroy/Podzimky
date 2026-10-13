@@ -41,7 +41,7 @@ Webová týmová hra s QR stanovišti, úkoly ke schválení a galerií fotograf
 
 Herní obsah není předvyplněný v aplikaci. Nová databáze začíná s prázdnou hrou; administrátor přidá týmy a stanoviště po přihlášení.
 
-Administrace umožňuje nastavit u každého stanoviště i přepadové výzvy ruční schválení nebo automatické splnění. U textových úkolů bez schvalování zadejte správnou odpověď, aby ji server ověřil. Čekající odpovědi včetně přepadových úkolů se vyřizují v sekci **Schvalování**. QR kódy stanovišť i týmová přihlašovací QR lze stáhnout jako SVG. Galerie médií má stránkovaný seznam, prezentaci a stažení souborů.
+Administrace umožňuje nastavit u každého stanoviště i přepadové výzvy ruční schválení nebo automatické splnění. Přepad lze zadat jako textovou odpověď nebo fotografický důkaz; čekající důkazy se vyřizují v sekci **Schvalování**. Čas týmu se spustí při prvním přihlášení a zobrazuje se v hráčském rozhraní i administraci. QR kódy stanovišť i týmová přihlašovací QR lze stáhnout jako SVG. Galerie médií má stránkovaný seznam, prezentaci a stažení souborů.
 
 ## Příprava služeb
 

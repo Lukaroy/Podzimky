@@ -74,6 +74,7 @@ export async function POST(request: Request) {
       return {
         ...team,
         password,
+        startedAt: oldTeam.startedAt ?? team.startedAt,
         completedStations: [...new Set([...oldTeam.completedStations, ...team.completedStations])],
         scannedStationIds: [...new Set([...oldTeam.scannedStationIds, ...team.scannedStationIds])],
       };

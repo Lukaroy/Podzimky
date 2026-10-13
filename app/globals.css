@@ -2254,3 +2254,161 @@ video {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+@media (min-width: 1024px) and (min-height: 700px) {
+  .admin-workspace {
+    display: grid;
+    grid-template-columns: 204px minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0.8rem;
+  }
+
+  .admin-workspace > .admin-nav {
+    position: sticky;
+    top: 0.75rem;
+    align-self: start;
+    padding: 0.7rem 0.55rem;
+    background: #30221f;
+    border: 1px solid #4f3930;
+    box-shadow: 0 8px 18px rgba(43, 27, 22, 0.15);
+  }
+
+  .admin-workspace .admin-nav-label {
+    display: block;
+    margin: 0 0 0.45rem;
+    padding: 0.35rem 0.6rem 0.55rem;
+    border-bottom: 1px solid rgba(240, 222, 185, 0.14);
+    color: #c9aa76;
+    font-family: var(--font-body);
+  }
+
+  .admin-workspace .admin-nav-items {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.25rem;
+  }
+
+  .admin-workspace .admin-nav-items button {
+    min-height: 42px;
+    border-radius: 0.45rem;
+    color: #e7dac6;
+  }
+
+  .admin-workspace .admin-nav-items button:not([aria-current="page"]):hover {
+    background: rgba(255, 241, 216, 0.08);
+    color: #fffaf0;
+  }
+
+  .admin-workspace .admin-nav-items button[aria-current="page"] {
+    border-color: #9b392c;
+    background: #8e2b23;
+    box-shadow: inset 3px 0 #d4a44f;
+  }
+
+  .admin-workspace .admin-nav-items button:not([aria-current="page"]) .rounded-full {
+    background: rgba(255, 243, 219, 0.12);
+    color: #e7c980;
+  }
+
+  .admin-workspace > .admin-content {
+    min-height: 0;
+    max-height: 100%;
+    overflow: auto;
+    padding: 0 0.35rem 0.5rem 0;
+    scrollbar-color: #b88a43 #e8ddc9;
+    scrollbar-width: thin;
+  }
+}
+
+.admin-shell {
+  --admin-red: #a5221b;
+  --admin-gold: #c19a57;
+  --admin-ink: #31221d;
+  --admin-paper: #fffaf0;
+  background-color: transparent;
+  color: var(--admin-ink);
+}
+
+.admin-shell::before {
+  background-color: #f1eadc;
+  background-image:
+    linear-gradient(rgba(109, 78, 46, 0.027) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(109, 78, 46, 0.027) 1px, transparent 1px),
+    radial-gradient(ellipse at 100% 0%, rgba(158, 46, 34, 0.08), transparent 30rem);
+  background-size: 24px 24px, 24px 24px, auto;
+}
+
+.admin-header {
+  flex: 0 0 auto;
+  min-height: 60px;
+  border-radius: 0.55rem;
+  border-color: #61231d;
+  background: linear-gradient(105deg, #3b211e, #76241e 66%, #53201c);
+  box-shadow: 0 3px 10px rgba(55, 30, 24, 0.12);
+}
+
+.admin-brand-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 0.35rem;
+  background: #a52c22;
+  box-shadow: inset 0 0 0 1px rgba(255, 232, 185, 0.45);
+}
+
+.admin-metrics {
+  flex: 0 0 auto;
+}
+
+.admin-metric {
+  min-height: 54px;
+  border-radius: 0.45rem;
+  border-left-width: 2px;
+  background: #fffaf0;
+  box-shadow: 0 2px 5px rgba(75, 49, 32, 0.035);
+}
+
+.admin-metric-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 0.4rem;
+  background: #f2e6d0;
+}
+
+.admin-content > section,
+.admin-content > div > section,
+.admin-content section {
+  border-radius: 0.55rem;
+  box-shadow: 0 2px 7px rgba(75, 49, 32, 0.04);
+}
+
+.admin-team-card {
+  border-radius: 0.5rem;
+  box-shadow: inset 3px 0 rgba(164, 43, 33, 0.5);
+}
+
+.admin-team-clock,
+.player-clock {
+  white-space: nowrap;
+}
+
+.admin-team-clock svg,
+.player-clock svg {
+  flex: 0 0 auto;
+}
+
+.player-clock {
+  color: #8b3329;
+}
+
+@media (max-width: 1023px) {
+  .admin-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-header {
+    border-radius: 0.45rem;
+  }
+}

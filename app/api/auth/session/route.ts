@@ -9,13 +9,24 @@ import {
   verifyRequestOrigin,
 } from "@/lib/auth";
 import { createFirebaseSessionCookie } from "@/lib/firebase-admin";
-import { readGameState } from "@/lib/game-store";
+import { readGameState, updateGameState } from "@/lib/game-store";
 
 export async function GET(request: Request) {
   const user = await getSession(getSessionToken(request));
   if (!user) return NextResponse.json({ error: "Přihlášení vypršelo." }, { status: 401 });
 
-  const state = await readGameState();
+  let state = await readGameState();
+  if (user.role === "team" && !state.teams.find((team) => team.id === user.teamId)?.startedAt) {
+    const firstLoginAt = new Date().toISOString();
+    state = await updateGameState((current) => ({
+      ...current,
+      teams: current.teams.map((team) =>
+        team.id === user.teamId
+          ? { ...team, startedAt: team.startedAt ?? firstLoginAt }
+          : team,
+      ),
+    }));
+  }
   return NextResponse.json({ user, state: sanitizeGameState(state, user) });
 }
 
