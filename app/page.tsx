@@ -2,6 +2,7 @@
 
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { put } from "@vercel/blob/client";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
   inMemoryPersistence,
   setPersistence,
@@ -170,27 +171,25 @@ function AdminDialog({
   }, [onClose]);
 
   return (
-    <div
-      className="admin-dialog-backdrop"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <section role="dialog" aria-modal="true" aria-labelledby="admin-dialog-title" className="admin-dialog">
+    <DialogPrimitive.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="admin-dialog-backdrop" />
+        <DialogPrimitive.Content className="admin-dialog">
         <header className="admin-dialog-header">
           <div className="admin-dialog-seal" aria-hidden="true">印</div>
           <div className="min-w-0 flex-1">
             <p className="admin-eyebrow">Herní dílna</p>
-            <h2 id="admin-dialog-title">{title}</h2>
-            <p>{description}</p>
+            <DialogPrimitive.Title className="admin-dialog-title">{title}</DialogPrimitive.Title>
+            <DialogPrimitive.Description>{description}</DialogPrimitive.Description>
           </div>
-          <button type="button" onClick={onClose} aria-label="Zavřít okno" className="admin-dialog-close">
-            <X size={19} />
-          </button>
+          <DialogPrimitive.Close asChild>
+            <button type="button" aria-label="Zavřít okno" className="admin-dialog-close"><X size={19} /></button>
+          </DialogPrimitive.Close>
         </header>
         {children}
-      </section>
-    </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 
@@ -342,6 +341,7 @@ export default function Page() {
   const [stationPage, setStationPage] = useState(0);
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
   const [isStationDialogOpen, setIsStationDialogOpen] = useState(false);
+  const [isFlashDialogOpen, setIsFlashDialogOpen] = useState(false);
   const [stationFormStep, setStationFormStep] = useState<0 | 1 | 2>(0);
   const [presentationIndex, setPresentationIndex] = useState<number | null>(null);
   const [flashDraft, setFlashDraft] = useState("");
@@ -1343,6 +1343,7 @@ export default function Page() {
       targetTeamIds: [],
       requiresApproval: true,
     });
+    setIsFlashDialogOpen(false);
     setError("");
   };
 
@@ -2076,7 +2077,7 @@ export default function Page() {
 
       {screen === "admin-panel" && (
         <div className="admin-shell mx-auto max-w-screen-2xl px-4 py-6 pb-16">
-          <header className="admin-header mb-5 flex items-center justify-between rounded-2xl border p-4 text-[#1e293b] shadow-sm">
+          <header className="admin-header mb-3 flex items-center justify-between rounded-2xl border p-3 text-[#1e293b] shadow-sm">
             <div className="flex items-center gap-4">
               <div aria-hidden="true" className="admin-brand-mark flex h-10 w-10 items-center justify-center rounded-xl">印</div>
               <div>
@@ -2106,7 +2107,7 @@ export default function Page() {
             </div>
           )}
 
-          <div className="mb-4 grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+          <div className="admin-metrics mb-3 grid grid-cols-2 gap-2 xl:grid-cols-4">
             <div className="admin-metric flex items-center gap-3 rounded-lg bg-[#fffdfa] px-3 py-2.5 shadow-[0_5px_14px_rgba(20,14,11,0.04)]">
               <span className="admin-metric-icon"><AdminIcon name="stations" /></span>
               <div><p className="text-xs font-semibold text-[#716353]">Stanoviště</p><h3 className="text-xl font-bold text-[#201c19]">{gameState.stations.length}</h3></div>
@@ -2125,7 +2126,7 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="admin-workspace space-y-4">
             <aside id="admin-navigation" className="admin-nav rounded-xl border border-[#e2d8c7] bg-[#fffdfa] p-2 shadow-[0_6px_18px_rgba(25,19,12,0.04)]">
               <button
                 type="button"
@@ -2181,9 +2182,19 @@ export default function Page() {
           {adminTab === "overview" && (
             <div className="grid gap-3 xl:grid-cols-[1.15fr_0.85fr]">
               <section className="rounded-[24px] bg-[#fffdfa] p-3 shadow-[0_12px_30px_rgba(20,16,14,0.08)]">
-                <h2 className="mb-3 text-lg font-bold text-[#201c19]">Postup týmů</h2>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="admin-eyebrow">Výprava</p>
+                    <h2 className="text-lg font-bold text-[#201c19]">Postup týmů</h2>
+                  </div>
+                  {gameState.teams.length > 5 && (
+                    <button type="button" onClick={() => setAdminTab("teams")} className="admin-inline-link">
+                      Všechny týmy <ArrowRight size={14} />
+                    </button>
+                  )}
+                </div>
                 <div className="space-y-2">
-                  {gameState.teams.map((team) => {
+                  {gameState.teams.slice(0, 5).map((team) => {
                     const completed = team.completedStations.length;
                     const percent = Math.round((completed / Math.max(gameState.stations.length, 1)) * 100);
                     return (
@@ -3049,23 +3060,40 @@ export default function Page() {
 
           {adminTab === "flash" && (
             <section className="rounded-[24px] bg-[#fffdfa] p-4 shadow-[0_12px_30px_rgba(20,16,14,0.08)]">
-              <div className="mb-5">
-                <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#8f3529]">Mimořádná výzva</p>
-                <h2 className="mt-1 text-xl font-black text-[#201c19]">Připravit přepadový úkol</h2>
-                <p className="mt-1 text-sm text-[#675d53]">Týmy musí odevzdat odpověď. Podle nastavení ji může pořadatel schválit nebo se splní automaticky.</p>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="admin-eyebrow">Mimořádná výzva</p>
+                  <h2 className="mt-1 text-xl font-black text-[#201c19]">Přepadové úkoly</h2>
+                  <p className="mt-1 text-sm text-[#675d53]">Zadání, odpovědi a schválení na jednom místě.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setError(""); setIsFlashDialogOpen(true); }}
+                  disabled={gameState.teams.length === 0}
+                  className="admin-primary-button"
+                >
+                  <Plus size={17} /> Nový přepad
+                </button>
               </div>
-              <div className="space-y-3">
-                <label className="admin-field-label">
+              {isFlashDialogOpen && (
+                <AdminDialog
+                  title="Nový přepadový úkol"
+                  description="Napište srozumitelné zadání, vyberte týmy a nastavte schvalování."
+                  onClose={() => setIsFlashDialogOpen(false)}
+                >
+                <div className="admin-dialog-body">
+                <div className="admin-flash-form grid gap-3 md:grid-cols-2">
+                <label className="admin-field-label md:col-span-2">
                   Název výzvy
                   <input
                     value={flashMissionForm.title}
                     onChange={(event) => setFlashMissionForm((current) => ({ ...current, title: event.target.value }))}
                     placeholder="Například: Tajná zpráva"
                     maxLength={100}
-                    className="w-full rounded-xl border border-[#d8c6a2] bg-[#faf5ee] p-3 text-sm"
+                    className="w-full rounded-xl border border-[#d8c6a2] bg-[#faf5ee] p-3 text-sm md:col-span-2"
                   />
                 </label>
-                <label className="admin-field-label">
+                <label className="admin-field-label md:col-span-2">
                   Konkrétní zadání
                   <textarea
                     value={flashMissionForm.description}
@@ -3073,7 +3101,7 @@ export default function Page() {
                     placeholder="Napište přesně, co mají týmy udělat a co odevzdat."
                     maxLength={2000}
                     rows={4}
-                    className="w-full rounded-xl border border-[#d8c6a2] bg-[#faf5ee] p-3 text-sm"
+                    className="w-full rounded-xl border border-[#d8c6a2] bg-[#faf5ee] p-3 text-sm md:col-span-2"
                   />
                 </label>
                 <label className="admin-field-label">
@@ -3088,7 +3116,7 @@ export default function Page() {
                   </select>
                 </label>
                 {flashMissionForm.targets === "specific" && (
-                  <fieldset className="grid gap-2 rounded-xl border border-[#e5d9c7] bg-[#fffaf3] p-3 sm:grid-cols-2">
+                  <fieldset className="admin-flash-team-picker grid gap-2 rounded-xl border border-[#e5d9c7] bg-[#fffaf3] p-3 sm:grid-cols-2 md:col-span-2">
                     <legend className="px-1 text-xs font-bold uppercase tracking-wide text-[#756958]">Vyberte týmy</legend>
                     {gameState.teams.map((team) => (
                       <label key={team.id} className="flex items-center gap-2 text-sm text-[#3d3127]">
@@ -3107,7 +3135,7 @@ export default function Page() {
                     ))}
                   </fieldset>
                 )}
-                <label className="flex items-start gap-3 rounded-xl border border-[#e1d4b6] bg-[#fffaf3] p-3 text-sm text-[#4d3b2a]">
+                <label className="flex items-start gap-3 rounded-xl border border-[#e1d4b6] bg-[#fffaf3] p-3 text-sm text-[#4d3b2a] md:col-span-2">
                   <input
                     type="checkbox"
                     checked={flashMissionForm.requiresApproval}
@@ -3122,15 +3150,18 @@ export default function Page() {
                     <span className="mt-0.5 block text-xs text-[#756958]">Pokud volbu vypnete, odevzdaná odpověď úkol automaticky dokončí.</span>
                   </span>
                 </label>
-                {error && <p role="alert" className="rounded-xl bg-[#fce7e6] px-3 py-2 text-sm text-[#8b2d2d]">{error}</p>}
+                {error && <p role="alert" className="rounded-xl bg-[#fce7e6] px-3 py-2 text-sm text-[#8b2d2d] md:col-span-2">{error}</p>}
                 <button
                   onClick={launchFlashMission}
                   disabled={gameState.teams.length === 0}
-                  className="w-full rounded-2xl bg-[#1d1a17] px-4 py-3 text-base font-bold text-white"
+                  className="admin-primary-button md:col-span-2"
                 >
                   Odeslat přepadový úkol
                 </button>
-              </div>
+                </div>
+                </div>
+                </AdminDialog>
+              )}
               <div className="mt-6 border-t border-[#ece3d5] pt-5">
                 <h3 className="mb-3 text-base font-bold text-[#201c19]">Aktivní výzvy</h3>
                 {gameState.flashMissions.length === 0 ? (
