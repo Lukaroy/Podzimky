@@ -24,7 +24,6 @@ import {
   Eye,
   EyeOff,
   Images,
-  LayoutDashboard,
   LogOut,
   MapPin,
   Plus,
@@ -228,9 +227,8 @@ function AuthVisualModePicker({
   );
 }
 
-function AdminIcon({ name }: { name: "overview" | "teams" | "stations" | "review" | "media" | "flash" }) {
+function AdminIcon({ name }: { name: "teams" | "stations" | "review" | "media" | "flash" }) {
   const icons = {
-    overview: LayoutDashboard,
     teams: Users,
     stations: MapPin,
     review: ClipboardCheck,
@@ -473,7 +471,7 @@ export default function Page() {
     targetTeamIds: [] as string[],
     requiresApproval: true,
   });
-  const [adminTab, setAdminTab] = useState<"overview" | "teams" | "stations" | "submissions" | "media" | "flash">("overview");
+  const [adminTab, setAdminTab] = useState<"teams" | "stations" | "submissions" | "media" | "flash">("teams");
 
   useEffect(() => () => {
     mediaPreviewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -2209,22 +2207,100 @@ export default function Page() {
       )}
 
       {screen === "admin-panel" && (
-        <div className="admin-shell mx-auto max-w-screen-2xl px-4 py-6 pb-16">
-          <header className="admin-header mb-3 flex items-center justify-between rounded-2xl border p-3 text-[#1e293b] shadow-sm">
-            <div className="flex items-center gap-4">
-              <div aria-hidden="true" className="admin-brand-mark flex h-10 w-10 items-center justify-center rounded-xl">印</div>
+        <div className="admin-shell admin-console mx-auto max-w-screen-2xl">
+          <aside className="admin-sidebar">
+            <div className="admin-sidebar-brand">
+              <div aria-hidden="true" className="admin-brand-mark">印</div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8c929b]">Podzimky 2026</p>
-                <h1 className="mt-0.5 whitespace-nowrap text-lg font-bold text-[#1f2937] sm:text-xl">Správa hry</h1>
+                <p>Podzimky 2026</p>
+                <h1>Správa hry</h1>
               </div>
             </div>
+            <div className="admin-sidebar-label">Velitelská konzole</div>
+            <nav className="admin-sidebar-nav" aria-label="Moduly administrace">
+              {([
+                { tab: "teams", label: "Týmy", icon: "teams" as const, count: gameState.teams.length },
+                { tab: "stations", label: "Stanoviště", icon: "stations" as const, count: gameState.stations.length },
+                { tab: "flash", label: "Přepady", icon: "flash" as const, count: gameState.flashMissions.filter((mission) => !mission.archivedAt).length },
+                { tab: "submissions", label: "Schvalování", icon: "review" as const, count: pendingSubmissions.length },
+                { tab: "media", label: "Galerie", icon: "media" as const, count: mediaSubmissions.length },
+              ] as const).map((item) => (
+                <button
+                  key={item.tab}
+                  type="button"
+                  aria-current={adminTab === item.tab ? "page" : undefined}
+                  onClick={() => {
+                    setError("");
+                    setAdminTab(item.tab);
+                  }}
+                >
+                  <AdminIcon name={item.icon} />
+                  <span>{item.label}</span>
+                  <span className="admin-sidebar-count">{item.count}</span>
+                </button>
+              ))}
+              <button
+                type="button"
+                className="admin-sidebar-presentation"
+                onClick={() => {
+                  setError("");
+                  setAdminTab("media");
+                  setGalleryPage(0);
+                  if (mediaSubmissions.length > 0) setPresentationIndex(0);
+                }}
+              >
+                <Play size={17} aria-hidden="true" />
+                <span>Promítání</span>
+              </button>
+            </nav>
+            <section className="admin-sidebar-game" aria-label="Ovládání hry">
+              <div className="admin-sidebar-game-heading">
+                <span aria-hidden="true">令</span>
+                <div>
+                  <p>Stav výpravy</p>
+                  <h2>{gameState.gameStartedAt ? "Hra běží" : "Čeká na start"}</h2>
+                </div>
+              </div>
+              <ElapsedClock startedAt={gameState.gameStartedAt} className="admin-sidebar-clock" />
+              <p className="admin-sidebar-game-note">
+                {gameState.gameStartedAt
+                  ? `Spuštěno ${new Date(gameState.gameStartedAt).toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })}`
+                  : "Společný start pro všechny týmy"}
+              </p>
+              {!gameState.gameStartedAt ? (
+                <button
+                  type="button"
+                  onClick={() => void handleGameControl("start")}
+                  disabled={gameControlBusy || gameState.teams.length === 0}
+                  className="admin-sidebar-start"
+                >
+                  <Play size={15} fill="currentColor" /> {gameControlBusy ? "Spouštím…" : "Odstartovat"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void handleGameControl("restart")}
+                  disabled={gameControlBusy}
+                  className="admin-sidebar-restart"
+                >
+                  <ArrowRight size={15} className="rotate-180" /> {gameControlBusy ? "Restartuji…" : "Restartovat"}
+                </button>
+              )}
+              {error && <p role="alert" className="admin-sidebar-error">{error}</p>}
+              <div className="admin-sidebar-summary">
+                <span>{gameState.teams.length} týmů</span>
+                <span>{pendingSubmissions.length} ke schválení</span>
+              </div>
+              {gameState.events[0] && <p className="admin-sidebar-event">{gameState.events[0].message}</p>}
+            </section>
             <button
               onClick={() => void handleLogout()}
-              className="admin-logout inline-flex items-center gap-2 rounded-xl border border-[#e4e7eb] bg-white px-3 py-2 text-sm font-semibold text-[#596273] transition hover:bg-[#f6f7f9]"
+              className="admin-logout"
             >
               <LogOut size={16} /> Odhlásit
             </button>
-          </header>
+          </aside>
+          <main className="admin-main">
 
           {(saveError || isSavingGameState) && (
             <div role={saveError ? "alert" : "status"} className={classNames(
@@ -2240,140 +2316,17 @@ export default function Page() {
             </div>
           )}
 
-          {adminTab === "overview" && <div className="admin-metrics mb-3 grid grid-cols-2 gap-2 xl:grid-cols-4">
-            <div className="admin-metric flex items-center gap-3 rounded-lg bg-[#fffdfa] px-3 py-2.5 shadow-[0_5px_14px_rgba(20,14,11,0.04)]">
-              <span className="admin-metric-icon"><AdminIcon name="stations" /></span>
-              <div><p className="text-xs font-semibold text-[#716353]">Stanoviště</p><h3 className="text-xl font-bold text-[#201c19]">{gameState.stations.length}</h3></div>
-            </div>
-            <div className="admin-metric admin-metric-teams flex items-center gap-3 rounded-lg bg-[#fffdfa] px-3 py-2.5 shadow-[0_5px_14px_rgba(20,14,11,0.04)]">
-              <span className="admin-metric-icon"><AdminIcon name="teams" /></span>
-              <div><p className="text-xs font-semibold text-[#716353]">Týmy</p><h3 className="text-xl font-bold text-[#201c19]">{gameState.teams.length}</h3></div>
-            </div>
-            <div className="admin-metric admin-metric-review flex items-center gap-3 rounded-lg bg-[#fffdfa] px-3 py-2.5 shadow-[0_5px_14px_rgba(20,14,11,0.04)]">
-              <span className="admin-metric-icon"><AdminIcon name="review" /></span>
-              <div><p className="text-xs font-semibold text-[#716353]">Ke schválení</p><h3 className="text-xl font-bold text-[#201c19]">{pendingSubmissions.length}</h3></div>
-            </div>
-            <div className="admin-metric admin-metric-flash flex items-center gap-3 rounded-lg bg-[#fffdfa] px-3 py-2.5 shadow-[0_5px_14px_rgba(20,14,11,0.04)]">
-              <span className="admin-metric-icon"><AdminIcon name="flash" /></span>
-              <div><p className="text-xs font-semibold text-[#716353]">Přepady</p><h3 className="text-xl font-bold text-[#201c19]">{gameState.flashMissions.filter((mission) => !mission.archivedAt).length}</h3></div>
-            </div>
-          </div>}
-
-          <div className={classNames("admin-workspace", adminTab === "overview" ? "admin-workspace-hub" : "admin-workspace-module")}>
+          <div className="admin-workspace admin-workspace-module">
             <div className="admin-content min-w-0 space-y-4">
-          {adminTab !== "overview" && (
-            <header className="module-toolbar">
-              <button type="button" onClick={() => setAdminTab("overview")} className="module-back-button">
-                <ArrowLeft size={17} /> Zpět na rozcestník
-              </button>
-              <span className="module-toolbar-divider" aria-hidden="true" />
-              <h2>{adminTab === "teams" ? "Týmy" : adminTab === "stations" ? "Stanoviště" : adminTab === "submissions" ? "Schvalování" : adminTab === "media" ? "Galerie" : "Přepady"}</h2>
-            </header>
-          )}
-
-          {adminTab === "overview" && (
-            <section className="trail-hub" aria-labelledby="trail-hub-title">
-              <div className="trail-hub-heading">
+              <header className="module-toolbar">
                 <div>
-                  <p className="admin-eyebrow">Vítejte na výpravě</p>
-                  <h2 id="trail-hub-title">Kam dnes vyrazíme?</h2>
-                  <p>Vyberte zastávku na stezce a pusťte se do správy hry.</p>
+                  <p className="admin-eyebrow">Pracovní plocha</p>
+                  <h2>{adminTab === "teams" ? "Týmy" : adminTab === "stations" ? "Stanoviště" : adminTab === "submissions" ? "Schvalování" : adminTab === "media" ? "Galerie" : "Přepady"}</h2>
                 </div>
-                <span className={classNames("trail-status-seal", gameState.gameStartedAt && "trail-status-running")}>
-                  {gameState.gameStartedAt ? "Výprava probíhá" : "Výprava čeká na start"}
+                <span className={classNames("admin-toolbar-status", gameState.gameStartedAt && "admin-toolbar-status-running")}>
+                  <span /> {gameState.gameStartedAt ? "Výprava probíhá" : "Hra nezačala"}
                 </span>
-              </div>
-              <div className="trail-hub-layout">
-                <div className="trail-map-art" aria-label="Ilustrovaná mapa čínské stezky s moduly administrace">
-                  <div className="trail-mountain trail-mountain-back" aria-hidden="true" />
-                  <div className="trail-mountain trail-mountain-front" aria-hidden="true" />
-                  <div className="trail-lantern lantern-one" aria-hidden="true">灯</div>
-                  <div className="trail-lantern lantern-two" aria-hidden="true">灯</div>
-                  <svg className="trail-route" viewBox="0 0 1000 560" preserveAspectRatio="none" aria-hidden="true">
-                    <path d="M70 444 C150 444 126 354 245 354 S334 454 424 414 S497 280 590 300 S675 396 770 320 S851 164 944 172" />
-                    <path className="trail-route-highlight" d="M70 444 C150 444 126 354 245 354 S334 454 424 414 S497 280 590 300 S675 396 770 320 S851 164 944 172" />
-                  </svg>
-                  {([
-                    { key: "teams", label: "Týmy", detail: "Výpravy", icon: "teams" as const, count: gameState.teams.length, x: 9, y: 79 },
-                    { key: "stations", label: "Stanoviště", detail: "Zastávky", icon: "stations" as const, count: gameState.stations.length, x: 25, y: 63 },
-                    { key: "flash", label: "Přepady", detail: "Tajné stezky", icon: "flash" as const, count: gameState.flashMissions.filter((mission) => !mission.archivedAt).length, x: 43, y: 73 },
-                    { key: "submissions", label: "Schvalování", detail: "Čeká na vás", icon: "review" as const, count: pendingSubmissions.length, x: 60, y: 53 },
-                    { key: "media", label: "Galerie", detail: "Vzpomínky", icon: "media" as const, count: mediaSubmissions.length, x: 78, y: 57 },
-                    { key: "presentation", label: "Promítání", detail: "Společné chvíle", icon: "media" as const, count: undefined, x: 94, y: 30 },
-                  ] as const).map((stop, index) => (
-                    <button
-                      key={stop.key}
-                      type="button"
-                      className={classNames("trail-waypoint", index % 2 === 0 && "trail-waypoint-parity")}
-                      style={{ left: `${stop.x}%`, top: `${stop.y}%` }}
-                      onClick={() => {
-                        setError("");
-                        setAdminTab(stop.key === "presentation" ? "media" : stop.key);
-                        if (stop.key === "presentation") {
-                          setGalleryPage(0);
-                          if (mediaSubmissions.length > 0) setPresentationIndex(0);
-                        }
-                      }}
-                    >
-                      <span className="trail-waypoint-seal"><AdminIcon name={stop.icon} /></span>
-                      <span className="trail-waypoint-copy">
-                        <span className="trail-waypoint-label">{stop.label}</span>
-                        <span className="trail-waypoint-detail">{stop.detail}</span>
-                      </span>
-                      {stop.count !== undefined && <span className="trail-waypoint-count">{stop.count}</span>}
-                    </button>
-                  ))}
-                  <span className="trail-map-gate" aria-hidden="true">龍門</span>
-                  <span className="trail-map-caption">Cesta tisíce li</span>
-                </div>
-                <aside className="trail-control-panel">
-                  <div className="trail-control-panel-heading">
-                    <span className="trail-control-emblem" aria-hidden="true">令</span>
-                    <div>
-                      <p>Velitelská pečeť</p>
-                      <h3>Čas výpravy</h3>
-                    </div>
-                  </div>
-                  <ElapsedClock startedAt={gameState.gameStartedAt} className="trail-master-clock" />
-                  <p className="trail-start-note">
-                    {gameState.gameStartedAt
-                      ? `Společný start ${new Date(gameState.gameStartedAt).toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })}`
-                      : "Čas se spustí všem týmům současně."}
-                  </p>
-                  {!gameState.gameStartedAt ? (
-                    <button
-                      type="button"
-                      onClick={() => void handleGameControl("start")}
-                      disabled={gameControlBusy || gameState.teams.length === 0}
-                      className="trail-start-button"
-                    >
-                      <Play size={17} fill="currentColor" /> {gameControlBusy ? "Spouštím…" : "Odstartovat hru"}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => void handleGameControl("restart")}
-                      disabled={gameControlBusy}
-                      className="trail-restart-button"
-                    >
-                      <ArrowRight size={16} className="rotate-180" /> {gameControlBusy ? "Restartuji…" : "Restartovat výpravu"}
-                    </button>
-                  )}
-                  {error && <p role="alert" className="trail-control-error">{error}</p>}
-                  <div className="trail-control-stats">
-                    <span>{gameState.teams.length} {gameState.teams.length === 1 ? "tým" : "týmů"}</span>
-                    <span>{pendingSubmissions.length} ke schválení</span>
-                  </div>
-                  {gameState.events[0] && (
-                    <p className="trail-latest-event">
-                      <span>Poslední zpráva z cesty</span>
-                      {gameState.events[0].message}
-                    </p>
-                  )}
-                </aside>
-              </div>
-            </section>
-          )}
+              </header>
 
           {adminTab === "teams" && (
             <>
@@ -3394,6 +3347,7 @@ export default function Page() {
           )}
             </div>
           </div>
+          </main>
         </div>
       )}
 
