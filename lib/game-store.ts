@@ -38,6 +38,7 @@ export type Station = {
 export type Submission = {
   id: string;
   stationId: string;
+  missionId?: string;
   teamId: string;
   status: SubmissionStatus;
   content: string;
@@ -99,6 +100,7 @@ export function normalizeGameState(value?: Partial<GameState> | null): GameState
       ? safeValue.stations.map((station) => ({
           ...station,
           clue: station.clue || "",
+          requiresApproval: station.requiresApproval ?? true,
         }))
       : [],
     teams: Array.isArray(safeValue.teams)
@@ -108,7 +110,12 @@ export function normalizeGameState(value?: Partial<GameState> | null): GameState
         }))
       : [],
     submissions: Array.isArray(safeValue.submissions) ? safeValue.submissions : [],
-    flashMissions: Array.isArray(safeValue.flashMissions) ? safeValue.flashMissions : [],
+    flashMissions: Array.isArray(safeValue.flashMissions)
+      ? safeValue.flashMissions.map((mission) => ({
+          ...mission,
+          requiresApproval: mission.requiresApproval ?? true,
+        }))
+      : [],
     events: Array.isArray(safeValue.events) ? safeValue.events : [],
   };
 }

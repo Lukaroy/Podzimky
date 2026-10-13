@@ -28,10 +28,14 @@ export async function GET(
   if (!blob || blob.statusCode !== 200) {
     return NextResponse.json({ error: "Soubor nebyl nalezen." }, { status: 404 });
   }
+  const fileName = pathname.split("/").at(-1) ?? "soubor";
+  const disposition = new URL(request.url).searchParams.has("download")
+    ? `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`
+    : "inline";
   return new Response(blob.stream, {
     headers: {
       "Content-Type": blob.blob.contentType,
-      "Content-Disposition": "inline",
+      "Content-Disposition": disposition,
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
     },

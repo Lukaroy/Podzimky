@@ -41,6 +41,8 @@ Webová týmová hra s QR stanovišti, úkoly ke schválení a galerií fotograf
 
 Herní obsah není předvyplněný v aplikaci. Nová databáze začíná s prázdnou hrou; administrátor přidá týmy a stanoviště po přihlášení.
 
+Administrace umožňuje nastavit u každého stanoviště i přepadové výzvy ruční schválení nebo automatické splnění. U textových úkolů bez schvalování zadejte správnou odpověď, aby ji server ověřil. Čekající odpovědi včetně přepadových úkolů se vyřizují v sekci **Schvalování**. QR kódy stanovišť i týmová přihlašovací QR lze stáhnout jako SVG. Galerie médií má stránkovaný seznam, prezentaci a stažení souborů.
+
 ## Příprava služeb
 
 ### 1. Firebase Authentication
@@ -107,7 +109,7 @@ Ve Vercelu při ukládání proměnných vyberte správná prostředí **Product
 
    `db:deploy` aplikuje SQL migrace z `prisma/migrations/` přes `DIRECT_URL`. `build` generuje Prisma Client a sestaví Next.js.
 5. Nasaďte projekt. Otevřete doménu Vercel, přihlaste se Firebase administrátorským e-mailem a heslem a vytvořte první týmy a stanoviště.
-6. Ověřte také týmové přihlášení, QR sken, textové i mediální odevzdání, schválení úkolu a přehrávání médií v administraci.
+6. Ověřte také týmové přihlášení, QR sken a stažení QR kódů, textové i mediální odevzdání, automatické splnění i ruční schválení stanoviště a přepadu a prezentaci i stažení médií v administraci.
 
 Vercel při instalaci spouští `postinstall`, který generuje Prisma Client. Build příkaz jej generuje znovu, takže sestavení nezávisí na lokálně vygenerovaném klientovi.
 

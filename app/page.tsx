@@ -15,7 +15,10 @@ import {
   ArrowRight,
   Camera,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   ClipboardCheck,
+  Download,
   Eye,
   EyeOff,
   Images,
@@ -25,6 +28,7 @@ import {
   Menu,
   QrCode,
   ScanLine,
+  Play,
   Trash2,
   Users,
   X,
@@ -73,6 +77,7 @@ type Station = {
 type Submission = {
   id: string;
   stationId: string;
+  missionId?: string;
   teamId: string;
   status: SubmissionStatus;
   content: string;
@@ -207,9 +212,9 @@ function createUniqueStationUid(stations: Station[]) {
   return uid;
 }
 
-function downloadStationQrSvg(uid: string, fileName: string) {
+function downloadQrSvg(value: string, fileName: string) {
   const qrCode = Array.from(document.querySelectorAll<SVGSVGElement>("[data-qr-uid]")).find(
-    (element) => element.dataset.qrUid === uid,
+    (element) => element.dataset.qrUid === value,
   );
   if (!qrCode) return false;
 
@@ -287,6 +292,10 @@ export default function Page() {
   const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null);
   const [teamQrBusyId, setTeamQrBusyId] = useState<string | null>(null);
   const [generatedTeamQr, setGeneratedTeamQr] = useState<{ teamId: string; value: string } | null>(null);
+  const [galleryPage, setGalleryPage] = useState(0);
+  const [presentationIndex, setPresentationIndex] = useState<number | null>(null);
+  const [flashDraft, setFlashDraft] = useState("");
+  const [isSubmittingFlash, setIsSubmittingFlash] = useState(false);
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -308,6 +317,15 @@ export default function Page() {
     uid: "",
     type: "text" as StationType,
     instructions: "",
+    requiresApproval: true,
+    answer: "",
+    optionsText: "",
+    formQuestions: [] as NonNullable<Station["formQuestions"]>,
+    questionDraft: {
+      label: "",
+      type: "text" as "text" | "number" | "multiple-choice",
+      optionsText: "",
+    },
   });
   const [visibleStationQr, setVisibleStationQr] = useState<string | null>(null);
   const [teamFormAdmin, setTeamFormAdmin] = useState({
@@ -920,7 +938,11 @@ export default function Page() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stationId: station.id, content, ...(mediaUrl ? { mediaUrl } : {}) }),
       });
-      const result = await response.json() as { submission?: Submission; error?: string };
+      const result = await response.json() as {
+        submission?: Submission;
+        team?: Pick<Team, "id" | "completedStations" | "scannedStationIds">;
+        error?: string;
+      };
       if (!response.ok || !result.submission) {
         throw new Error(result.error ?? "Úkol se nepodařilo odeslat.");
       }
@@ -929,6 +951,11 @@ export default function Page() {
         const safePrevious = normalizeGameState(previous);
         return {
           ...safePrevious,
+          teams: result.team
+            ? safePrevious.teams.map((team) =>
+                team.id === result.team?.id ? { ...team, ...result.team } : team,
+              )
+            : safePrevious.teams,
           submissions: [...safePrevious.submissions, submittedAnswer],
         };
       });
@@ -942,8 +969,14 @@ export default function Page() {
         delete next[station.id];
         return next;
       });
-      setScanMessage("Úkol byl odeslán. Po schválení dostanete nápovědu k dalšímu stanovišti.");
-      setSelectedStationId(station.id);
+      setScanMessage(station.requiresApproval
+        ? "Úkol byl odeslán ke schválení. Po schválení dostanete nápovědu k dalšímu stanovišti."
+        : "Úkol je splněný. Můžete pokračovat na další stanoviště.");
+      setSelectedStationId(
+        station.requiresApproval
+          ? station.id
+          : gameState.stations.find((item) => item.order === station.order + 1)?.id ?? station.id,
+      );
     } catch (submissionError) {
       setError(submissionError instanceof Error ? submissionError.message : "Úkol se nepodařilo odeslat.");
     } finally {
@@ -969,52 +1002,30 @@ export default function Page() {
     handleScanResult(manualUidDraft);
   };
 
-  const handleSubmissionDecision = (submissionId: string, status: "approved" | "rejected", comment?: string) => {
-    const reviewedSubmission = gameState.submissions.find((submission) => submission.id === submissionId);
-    const reviewedStation = getStationById(gameState.stations, reviewedSubmission?.stationId);
-    if (status === "approved" && reviewedSubmission && reviewedStation) {
-      const nextStation = gameState.stations.find((station) => station.order === reviewedStation.order + 1);
-      setSelectedStationId(nextStation?.id ?? reviewedStation.id);
-    }
-
-    setGameState((previous) => {
-      const safePrevious = normalizeGameState(previous);
-      const targetSubmission = safePrevious.submissions.find((submission) => submission.id === submissionId);
-      const station = getStationById(safePrevious.stations, targetSubmission?.stationId);
-      const nextTeams = status === "approved" && station
-        ? safePrevious.teams.map((team) => {
-            if (team.id !== targetSubmission?.teamId || team.completedStations.includes(station.id)) return team;
-            return { ...team, completedStations: [...team.completedStations, station.id] };
-          })
-        : safePrevious.teams;
-
-      const nextSubmissions = safePrevious.submissions.map((submission) => {
-        if (submission.id !== submissionId) return submission;
-        return {
-          ...submission,
-          status,
-          comment: comment ?? submission.comment,
-        };
+  const handleSubmissionDecision = async (submissionId: string, status: "approved" | "rejected", comment?: string) => {
+    setError("");
+    try {
+      const response = await fetch("/api/admin/submissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ submissionId, status, comment }),
       });
-
-      const team = safePrevious.teams.find((item) => item.id === targetSubmission?.teamId);
-
-      return {
-        ...safePrevious,
-        teams: nextTeams,
-        submissions: nextSubmissions,
-        events: [
-          createEvent(
-            status === "approved"
-              ? `Admin schválil ${team?.name ?? "tým"} pro stanoviště ${station?.title ?? "novou úlohu"}.`
-              : `Admin zamítl důkaz pro stanoviště ${station?.title ?? "úlohu"}.`,
-            status === "approved" ? "success" : "warning",
-            team?.id,
-          ),
-          ...safePrevious.events,
-        ].slice(0, 12),
-      };
-    });
+      const result = await response.json() as { state?: GameState; error?: string };
+      if (!response.ok || !result.state) {
+        throw new Error(result.error ?? "Odevzdání se nepodařilo zpracovat.");
+      }
+      const state = normalizeGameState(result.state);
+      lastPersistedStateRef.current = JSON.stringify(state);
+      setGameState(state);
+      const reviewed = state.submissions.find((submission) => submission.id === submissionId);
+      const station = getStationById(state.stations, reviewed?.stationId);
+      if (status === "approved" && station) {
+        const nextStation = state.stations.find((item) => item.order === station.order + 1);
+        setSelectedStationId(nextStation?.id ?? station.id);
+      }
+    } catch (decisionError) {
+      setError(decisionError instanceof Error ? decisionError.message : "Odevzdání se nepodařilo zpracovat.");
+    }
   };
 
   const handleAddStation = () => {
@@ -1035,6 +1046,30 @@ export default function Page() {
       setError("Toto UID už používá jiné stanoviště. Vygenerujte nové.");
       return;
     }
+    const options = [...new Set(adminStationForm.optionsText
+      .split("\n")
+      .map((option) => option.trim())
+      .filter(Boolean))];
+    if (adminStationForm.type === "multiple-choice" && options.length < 2) {
+      setError("Výběr odpovědi potřebuje alespoň dvě možnosti, každou na samostatný řádek.");
+      return;
+    }
+    if (adminStationForm.type === "multiple-choice" && adminStationForm.answer && !options.includes(adminStationForm.answer.trim())) {
+      setError("Správná odpověď musí být jedna z uvedených možností.");
+      return;
+    }
+    if (
+      !adminStationForm.requiresApproval &&
+      !["photo", "video", "form"].includes(adminStationForm.type) &&
+      !adminStationForm.answer.trim()
+    ) {
+      setError("Při automatickém splnění zadejte správnou odpověď, kterou server ověří.");
+      return;
+    }
+    if (adminStationForm.type === "form" && adminStationForm.formQuestions.length === 0) {
+      setError("Formulář potřebuje alespoň jednu přidanou otázku.");
+      return;
+    }
 
     const newStation: Station = {
       id: `station-${crypto.randomUUID().slice(0, 8)}`,
@@ -1045,8 +1080,11 @@ export default function Page() {
       task: adminStationForm.task.trim(),
       uid: adminStationForm.uid.toUpperCase(),
       type: adminStationForm.type,
-      requiresApproval: true,
+      requiresApproval: adminStationForm.requiresApproval,
       instructions: adminStationForm.instructions,
+      ...(adminStationForm.answer.trim() ? { answer: adminStationForm.answer.trim() } : {}),
+      ...(adminStationForm.type === "multiple-choice" ? { options } : {}),
+      ...(adminStationForm.type === "form" ? { formQuestions: adminStationForm.formQuestions } : {}),
     };
 
     setGameState((previous) => {
@@ -1070,6 +1108,11 @@ export default function Page() {
       uid: "",
       type: "text",
       instructions: "",
+      requiresApproval: true,
+      answer: "",
+      optionsText: "",
+      formQuestions: [],
+      questionDraft: { label: "", type: "text", optionsText: "" },
     });
     setError("");
   };
@@ -1186,17 +1229,32 @@ export default function Page() {
   };
 
   const launchFlashMission = () => {
+    const title = flashMissionForm.title.trim();
+    const description = flashMissionForm.description.trim();
+    if (!title || !description) {
+      setError("Vyplňte název i konkrétní zadání přepadového úkolu.");
+      return;
+    }
     const selectedTeams =
       flashMissionForm.targets === "all"
         ? gameState.teams.map((team) => team.id)
-        : flashMissionForm.targetTeamIds.length > 0
-          ? flashMissionForm.targetTeamIds
-          : [gameState.teams[0]?.id].filter(Boolean) as string[];
+        : flashMissionForm.targetTeamIds;
+    if (selectedTeams.length === 0) {
+      setError("Vyberte alespoň jeden tým pro přepadový úkol.");
+      return;
+    }
+    const alreadyBusyTeams = gameState.teams.filter(
+      (team) => selectedTeams.includes(team.id) && team.flashMissionId,
+    );
+    if (alreadyBusyTeams.length > 0) {
+      setError(`Nejprve vyřešte aktivní přepad u týmů: ${alreadyBusyTeams.map((team) => team.name).join(", ")}.`);
+      return;
+    }
 
     const mission: FlashMission = {
       id: `mission-${crypto.randomUUID().slice(0, 8)}`,
-      title: flashMissionForm.title || "Přepadový úkol",
-      description: flashMissionForm.description || "Okamžitě vyplňte úkol.",
+      title,
+      description,
       type: flashMissionForm.type,
       targetMode: flashMissionForm.targets === "all" ? "all" : "specific",
       targetTeamIds: selectedTeams,
@@ -1229,23 +1287,31 @@ export default function Page() {
       targetTeamIds: [],
       requiresApproval: true,
     });
+    setError("");
   };
 
-  const completeFlashMission = async (team: Team) => {
+  const submitFlashMission = async (team: Team) => {
     if (!team.flashMissionId) return;
 
+    setIsSubmittingFlash(true);
+    setError("");
     try {
-      const response = await fetch("/api/team/flash", { method: "POST" });
+      const response = await fetch("/api/team/flash", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: flashDraft }),
+      });
       const result = await response.json() as { state?: GameState; error?: string };
       if (!response.ok || !result.state) {
-        throw new Error(result.error ?? "Přepadový úkol se nepodařilo dokončit.");
+        throw new Error(result.error ?? "Přepadový úkol se nepodařilo odeslat.");
       }
       const state = normalizeGameState(result.state);
       lastPersistedStateRef.current = JSON.stringify(state);
       setGameState(state);
-      setError("");
     } catch (missionError) {
-      setError(missionError instanceof Error ? missionError.message : "Přepadový úkol se nepodařilo dokončit.");
+      setError(missionError instanceof Error ? missionError.message : "Přepadový úkol se nepodařilo odeslat.");
+    } finally {
+      setIsSubmittingFlash(false);
     }
   };
 
@@ -1293,13 +1359,38 @@ export default function Page() {
     activeTeam && activeTeam.flashMissionId
       ? gameState.flashMissions.find((mission) => mission.id === activeTeam.flashMissionId)
       : null;
+  const activeFlashSubmission = activeTeam && activeFlashMission
+    ? [...gameState.submissions].reverse().find(
+        (submission) =>
+          submission.teamId === activeTeam.id && submission.missionId === activeFlashMission.id,
+      )
+    : undefined;
 
   const pendingSubmissions = gameState.submissions.filter((submission) => submission.status === "pending");
   const mediaSubmissions = [...gameState.submissions]
     .filter((submission) => isStoredMediaUrl(submission.mediaUrl))
     .sort((first, second) => second.createdAt.localeCompare(first.createdAt));
+  const galleryPageSize = 12;
+  const galleryPageCount = Math.ceil(mediaSubmissions.length / galleryPageSize);
+  const visibleMediaSubmissions = mediaSubmissions.slice(
+    galleryPage * galleryPageSize,
+    (galleryPage + 1) * galleryPageSize,
+  );
   const completedStationsCount = activeTeam ? activeTeam.completedStations.length : 0;
   const hasFinishedGame = Boolean(activeTeam && gameState.stations.length > 0 && completedStationsCount >= gameState.stations.length);
+
+  useEffect(() => {
+    if (presentationIndex === null) return;
+    const handlePresentationKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPresentationIndex(null);
+      if (event.key === "ArrowLeft") setPresentationIndex((index) => index === null ? 0 : Math.max(0, index - 1));
+      if (event.key === "ArrowRight") {
+        setPresentationIndex((index) => index === null ? 0 : Math.min(mediaSubmissions.length - 1, index + 1));
+      }
+    };
+    window.addEventListener("keydown", handlePresentationKey);
+    return () => window.removeEventListener("keydown", handlePresentationKey);
+  }, [mediaSubmissions.length, presentationIndex]);
 
   if (isLoadingGameState) {
     return (
@@ -1480,19 +1571,49 @@ export default function Page() {
       {screen === "team-dashboard" && activeTeam && (
         activeFlashMission ? (
           <div className="mx-auto flex min-h-screen max-w-3xl items-center justify-center px-4 py-10">
-            <div className="w-full rounded-[30px] border border-[#d5a24a] bg-[#fff5df] p-6 shadow-[0_22px_55px_rgba(116,81,35,0.2)]">
+            <div className="w-full rounded-[30px] border border-[#d5a24a] bg-[#fff5df] p-6 shadow-[0_22px_55px_rgba(116,81,35,0.2)] sm:p-9">
               <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8e5d1d]">Přepadový úkol</p>
               <h1 className="mt-3 text-3xl font-black text-[#281d15]">{activeFlashMission.title}</h1>
-              <p className="mt-3 text-sm text-[#5d4536]">{activeFlashMission.description}</p>
+              <p className="mt-3 whitespace-pre-wrap text-base leading-relaxed text-[#5d4536]">{activeFlashMission.description}</p>
               <div className="mt-5 rounded-2xl border border-[#e7cf9e] bg-[#fffaf1] p-4 text-sm text-[#483b2e]">
-                Tento úkol okamžitě uzamkl běžný režim hry. Nemůžete přejít zpět na dashboard ani pokračovat na další stanoviště, dokud úkol nevyplníte.
+                Napište odpověď nebo popište, jak jste zadání splnili. {activeFlashMission.requiresApproval
+                  ? "Po odeslání ji zkontroluje pořadatel."
+                  : "Po odeslání můžete pokračovat ve hře."}
               </div>
-              <button
-                onClick={() => void completeFlashMission(activeTeam)}
-                className="mt-6 w-full rounded-2xl bg-[#d59a39] px-4 py-3 text-base font-bold text-[#1d1a17]"
-              >
-                Dokončit přepadový úkol
-              </button>
+              {activeFlashSubmission?.status === "pending" ? (
+                <p role="status" className="mt-6 rounded-2xl border border-[#e5ca8f] bg-[#fffaf1] p-4 font-semibold text-[#72501f]">
+                  Odpověď odeslána. Čeká na schválení pořadatelem.
+                </p>
+              ) : (
+                <>
+                  {activeFlashSubmission?.status === "rejected" && (
+                    <p role="alert" className="mt-5 rounded-xl bg-[#fbe5e1] p-3 text-sm text-[#693025]">
+                      Odpověď nebyla schválena. {activeFlashSubmission.comment || "Upravte ji a odešlete znovu."}
+                    </p>
+                  )}
+                  {error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe5e1] p-3 text-sm text-[#693025]">{error}</p>}
+                  <label className="mt-5 block text-sm font-bold text-[#483b2e]" htmlFor="flash-answer">Vaše odpověď</label>
+                  <textarea
+                    id="flash-answer"
+                    value={flashDraft}
+                    onChange={(event) => setFlashDraft(event.target.value)}
+                    maxLength={10_000}
+                    rows={5}
+                    className="mt-2 w-full rounded-2xl border border-[#dcc58f] bg-white p-4 text-base text-[#30251e] outline-none focus:ring-4 focus:ring-[#d59a39]/20"
+                    placeholder="Popište řešení nebo splnění úkolu…"
+                  />
+                  <div className="mt-2 flex items-center justify-between text-xs text-[#806b4e]">
+                    <span>Odpověď je potřeba vyplnit.</span><span>{flashDraft.length}/10 000</span>
+                  </div>
+                  <button
+                    onClick={() => void submitFlashMission(activeTeam)}
+                    disabled={!flashDraft.trim() || isSubmittingFlash}
+                    className="mt-5 w-full rounded-2xl bg-[#d59a39] px-4 py-3 text-base font-bold text-[#1d1a17] transition hover:bg-[#e2ad54] disabled:cursor-not-allowed disabled:opacity-55"
+                  >
+                    {isSubmittingFlash ? "Odesílám…" : "Odeslat odpověď"}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         ) : (
@@ -1869,7 +1990,9 @@ export default function Page() {
                             disabled={submittingStationId === station.id}
                             className="w-full rounded-xl bg-[#a4332b] px-4 py-3.5 text-sm font-bold text-[#fffdf9] shadow-[0_6px_14px_rgba(128,39,31,0.18)] transition hover:bg-[#85271f] disabled:cursor-wait disabled:opacity-70"
                           >
-                            {submittingStationId === station.id ? "Nahrávám a odesílám…" : "Odeslat ke schválení"}
+                            {submittingStationId === station.id
+                              ? "Nahrávám a odesílám…"
+                              : station.requiresApproval ? "Odeslat ke schválení" : "Odevzdat a splnit úkol"}
                           </button>
                         </div>
                       )}
@@ -2129,10 +2252,24 @@ export default function Page() {
                             level="Q"
                             marginSize={3}
                             title={`Přihlašovací QR kód týmu ${team.name}`}
+                            data-qr-uid={generatedTeamQr.value}
                           />
-                          <p className="max-w-48 text-xs leading-relaxed text-[#675d53]">
-                            Tento kód umožní přihlášení k týmu. Uchovávejte ho bezpečně.
-                          </p>
+                          <div className="max-w-48">
+                            <p className="text-xs leading-relaxed text-[#675d53]">
+                              Tento kód umožní přihlášení k týmu. Uchovávejte ho bezpečně.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!downloadQrSvg(generatedTeamQr.value, `prihlaseni-${team.id}.svg`)) {
+                                  setError("Přihlašovací QR kód se nepodařilo připravit ke stažení.");
+                                }
+                              }}
+                              className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[#312d27] px-3 py-2 text-xs font-bold text-white"
+                            >
+                              <Download size={14} /> Stáhnout QR
+                            </button>
+                          </div>
                         </div>
                       )}
                     </article>
@@ -2197,6 +2334,24 @@ export default function Page() {
                         >
                           {visibleStationQr === station.id ? "Skrýt QR" : "QR kód"}
                         </button>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={station.requiresApproval}
+                          aria-label={`Schvalování úkolu stanoviště ${station.title}`}
+                          onClick={() => setGameState((previous) => ({
+                            ...previous,
+                            stations: previous.stations.map((item) =>
+                              item.id === station.id ? { ...item, requiresApproval: !item.requiresApproval } : item,
+                            ),
+                          }))}
+                          className={classNames(
+                            "rounded-md px-2.5 py-1.5 text-xs font-bold",
+                            station.requiresApproval ? "bg-[#e9e8fb] text-[#484176]" : "bg-[#e2f3e8] text-[#27603f]",
+                          )}
+                        >
+                          {station.requiresApproval ? "Schvaluje pořadatel" : "Automatické splnění"}
+                        </button>
                         <button onClick={() => moveStation(station.id, "up")} aria-label={`Posunout ${station.title} nahoru`} className="rounded-md bg-[#efe3cb] px-2.5 py-1.5 text-xs font-bold">↑</button>
                         <button onClick={() => moveStation(station.id, "down")} aria-label={`Posunout ${station.title} dolů`} className="rounded-md bg-[#efe3cb] px-2.5 py-1.5 text-xs font-bold">↓</button>
                         <button onClick={() => removeStation(station.id)} aria-label={`Odstranit ${station.title}`} className="rounded-md bg-[#efdfd7] px-2.5 py-1.5 text-xs font-bold text-[#6a2b19]">Odebrat</button>
@@ -2217,7 +2372,7 @@ export default function Page() {
                           <p className="mt-1 font-mono text-lg tracking-widest text-[#72501f]">{station.uid}</p>
                           <button
                             onClick={() => {
-                              if (!downloadStationQrSvg(station.uid, `stanoviste-${station.uid}.svg`)) {
+                              if (!downloadQrSvg(station.uid, `stanoviste-${station.uid}.svg`)) {
                                 setError("QR kód se nepodařilo připravit ke stažení.");
                               }
                             }}
@@ -2235,19 +2390,26 @@ export default function Page() {
               <details className="mt-3 rounded-xl border border-[#e6d7ab] bg-[#fffaf1] p-3">
                 <summary className="cursor-pointer text-sm font-bold text-[#8f3529]">Přidat nové stanoviště</summary>
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <input
-                    value={adminStationForm.title}
-                    onChange={(event) => setAdminStationForm((current) => ({ ...current, title: event.target.value }))}
-                    placeholder="Název stanoviště"
-                    className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
-                  />
-                  <input
-                    value={adminStationForm.uid}
-                    onChange={(event) => setAdminStationForm((current) => ({ ...current, uid: event.target.value.toUpperCase().slice(0, 8) }))}
-                    maxLength={8}
-                    placeholder="8místný UID"
-                    className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm uppercase"
-                  />
+                  <label className="admin-field-label">
+                    Název stanoviště
+                    <input
+                      value={adminStationForm.title}
+                      onChange={(event) => setAdminStationForm((current) => ({ ...current, title: event.target.value }))}
+                      placeholder="Například: Starý most"
+                      maxLength={100}
+                      className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
+                    />
+                  </label>
+                  <label className="admin-field-label">
+                    Osmimístný UID kód
+                    <input
+                      value={adminStationForm.uid}
+                      onChange={(event) => setAdminStationForm((current) => ({ ...current, uid: event.target.value.toUpperCase().slice(0, 8) }))}
+                      maxLength={8}
+                      placeholder="Např. A2BC34DE"
+                      className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm uppercase"
+                    />
+                  </label>
                   <button
                     type="button"
                     onClick={() => {
@@ -2279,7 +2441,7 @@ export default function Page() {
                         <p className="mt-1 max-w-xs text-sm text-[#65574a]">Kód obsahuje stejné UID, které tým po načtení zadá.</p>
                         <button
                           onClick={() => {
-                            if (!downloadStationQrSvg(adminStationForm.uid, `stanoviste-${adminStationForm.uid}.svg`)) {
+                            if (!downloadQrSvg(adminStationForm.uid, `stanoviste-${adminStationForm.uid}.svg`)) {
                               setError("QR kód se nepodařilo připravit ke stažení.");
                             }
                           }}
@@ -2290,37 +2452,199 @@ export default function Page() {
                       </div>
                     </div>
                   )}
-                  <input
-                    value={adminStationForm.description}
-                    onChange={(event) => setAdminStationForm((current) => ({ ...current, description: event.target.value }))}
-                    placeholder="Popis"
-                    className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm md:col-span-2"
-                  />
-                  <textarea
-                    value={adminStationForm.clue}
-                    onChange={(event) => setAdminStationForm((current) => ({ ...current, clue: event.target.value }))}
-                    placeholder="Nápověda k nalezení tohoto stanoviště"
-                    className="min-h-20 rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm md:col-span-2"
-                  />
-                  <input
-                    value={adminStationForm.task}
-                    onChange={(event) => setAdminStationForm((current) => ({ ...current, task: event.target.value }))}
-                    placeholder="Zadání"
-                    className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm md:col-span-2"
-                  />
-                  <select
-                    value={adminStationForm.type}
-                    onChange={(event) => setAdminStationForm((current) => ({ ...current, type: event.target.value as StationType }))}
-                    className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
-                  >
-                    <option value="text">Textová odpověď</option>
-                    <option value="number">Číselná odpověď</option>
-                    <option value="photo">Fotografie</option>
-                    <option value="video">Video</option>
-                    <option value="multiple-choice">Výběr odpovědi</option>
-                    <option value="riddle">Hádanka</option>
-                    <option value="form">Formulář</option>
-                  </select>
+                  <label className="admin-field-label md:col-span-2">
+                    Krátký popis místa
+                    <input
+                      value={adminStationForm.description}
+                      onChange={(event) => setAdminStationForm((current) => ({ ...current, description: event.target.value }))}
+                      placeholder="Co hráči po příchodu uvidí?"
+                      className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
+                    />
+                  </label>
+                  <label className="admin-field-label md:col-span-2">
+                    Nápověda k nalezení
+                    <textarea
+                      value={adminStationForm.clue}
+                      onChange={(event) => setAdminStationForm((current) => ({ ...current, clue: event.target.value }))}
+                      placeholder="Napište nápovědu, která hráče dovede na místo."
+                      rows={2}
+                      className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
+                    />
+                  </label>
+                  <label className="admin-field-label md:col-span-2">
+                    Zadání úkolu
+                    <textarea
+                      value={adminStationForm.task}
+                      onChange={(event) => setAdminStationForm((current) => ({ ...current, task: event.target.value }))}
+                      placeholder="Co mají hráči na stanovišti udělat?"
+                      rows={3}
+                      className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
+                    />
+                  </label>
+                  <label className="admin-field-label">
+                    Typ odevzdání
+                    <select
+                      value={adminStationForm.type}
+                      onChange={(event) => setAdminStationForm((current) => ({ ...current, type: event.target.value as StationType }))}
+                      className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
+                    >
+                      <option value="text">Textová odpověď</option>
+                      <option value="number">Číselná odpověď</option>
+                      <option value="photo">Fotografie</option>
+                      <option value="video">Video</option>
+                      <option value="multiple-choice">Výběr odpovědi</option>
+                      <option value="riddle">Hádanka</option>
+                      <option value="form">Formulář</option>
+                    </select>
+                  </label>
+                  {adminStationForm.type === "multiple-choice" && (
+                    <>
+                      <label className="admin-field-label md:col-span-2">
+                        Možnosti odpovědi
+                        <textarea
+                          value={adminStationForm.optionsText}
+                          onChange={(event) => setAdminStationForm((current) => ({ ...current, optionsText: event.target.value }))}
+                          placeholder={"Každou možnost napište na samostatný řádek"}
+                          rows={4}
+                          className="w-full rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
+                        />
+                      </label>
+                      <label className="admin-field-label md:col-span-2">
+                        Správná odpověď (volitelné při ručním schválení)
+                        <input
+                          value={adminStationForm.answer}
+                          onChange={(event) => setAdminStationForm((current) => ({ ...current, answer: event.target.value }))}
+                          placeholder="Musí přesně odpovídat jedné možnosti"
+                          className="w-full rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
+                        />
+                      </label>
+                    </>
+                  )}
+                  {!["photo", "video", "multiple-choice", "form"].includes(adminStationForm.type) && (
+                    <label className="admin-field-label md:col-span-2">
+                      Správná odpověď
+                      <input
+                        value={adminStationForm.answer}
+                        onChange={(event) => setAdminStationForm((current) => ({ ...current, answer: event.target.value }))}
+                        placeholder={adminStationForm.requiresApproval ? "Volitelné — server bude odpověď kontrolovat" : "Povinné při automatickém splnění"}
+                        className="w-full rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
+                      />
+                    </label>
+                  )}
+                  {adminStationForm.type === "form" && (
+                    <div className="space-y-3 rounded-xl border border-[#e1d4b6] bg-[#fffaf1] p-3 md:col-span-2">
+                      <p className="text-sm font-bold text-[#4d3b2a]">Otázky formuláře</p>
+                      {adminStationForm.formQuestions.map((question) => (
+                        <div key={question.id} className="flex items-center justify-between gap-3 rounded-lg bg-white p-3 text-sm">
+                          <span className="min-w-0">
+                            <span className="block font-semibold text-[#342b23]">{question.label}</span>
+                            <span className="text-xs text-[#756958]">{question.type === "multiple-choice" ? question.options?.join(" · ") : question.type === "number" ? "Číselná odpověď" : "Textová odpověď"}</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setAdminStationForm((current) => ({
+                              ...current,
+                              formQuestions: current.formQuestions.filter((item) => item.id !== question.id),
+                            }))}
+                            className="shrink-0 rounded-lg bg-[#efdfd7] px-3 py-2 text-xs font-bold text-[#6a2b19]"
+                          >
+                            Odebrat
+                          </button>
+                        </div>
+                      ))}
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <input
+                          value={adminStationForm.questionDraft.label}
+                          onChange={(event) => setAdminStationForm((current) => ({
+                            ...current,
+                            questionDraft: { ...current.questionDraft, label: event.target.value },
+                          }))}
+                          placeholder="Znění otázky"
+                          className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
+                        />
+                        <select
+                          value={adminStationForm.questionDraft.type}
+                          onChange={(event) => setAdminStationForm((current) => ({
+                            ...current,
+                            questionDraft: {
+                              ...current.questionDraft,
+                              type: event.target.value as typeof current.questionDraft.type,
+                            },
+                          }))}
+                          className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
+                        >
+                          <option value="text">Textová odpověď</option>
+                          <option value="number">Číselná odpověď</option>
+                          <option value="multiple-choice">Výběr z možností</option>
+                        </select>
+                        {adminStationForm.questionDraft.type === "multiple-choice" && (
+                          <textarea
+                            value={adminStationForm.questionDraft.optionsText}
+                            onChange={(event) => setAdminStationForm((current) => ({
+                              ...current,
+                              questionDraft: { ...current.questionDraft, optionsText: event.target.value },
+                            }))}
+                            placeholder="Možnosti, každá na samostatný řádek"
+                            rows={3}
+                            className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm sm:col-span-2"
+                          />
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const label = adminStationForm.questionDraft.label.trim();
+                          const questionOptions = adminStationForm.questionDraft.optionsText
+                            .split("\n")
+                            .map((option) => option.trim())
+                            .filter(Boolean);
+                          const uniqueQuestionOptions = [...new Set(questionOptions)];
+                          if (!label) {
+                            setError("Zadejte znění otázky formuláře.");
+                            return;
+                          }
+                          if (adminStationForm.questionDraft.type === "multiple-choice" && uniqueQuestionOptions.length < 2) {
+                            setError("Otázka s výběrem potřebuje alespoň dvě možnosti.");
+                            return;
+                          }
+                          setAdminStationForm((current) => ({
+                            ...current,
+                            formQuestions: [
+                              ...current.formQuestions,
+                              {
+                                id: crypto.randomUUID(),
+                                label,
+                                type: current.questionDraft.type,
+                                ...(current.questionDraft.type === "multiple-choice" ? { options: uniqueQuestionOptions } : {}),
+                              },
+                            ],
+                            questionDraft: { ...current.questionDraft, label: "", optionsText: "" },
+                          }));
+                          setError("");
+                        }}
+                        className="rounded-xl border border-[#b18a4b] bg-[#f4e5c5] px-4 py-2.5 text-sm font-bold text-[#5a3c18]"
+                      >
+                        Přidat otázku
+                      </button>
+                    </div>
+                  )}
+                  <label className="flex items-start gap-3 rounded-xl border border-[#e1d4b6] bg-white p-3 text-sm text-[#4d3b2a] md:col-span-2">
+                    <input
+                      type="checkbox"
+                      checked={adminStationForm.requiresApproval}
+                      onChange={(event) => setAdminStationForm((current) => ({
+                        ...current,
+                        requiresApproval: event.target.checked,
+                      }))}
+                      className="mt-0.5 h-4 w-4 accent-[#a4332b]"
+                    />
+                    <span>
+                      <span className="block font-bold">Požadovat schválení pořadatelem</span>
+                      <span className="mt-0.5 block text-xs text-[#756958]">
+                        Vypnuto: po validním odevzdání se stanoviště dokončí automaticky.
+                      </span>
+                    </span>
+                  </label>
                 </div>
                 {error && <p className="mt-3 rounded-xl bg-[#fce7e6] px-3 py-2 text-sm text-[#8b2d2d]">{error}</p>}
                 <button
@@ -2336,33 +2660,39 @@ export default function Page() {
           {adminTab === "submissions" && (
             <section className="rounded-[24px] bg-[#fffdfa] p-4 shadow-[0_12px_30px_rgba(20,16,14,0.08)]">
               <h2 className="mb-4 text-xl font-black text-[#201c19]">Schvalování</h2>
+              {error && <p role="alert" className="mb-3 rounded-xl bg-[#fce7e6] px-3 py-2 text-sm text-[#8b2d2d]">{error}</p>}
               <div className="space-y-3">
                 {pendingSubmissions.length === 0 ? (
                   <p className="rounded-2xl bg-[#f5efe8] p-3 text-sm text-[#5e4d3f]">Žádné čekající důkazy.</p>
                 ) : (
-                  pendingSubmissions.map((submission) => (
+                  pendingSubmissions.map((submission) => {
+                    const mission = submission.missionId
+                      ? gameState.flashMissions.find((item) => item.id === submission.missionId)
+                      : undefined;
+                    const station = getStationById(gameState.stations, submission.stationId);
+                    const teamName = gameState.teams.find((team) => team.id === submission.teamId)?.name ?? "Tým";
+                    return (
                     <div key={submission.id} className="rounded-2xl border border-[#e7d7b4] bg-[#fffaf3] p-3">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="font-bold text-[#2b2523]">
-                          {gameState.teams.find((team) => team.id === submission.teamId)?.name ?? "Tým"}
-                        </p>
+                        <p className="font-bold text-[#2b2523]">{teamName}</p>
                         <span className="rounded-full bg-[#f6ddab] px-2 py-1 text-[10px] font-bold tracking-[0.12em] text-[#7c5516]">
                           Čeká
                         </span>
                       </div>
-                      <p className="mt-2 text-sm text-[#52473d]">{getStationById(gameState.stations, submission.stationId)?.title}</p>
+                      <p className="mt-2 text-sm font-semibold text-[#52473d]">{mission ? `Přepadový úkol · ${mission.title}` : station?.title ?? "Stanoviště"}</p>
+                      {mission && <p className="mt-2 whitespace-pre-wrap rounded-lg bg-white p-3 text-sm text-[#52473d]"><span className="font-bold">Zadání: </span>{mission.description}</p>}
                       <p className="mt-2 text-xs text-[#6f5a49]">Důkaz: {submission.evidence}</p>
-                      {isStoredMediaUrl(submission.mediaUrl) && getStationById(gameState.stations, submission.stationId)?.type === "photo" && (
+                      {isStoredMediaUrl(submission.mediaUrl) && station?.type === "photo" && (
                         <Image
                           src={submission.mediaUrl}
-                          alt={`Fotografie od týmu ${gameState.teams.find((team) => team.id === submission.teamId)?.name ?? ""}`}
+                          alt={`Fotografie od týmu ${teamName}`}
                           width={960}
                           height={640}
                           unoptimized
                           className="mt-3 max-h-80 w-full rounded-xl bg-[#f1ece4] object-contain"
                         />
                       )}
-                      {isStoredMediaUrl(submission.mediaUrl) && getStationById(gameState.stations, submission.stationId)?.type === "video" && (
+                      {isStoredMediaUrl(submission.mediaUrl) && station?.type === "video" && (
                         <video
                           controls
                           preload="metadata"
@@ -2375,7 +2705,8 @@ export default function Page() {
                         <button onClick={() => handleSubmissionDecision(submission.id, "rejected", "Důkaz nebyl dostatečný.")} className="flex-1 rounded-xl bg-[#fbe5e1] px-3 py-2 text-sm font-bold text-[#693025]">Zamítnout</button>
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </section>
@@ -2388,12 +2719,21 @@ export default function Page() {
                   <h2 className="text-xl font-black text-[#201c19]">Galerie důkazů</h2>
                   <p className="mt-1 text-sm text-[#675d53]">{mediaSubmissions.length} odevzdaných fotografií a videí</p>
                 </div>
+                {mediaSubmissions.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setPresentationIndex(0)}
+                    className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#312d27] px-3 py-2.5 text-xs font-bold text-white transition hover:bg-[#4a4137] sm:px-4 sm:text-sm"
+                  >
+                    <Play size={16} /> Prezentace
+                  </button>
+                )}
               </div>
               {mediaSubmissions.length === 0 ? (
                 <p className="rounded-xl bg-[#f5efe8] p-4 text-sm text-[#5e4d3f]">Zatím nebyly odevzdány žádné fotografie ani videa.</p>
               ) : (
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {mediaSubmissions.map((submission) => {
+                  {visibleMediaSubmissions.map((submission) => {
                     const station = getStationById(gameState.stations, submission.stationId);
                     const team = gameState.teams.find((item) => item.id === submission.teamId);
                     const mediaUrl = submission.mediaUrl;
@@ -2431,41 +2771,163 @@ export default function Page() {
                           <p className="mt-2 text-[11px] text-[#806f5b]">
                             {new Date(submission.createdAt).toLocaleString("cs-CZ")}
                           </p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setPresentationIndex(mediaSubmissions.findIndex((item) => item.id === submission.id))}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-[#312d27] px-3 py-2 text-xs font-bold text-white"
+                            >
+                              <Play size={14} /> Prezentovat
+                            </button>
+                            <a
+                              href={`${mediaUrl}?download=1`}
+                              download
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-[#d9c9aa] bg-white px-3 py-2 text-xs font-bold text-[#4d3b2a]"
+                            >
+                              <Download size={14} /> Stáhnout
+                            </a>
+                          </div>
                         </div>
                       </article>
                     );
                   })}
                 </div>
               )}
+              {galleryPageCount > 1 && (
+                <nav aria-label="Stránkování galerie" className="mt-5 flex items-center justify-between border-t border-[#e8dccb] pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setGalleryPage((page) => Math.max(0, page - 1))}
+                    disabled={galleryPage === 0}
+                    className="inline-flex items-center gap-1 rounded-lg border border-[#d9c9aa] bg-white px-3 py-2 text-sm font-semibold text-[#4d3b2a] disabled:opacity-45"
+                  >
+                    <ChevronLeft size={16} /> Předchozí
+                  </button>
+                  <span className="text-sm font-medium text-[#675d53]">Strana {galleryPage + 1} z {galleryPageCount}</span>
+                  <button
+                    type="button"
+                    onClick={() => setGalleryPage((page) => Math.min(galleryPageCount - 1, page + 1))}
+                    disabled={galleryPage + 1 >= galleryPageCount}
+                    className="inline-flex items-center gap-1 rounded-lg border border-[#d9c9aa] bg-white px-3 py-2 text-sm font-semibold text-[#4d3b2a] disabled:opacity-45"
+                  >
+                    Další <ChevronRight size={16} />
+                  </button>
+                </nav>
+              )}
+              {presentationIndex !== null && mediaSubmissions[presentationIndex] && (() => {
+                const submission = mediaSubmissions[presentationIndex];
+                const station = getStationById(gameState.stations, submission.stationId);
+                const team = gameState.teams.find((item) => item.id === submission.teamId);
+                const mediaUrl = submission.mediaUrl;
+                if (!isStoredMediaUrl(mediaUrl)) return null;
+                const isPhoto = station?.type === "photo";
+                return (
+                  <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Prezentace galerie"
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-[#151411]/95 p-4 text-white"
+                  >
+                    <div className="flex max-h-full w-full max-w-6xl flex-col">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold">{team?.name ?? "Tým"} · {station?.title ?? "Galerie"}</p>
+                          <p className="text-xs text-white/65">{presentationIndex + 1} / {mediaSubmissions.length}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPresentationIndex(null)}
+                          aria-label="Zavřít prezentaci"
+                          className="rounded-full bg-white/10 p-2.5 text-white transition hover:bg-white/20"
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
+                      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-2xl bg-black">
+                        {isPhoto ? (
+                          <Image
+                            src={mediaUrl}
+                            alt={`Fotografie od týmu ${team?.name ?? ""}`}
+                            width={1600}
+                            height={1200}
+                            unoptimized
+                            className="max-h-[72vh] w-full object-contain"
+                          />
+                        ) : (
+                          <video controls autoPlay muted src={mediaUrl} className="max-h-[72vh] w-full object-contain" />
+                        )}
+                      </div>
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setPresentationIndex((index) => index === null ? 0 : Math.max(0, index - 1))}
+                          disabled={presentationIndex === 0}
+                          className="inline-flex items-center gap-1 rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold disabled:opacity-35"
+                        >
+                          <ChevronLeft size={18} /> Předchozí
+                        </button>
+                        <a href={`${mediaUrl}?download=1`} download className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-bold text-[#29251f]">
+                          <Download size={16} /> Stáhnout
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => setPresentationIndex((index) => index === null ? 0 : Math.min(mediaSubmissions.length - 1, index + 1))}
+                          disabled={presentationIndex + 1 >= mediaSubmissions.length}
+                          className="inline-flex items-center gap-1 rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold disabled:opacity-35"
+                        >
+                          Další <ChevronRight size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </section>
           )}
 
           {adminTab === "flash" && (
             <section className="rounded-[24px] bg-[#fffdfa] p-4 shadow-[0_12px_30px_rgba(20,16,14,0.08)]">
-              <h2 className="mb-4 text-xl font-black text-[#201c19]">Přepadový úkol</h2>
+              <div className="mb-5">
+                <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#8f3529]">Mimořádná výzva</p>
+                <h2 className="mt-1 text-xl font-black text-[#201c19]">Připravit přepadový úkol</h2>
+                <p className="mt-1 text-sm text-[#675d53]">Týmy musí odevzdat odpověď. Podle nastavení ji může pořadatel schválit nebo se splní automaticky.</p>
+              </div>
               <div className="space-y-3">
-                <input
-                  value={flashMissionForm.title}
-                  onChange={(event) => setFlashMissionForm((current) => ({ ...current, title: event.target.value }))}
-                  placeholder="Název přepadového úkolu"
-                  className="w-full rounded-xl border border-[#d8c6a2] bg-[#faf5ee] p-3 text-sm"
-                />
-                <textarea
-                  value={flashMissionForm.description}
-                  onChange={(event) => setFlashMissionForm((current) => ({ ...current, description: event.target.value }))}
-                  placeholder="Popis úkolu"
-                  className="min-h-[80px] w-full rounded-xl border border-[#d8c6a2] bg-[#faf5ee] p-3 text-sm"
-                />
-                <select
-                  value={flashMissionForm.targets}
-                  onChange={(event) => setFlashMissionForm((current) => ({ ...current, targets: event.target.value as "all" | "specific" }))}
-                  className="w-full rounded-xl border border-[#d8c6a2] bg-[#faf5ee] p-3 text-sm"
-                >
-                  <option value="all">Všem týmům</option>
-                  <option value="specific">Vybraným týmům</option>
-                </select>
+                <label className="admin-field-label">
+                  Název výzvy
+                  <input
+                    value={flashMissionForm.title}
+                    onChange={(event) => setFlashMissionForm((current) => ({ ...current, title: event.target.value }))}
+                    placeholder="Například: Tajná zpráva"
+                    maxLength={100}
+                    className="w-full rounded-xl border border-[#d8c6a2] bg-[#faf5ee] p-3 text-sm"
+                  />
+                </label>
+                <label className="admin-field-label">
+                  Konkrétní zadání
+                  <textarea
+                    value={flashMissionForm.description}
+                    onChange={(event) => setFlashMissionForm((current) => ({ ...current, description: event.target.value }))}
+                    placeholder="Napište přesně, co mají týmy udělat a co odevzdat."
+                    maxLength={2000}
+                    rows={4}
+                    className="w-full rounded-xl border border-[#d8c6a2] bg-[#faf5ee] p-3 text-sm"
+                  />
+                </label>
+                <label className="admin-field-label">
+                  Komu se výzva zobrazí
+                  <select
+                    value={flashMissionForm.targets}
+                    onChange={(event) => setFlashMissionForm((current) => ({ ...current, targets: event.target.value as "all" | "specific" }))}
+                    className="w-full rounded-xl border border-[#d8c6a2] bg-[#faf5ee] p-3 text-sm"
+                  >
+                    <option value="all">Všem týmům</option>
+                    <option value="specific">Vybraným týmům</option>
+                  </select>
+                </label>
                 {flashMissionForm.targets === "specific" && (
-                  <div className="space-y-2">
+                  <fieldset className="grid gap-2 rounded-xl border border-[#e5d9c7] bg-[#fffaf3] p-3 sm:grid-cols-2">
+                    <legend className="px-1 text-xs font-bold uppercase tracking-wide text-[#756958]">Vyberte týmy</legend>
                     {gameState.teams.map((team) => (
                       <label key={team.id} className="flex items-center gap-2 text-sm text-[#3d3127]">
                         <input
@@ -2481,14 +2943,54 @@ export default function Page() {
                         {team.name}
                       </label>
                     ))}
-                  </div>
+                  </fieldset>
                 )}
+                <label className="flex items-start gap-3 rounded-xl border border-[#e1d4b6] bg-[#fffaf3] p-3 text-sm text-[#4d3b2a]">
+                  <input
+                    type="checkbox"
+                    checked={flashMissionForm.requiresApproval}
+                    onChange={(event) => setFlashMissionForm((current) => ({
+                      ...current,
+                      requiresApproval: event.target.checked,
+                    }))}
+                    className="mt-0.5 h-4 w-4 accent-[#a4332b]"
+                  />
+                  <span>
+                    <span className="block font-bold">Odpověď musí schválit pořadatel</span>
+                    <span className="mt-0.5 block text-xs text-[#756958]">Pokud volbu vypnete, odevzdaná odpověď úkol automaticky dokončí.</span>
+                  </span>
+                </label>
+                {error && <p role="alert" className="rounded-xl bg-[#fce7e6] px-3 py-2 text-sm text-[#8b2d2d]">{error}</p>}
                 <button
                   onClick={launchFlashMission}
+                  disabled={gameState.teams.length === 0}
                   className="w-full rounded-2xl bg-[#1d1a17] px-4 py-3 text-base font-bold text-white"
                 >
                   Odeslat přepadový úkol
                 </button>
+              </div>
+              <div className="mt-6 border-t border-[#ece3d5] pt-5">
+                <h3 className="mb-3 text-base font-bold text-[#201c19]">Aktivní výzvy</h3>
+                {gameState.flashMissions.length === 0 ? (
+                  <p className="rounded-xl bg-[#f5efe8] p-3 text-sm text-[#675d53]">Žádná přepadová výzva neběží.</p>
+                ) : (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {gameState.flashMissions.map((mission) => (
+                      <article key={mission.id} className="rounded-xl border border-[#e7d7b4] bg-[#fffaf3] p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <h3 className="font-bold text-[#2b2523]">{mission.title}</h3>
+                          <span className="shrink-0 rounded-full bg-[#f6ddab] px-2 py-1 text-[10px] font-bold text-[#7c5516]">
+                            {mission.requiresApproval ? "Schvaluje pořadatel" : "Automaticky"}
+                          </span>
+                        </div>
+                        <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm text-[#675d53]">{mission.description}</p>
+                        <p className="mt-3 text-xs font-semibold text-[#756958]">
+                          Týmy: {mission.targetTeamIds.map((id) => gameState.teams.find((team) => team.id === id)?.name).filter(Boolean).join(", ") || "—"}
+                        </p>
+                      </article>
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
           )}

@@ -68,8 +68,9 @@ export async function POST(request: Request) {
   }
 
   let submission: Submission | undefined;
+  let updatedTeam: { id: string; completedStations: string[]; scannedStationIds: string[] } | undefined;
   try {
-    await updateGameState((current) => {
+    const nextState = await updateGameState((current) => {
       const team = current.teams.find((item) => item.id === user.teamId);
       const station = current.stations.find((item) => item.id === body.stationId);
       if (!team || !station) throw new Error("Stanoviště nebylo nalezeno.");
@@ -131,28 +132,48 @@ export async function POST(request: Request) {
         id: randomUUID(),
         stationId: station.id,
         teamId: team.id,
-        status: "pending",
+        status: station.requiresApproval ? "pending" : "approved",
         content: station.task,
         evidence: mediaUrl ? "Soubor nahrán" : content,
         ...(mediaUrl ? { mediaUrl } : {}),
         comment: "",
         createdAt: new Date().toISOString(),
       };
+      updatedTeam = {
+        id: team.id,
+        completedStations: station.requiresApproval
+          ? team.completedStations
+          : [...new Set([...team.completedStations, station.id])],
+        scannedStationIds: team.scannedStationIds,
+      };
       return {
         ...current,
+        teams: current.teams.map((item) =>
+          item.id === team.id && !station.requiresApproval
+            ? { ...item, completedStations: updatedTeam?.completedStations ?? item.completedStations }
+            : item,
+        ),
         submissions: [...current.submissions, submission],
         events: [
           {
             id: randomUUID(),
             teamId: team.id,
-            message: `Tým ${team.name} odeslal úkol ze stanoviště ${station.title}.`,
-            tone: "warning" as const,
+            message: station.requiresApproval
+              ? `Tým ${team.name} odeslal úkol ze stanoviště ${station.title}.`
+              : `Tým ${team.name} splnil stanoviště ${station.title}.`,
+            tone: station.requiresApproval ? "warning" as const : "success" as const,
             createdAt: new Date().toISOString(),
           },
           ...current.events,
         ].slice(0, 12),
       };
     });
+    const persistedTeam = nextState.teams.find((item) => item.id === user.teamId);
+    if (persistedTeam) updatedTeam = {
+      id: persistedTeam.id,
+      completedStations: persistedTeam.completedStations,
+      scannedStationIds: persistedTeam.scannedStationIds,
+    };
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Úkol se nepodařilo odeslat." },
@@ -160,5 +181,5 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, submission });
+  return NextResponse.json({ ok: true, submission, team: updatedTeam });
 }
