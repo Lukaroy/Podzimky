@@ -66,7 +66,7 @@ export async function POST(request: Request) {
       const team = current.teams.find((item) => item.id === user.teamId);
       if (!team?.flashMissionId) throw new Error("Tým nemá aktivní přepadový úkol.");
       const mission = current.flashMissions.find((item) => item.id === team.flashMissionId);
-      if (!mission || !mission.targetTeamIds.includes(team.id)) {
+      if (!mission || mission.archivedAt || !mission.targetTeamIds.includes(team.id)) {
         throw new Error("Přepadový úkol už není dostupný tomuto týmu.");
       }
       if (mission.type !== "photo" && mission.type !== "text") {
@@ -77,7 +77,12 @@ export async function POST(request: Request) {
         throw new Error("Napište odpověď (maximálně 10 000 znaků).");
       }
       if (mission.type !== "photo" && mediaUrl) throw new Error("Tento přepadový úkol nepřijímá fotografii.");
-      if (current.submissions.some((item) => item.missionId === mission.id && item.teamId === team.id && item.status === "pending")) {
+      if (current.submissions.some((item) =>
+        item.missionId === mission.id &&
+        item.teamId === team.id &&
+        item.status === "pending" &&
+        !item.archivedAt
+      )) {
         throw new Error("Odpověď už čeká na schválení.");
       }
 

@@ -61,7 +61,9 @@ export async function POST(request: Request) {
 
   const nextState = await updateGameState((current) => {
     const submittedTeams = new Map(payload.teams.map((team) => [team.id, team]));
+    const isOutdatedGameState = payload.gameStartedAt !== current.gameStartedAt;
     const mergedExistingTeams = current.teams.map((oldTeam) => {
+      if (isOutdatedGameState) return oldTeam;
       const team = submittedTeams.get(oldTeam.id);
       if (!team) return oldTeam;
       const submittedPassword = team.password.trim();
@@ -74,7 +76,6 @@ export async function POST(request: Request) {
       return {
         ...team,
         password,
-        startedAt: oldTeam.startedAt ?? team.startedAt,
         completedStations: [...new Set([...oldTeam.completedStations, ...team.completedStations])],
         scannedStationIds: [...new Set([...oldTeam.scannedStationIds, ...team.scannedStationIds])],
       };
@@ -86,7 +87,11 @@ export async function POST(request: Request) {
     const currentSubmissions = new Map(current.submissions.map((submission) => [submission.id, submission]));
     for (const submission of payload.submissions) {
       const currentSubmission = currentSubmissions.get(submission.id);
-      if (!currentSubmission || (user.role === "admin" && currentSubmission.status === "pending")) {
+      if (!currentSubmission || (
+        user.role === "admin" &&
+        currentSubmission.status === "pending" &&
+        !currentSubmission.archivedAt
+      )) {
         currentSubmissions.set(submission.id, submission);
       }
     }
@@ -95,14 +100,21 @@ export async function POST(request: Request) {
       if (!mergedEvents.has(event.id)) mergedEvents.set(event.id, event);
     }
 
+    const currentMissions = new Map(current.flashMissions.map((mission) => [mission.id, mission]));
+    const submittedMissions = payload.flashMissions.map((mission) => {
+      const existingMission = currentMissions.get(mission.id);
+      currentMissions.delete(mission.id);
+      return existingMission?.archivedAt
+        ? { ...mission, archivedAt: existingMission.archivedAt }
+        : mission;
+    });
+
     return {
       ...payload,
-      flashMissions: [
-        ...payload.flashMissions,
-        ...current.flashMissions.filter((mission) => !payload.flashMissions.some((item) => item.id === mission.id)),
-      ],
-      teams: [...mergedExistingTeams, ...addedTeams],
+      gameStartedAt: current.gameStartedAt,
       submissions: [...currentSubmissions.values()],
+      flashMissions: [...submittedMissions, ...currentMissions.values()],
+      teams: [...mergedExistingTeams, ...addedTeams],
       events: [...mergedEvents.values()]
         .sort((first, second) => second.createdAt.localeCompare(first.createdAt))
         .slice(0, 12),

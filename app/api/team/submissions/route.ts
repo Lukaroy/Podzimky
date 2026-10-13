@@ -82,7 +82,12 @@ export async function POST(request: Request) {
         0,
       ) + 1;
       if (station.order !== nextOrder) throw new Error("Toto stanoviště teď není dostupné.");
-      if (current.submissions.some((item) => item.teamId === team.id && item.stationId === station.id && item.status === "pending")) {
+      if (current.submissions.some((item) =>
+        item.teamId === team.id &&
+        item.stationId === station.id &&
+        item.status === "pending" &&
+        !item.archivedAt
+      )) {
         throw new Error("Úkol už čeká na schválení.");
       }
 

@@ -27,7 +27,6 @@ import {
   LayoutDashboard,
   LogOut,
   MapPin,
-  Menu,
   Plus,
   QrCode,
   ScanLine,
@@ -88,13 +87,13 @@ type Submission = {
   mediaUrl?: string;
   comment: string;
   createdAt: string;
+  archivedAt?: string;
 };
 
 type Team = {
   id: string;
   name: string;
   password: string;
-  startedAt?: string;
   completedStations: string[];
   scannedStationIds: string[];
   flashMissionId?: string;
@@ -109,6 +108,7 @@ type FlashMission = {
   targetTeamIds: string[];
   requiresApproval: boolean;
   instructions: string;
+  archivedAt?: string;
 };
 
 type GameEvent = {
@@ -125,6 +125,7 @@ type GameState = {
   submissions: Submission[];
   flashMissions: FlashMission[];
   events: GameEvent[];
+  gameStartedAt?: string;
 };
 
 const emptyGameState: GameState = {
@@ -133,6 +134,7 @@ const emptyGameState: GameState = {
   submissions: [],
   flashMissions: [],
   events: [],
+  gameStartedAt: undefined,
 };
 
 function getNextOrder(team: Team | null | undefined, stations: Station[]): number {
@@ -157,11 +159,13 @@ function AdminDialog({
   title,
   description,
   onClose,
+  variant = "dialog",
   children,
 }: {
   title: string;
   description: string;
   onClose: () => void;
+  variant?: "dialog" | "drawer";
   children: ReactNode;
 }) {
   useEffect(() => {
@@ -176,7 +180,7 @@ function AdminDialog({
     <DialogPrimitive.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="admin-dialog-backdrop" />
-        <DialogPrimitive.Content className="admin-dialog">
+        <DialogPrimitive.Content className={classNames("admin-dialog", variant === "drawer" && "admin-dialog-drawer")}>
         <header className="admin-dialog-header">
           <div className="admin-dialog-seal" aria-hidden="true">印</div>
           <div className="min-w-0 flex-1">
@@ -383,6 +387,7 @@ function normalizeGameState(value?: Partial<GameState> | null): GameState {
     submissions: Array.isArray(safeValue.submissions) ? safeValue.submissions : [],
     flashMissions: Array.isArray(safeValue.flashMissions) ? safeValue.flashMissions : [],
     events: Array.isArray(safeValue.events) ? safeValue.events : [],
+    gameStartedAt: typeof safeValue.gameStartedAt === "string" ? safeValue.gameStartedAt : undefined,
   };
 }
 
@@ -410,6 +415,7 @@ export default function Page() {
   const [teamId, setTeamId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null);
+  const [gameControlBusy, setGameControlBusy] = useState(false);
   const [teamQrBusyId, setTeamQrBusyId] = useState<string | null>(null);
   const [generatedTeamQr, setGeneratedTeamQr] = useState<{ teamId: string; value: string } | null>(null);
   const [galleryPage, setGalleryPage] = useState(0);
@@ -418,13 +424,12 @@ export default function Page() {
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
   const [isStationDialogOpen, setIsStationDialogOpen] = useState(false);
   const [isFlashDialogOpen, setIsFlashDialogOpen] = useState(false);
-  const [stationFormStep, setStationFormStep] = useState<0 | 1 | 2>(0);
+  const [stationFormStep, setStationFormStep] = useState<0 | 1>(0);
   const [presentationIndex, setPresentationIndex] = useState<number | null>(null);
   const [flashDraft, setFlashDraft] = useState("");
   const [flashMediaFile, setFlashMediaFile] = useState<File | null>(null);
   const [flashMediaPreview, setFlashMediaPreview] = useState("");
   const [isSubmittingFlash, setIsSubmittingFlash] = useState(false);
-  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const cameraPermissionRequestedRef = useRef(false);
@@ -957,6 +962,35 @@ export default function Page() {
     setScreen("team-login");
   };
 
+  const handleGameControl = async (action: "start" | "restart") => {
+    if (action === "restart" && !window.confirm(
+      "Restartovat výpravu? Všem týmům se vynuluje čas a postup, aktivní přepady se zruší a dosavadní důkazy se archivují. Týmy zůstanou zachované.",
+    )) {
+      return;
+    }
+    setGameControlBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/game-control", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const result = await response.json() as { state?: GameState; error?: string };
+      if (!response.ok || !result.state) {
+        throw new Error(result.error ?? "Stav hry se nepodařilo změnit.");
+      }
+      const state = normalizeGameState(result.state);
+      lastPersistedStateRef.current = JSON.stringify(state);
+      setGameState(state);
+      setSaveError("");
+    } catch (controlError) {
+      setError(controlError instanceof Error ? controlError.message : "Stav hry se nepodařilo změnit.");
+    } finally {
+      setGameControlBusy(false);
+    }
+  };
+
   const submitTeamAnswer = async (station: Station) => {
     if (!activeTeam) return;
     if (submittingStationId === station.id) return;
@@ -971,7 +1005,8 @@ export default function Page() {
         (submission) =>
           submission.teamId === activeTeam.id &&
           submission.stationId === station.id &&
-          submission.status === "pending",
+          submission.status === "pending" &&
+          !submission.archivedAt,
       )
     ) {
       setError("Tento úkol už čeká na schválení.");
@@ -1125,20 +1160,16 @@ export default function Page() {
   };
 
   const handleAddStation = () => {
-    if (
-      !adminStationForm.title.trim() ||
-      !adminStationForm.uid.trim() ||
-      !adminStationForm.clue.trim() ||
-      !adminStationForm.task.trim()
-    ) {
-      setError("Vyplňte název, UID, úkol a nápovědu k tomuto stanovišti.");
+    if (!adminStationForm.title.trim() || !adminStationForm.task.trim()) {
+      setError("Vyplňte název a zadání úkolu.");
       return;
     }
-    if (!isValidUid(adminStationForm.uid)) {
+    const uid = adminStationForm.uid.trim().toUpperCase() || createUniqueStationUid(gameState.stations);
+    if (!isValidUid(uid)) {
       setError("UID musí obsahovat přesně 8 písmen nebo číslic.");
       return;
     }
-    if (gameState.stations.some((station) => station.uid.toUpperCase() === adminStationForm.uid.toUpperCase())) {
+    if (gameState.stations.some((station) => station.uid.toUpperCase() === uid)) {
       setError("Toto UID už používá jiné stanoviště. Vygenerujte nové.");
       return;
     }
@@ -1174,7 +1205,7 @@ export default function Page() {
       description: adminStationForm.description.trim(),
       clue: adminStationForm.clue.trim(),
       task: adminStationForm.task.trim(),
-      uid: adminStationForm.uid.toUpperCase(),
+      uid,
       type: adminStationForm.type,
       requiresApproval: adminStationForm.requiresApproval,
       instructions: adminStationForm.instructions,
@@ -1482,7 +1513,7 @@ export default function Page() {
 
   const activeFlashMission =
     activeTeam && activeTeam.flashMissionId
-      ? gameState.flashMissions.find((mission) => mission.id === activeTeam.flashMissionId)
+      ? gameState.flashMissions.find((mission) => mission.id === activeTeam.flashMissionId && !mission.archivedAt)
       : null;
   const activeFlashSubmission = activeTeam && activeFlashMission
     ? [...gameState.submissions].reverse().find(
@@ -1491,7 +1522,9 @@ export default function Page() {
       )
     : undefined;
 
-  const pendingSubmissions = gameState.submissions.filter((submission) => submission.status === "pending");
+  const pendingSubmissions = gameState.submissions.filter(
+    (submission) => submission.status === "pending" && !submission.archivedAt,
+  );
   const mediaSubmissions = [...gameState.submissions]
     .filter((submission) => isStoredMediaUrl(submission.mediaUrl))
     .sort((first, second) => second.createdAt.localeCompare(first.createdAt));
@@ -1501,7 +1534,7 @@ export default function Page() {
     galleryPage * galleryPageSize,
     (galleryPage + 1) * galleryPageSize,
   );
-  const managementPageSize = 8;
+  const managementPageSize = 12;
   const teamPageCount = Math.ceil(gameState.teams.length / managementPageSize);
   const stationPageCount = Math.ceil(gameState.stations.length / managementPageSize);
   const visibleTeams = gameState.teams.slice(teamPage * managementPageSize, (teamPage + 1) * managementPageSize);
@@ -1786,7 +1819,7 @@ export default function Page() {
                   <div className="min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#8c929b]">Podzimky 2026</p>
                     <h1 className="truncate text-lg font-bold tracking-tight text-[#1f2937] sm:text-xl">{activeTeam.name}</h1>
-                    <ElapsedClock startedAt={activeTeam.startedAt} className="player-clock mt-0.5 inline-flex items-center gap-1 font-mono text-xs font-semibold tabular-nums text-[#8b3329]" />
+                    <ElapsedClock startedAt={gameState.gameStartedAt} className="player-clock mt-0.5 inline-flex items-center gap-1 font-mono text-xs font-semibold tabular-nums text-[#8b3329]" />
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -1905,7 +1938,7 @@ export default function Page() {
                   const isAvailable = station.order === nextOrder;
                   const isScanned = activeTeam.scannedStationIds.includes(station.id);
                   const latestSubmission = [...gameState.submissions].reverse().find(
-                    (submission) => submission.teamId === activeTeam.id && submission.stationId === station.id,
+                    (submission) => submission.teamId === activeTeam.id && submission.stationId === station.id && !submission.archivedAt,
                   );
                   const isPending = latestSubmission?.status === "pending";
                   return (
@@ -2207,7 +2240,7 @@ export default function Page() {
             </div>
           )}
 
-          <div className="admin-metrics mb-3 grid grid-cols-2 gap-2 xl:grid-cols-4">
+          {adminTab === "overview" && <div className="admin-metrics mb-3 grid grid-cols-2 gap-2 xl:grid-cols-4">
             <div className="admin-metric flex items-center gap-3 rounded-lg bg-[#fffdfa] px-3 py-2.5 shadow-[0_5px_14px_rgba(20,14,11,0.04)]">
               <span className="admin-metric-icon"><AdminIcon name="stations" /></span>
               <div><p className="text-xs font-semibold text-[#716353]">Stanoviště</p><h3 className="text-xl font-bold text-[#201c19]">{gameState.stations.length}</h3></div>
@@ -2222,145 +2255,124 @@ export default function Page() {
             </div>
             <div className="admin-metric admin-metric-flash flex items-center gap-3 rounded-lg bg-[#fffdfa] px-3 py-2.5 shadow-[0_5px_14px_rgba(20,14,11,0.04)]">
               <span className="admin-metric-icon"><AdminIcon name="flash" /></span>
-              <div><p className="text-xs font-semibold text-[#716353]">Přepady</p><h3 className="text-xl font-bold text-[#201c19]">{gameState.flashMissions.length}</h3></div>
+              <div><p className="text-xs font-semibold text-[#716353]">Přepady</p><h3 className="text-xl font-bold text-[#201c19]">{gameState.flashMissions.filter((mission) => !mission.archivedAt).length}</h3></div>
             </div>
-          </div>
+          </div>}
 
-          <div className="admin-workspace space-y-4">
-            <aside id="admin-navigation" className="admin-nav rounded-xl border border-[#e2d8c7] bg-[#fffdfa] p-2 shadow-[0_6px_18px_rgba(25,19,12,0.04)]">
-              <button
-                type="button"
-                className="admin-menu-toggle"
-                aria-expanded={isAdminMenuOpen}
-                aria-controls="admin-navigation-items"
-                onClick={() => setIsAdminMenuOpen((open) => !open)}
-              >
-                {isAdminMenuOpen ? <X size={17} /> : <Menu size={17} />}
-                <span>Řídicí středisko</span>
-                {isAdminMenuOpen ? <span className="admin-menu-current">{adminTab === "overview" ? "Přehled" : adminTab === "teams" ? "Týmy" : adminTab === "stations" ? "Stanoviště" : adminTab === "submissions" ? "Schvalování" : adminTab === "media" ? "Galerie" : "Přepady"}</span> : null}
+          <div className={classNames("admin-workspace", adminTab === "overview" ? "admin-workspace-hub" : "admin-workspace-module")}>
+            <div className="admin-content min-w-0 space-y-4">
+          {adminTab !== "overview" && (
+            <header className="module-toolbar">
+              <button type="button" onClick={() => setAdminTab("overview")} className="module-back-button">
+                <ArrowLeft size={17} /> Zpět na rozcestník
               </button>
-              <p className="admin-nav-label px-2 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#88775e]">Dračí velín</p>
-              <nav id="admin-navigation-items" aria-label="Správa hry" className={classNames("admin-nav-items grid grid-cols-2 gap-1 sm:grid-cols-3 xl:grid-cols-6", !isAdminMenuOpen && "admin-nav-items-collapsed")}>
-                {[
-                  { key: "overview", label: "Přehled", icon: "overview" as const },
-                  { key: "teams", label: "Týmy", icon: "teams" as const },
-                  { key: "stations", label: "Stanoviště", icon: "stations" as const },
-                  { key: "submissions", label: "Schvalování", icon: "review" as const, count: pendingSubmissions.length },
-                  { key: "media", label: "Galerie", icon: "media" as const, count: mediaSubmissions.length },
-                  { key: "flash", label: "Přepady", icon: "flash" as const, count: gameState.flashMissions.length },
-                ].map((item) => (
-                  <button
-                    key={item.key}
-                    onClick={() => {
-                      setAdminTab(item.key as typeof adminTab);
-                      setIsAdminMenuOpen(false);
-                    }}
-                    aria-current={adminTab === item.key ? "page" : undefined}
-                    className={classNames(
-                      "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold transition",
-                      adminTab === item.key
-                        ? "bg-[#312d27] text-white"
-                        : "text-[#4d453a] hover:bg-[#f3eee5]",
-                    )}
-                  >
-                    <AdminIcon name={item.icon} />
-                    <span className="flex-1">{item.label}</span>
-                    {item.count !== undefined && (
-                      <span className={classNames(
-                        "rounded-full px-2 py-0.5 text-xs",
-                        adminTab === item.key ? "bg-white/15 text-white" : "bg-[#efe6d7] text-[#675844]",
-                      )}>
-                        {item.count}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </nav>
-            </aside>
-            <div className="admin-content min-w-0 space-y-5">
+              <span className="module-toolbar-divider" aria-hidden="true" />
+              <h2>{adminTab === "teams" ? "Týmy" : adminTab === "stations" ? "Stanoviště" : adminTab === "submissions" ? "Schvalování" : adminTab === "media" ? "Galerie" : "Přepady"}</h2>
+            </header>
+          )}
 
           {adminTab === "overview" && (
-            <div className="grid gap-3 xl:grid-cols-[1.15fr_0.85fr]">
-              <section className="rounded-[24px] bg-[#fffdfa] p-3 shadow-[0_12px_30px_rgba(20,16,14,0.08)]">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="admin-eyebrow">Výprava</p>
-                    <h2 className="text-lg font-bold text-[#201c19]">Postup týmů</h2>
+            <section className="trail-hub" aria-labelledby="trail-hub-title">
+              <div className="trail-hub-heading">
+                <div>
+                  <p className="admin-eyebrow">Vítejte na výpravě</p>
+                  <h2 id="trail-hub-title">Kam dnes vyrazíme?</h2>
+                  <p>Vyberte zastávku na stezce a pusťte se do správy hry.</p>
+                </div>
+                <span className={classNames("trail-status-seal", gameState.gameStartedAt && "trail-status-running")}>
+                  {gameState.gameStartedAt ? "Výprava probíhá" : "Výprava čeká na start"}
+                </span>
+              </div>
+              <div className="trail-hub-layout">
+                <div className="trail-map-art" aria-label="Ilustrovaná mapa čínské stezky s moduly administrace">
+                  <div className="trail-mountain trail-mountain-back" aria-hidden="true" />
+                  <div className="trail-mountain trail-mountain-front" aria-hidden="true" />
+                  <div className="trail-lantern lantern-one" aria-hidden="true">灯</div>
+                  <div className="trail-lantern lantern-two" aria-hidden="true">灯</div>
+                  <svg className="trail-route" viewBox="0 0 1000 560" preserveAspectRatio="none" aria-hidden="true">
+                    <path d="M70 444 C150 444 126 354 245 354 S334 454 424 414 S497 280 590 300 S675 396 770 320 S851 164 944 172" />
+                    <path className="trail-route-highlight" d="M70 444 C150 444 126 354 245 354 S334 454 424 414 S497 280 590 300 S675 396 770 320 S851 164 944 172" />
+                  </svg>
+                  {([
+                    { key: "teams", label: "Týmy", detail: "Výpravy", icon: "teams" as const, count: gameState.teams.length, x: 9, y: 79 },
+                    { key: "stations", label: "Stanoviště", detail: "Zastávky", icon: "stations" as const, count: gameState.stations.length, x: 25, y: 63 },
+                    { key: "flash", label: "Přepady", detail: "Tajné stezky", icon: "flash" as const, count: gameState.flashMissions.filter((mission) => !mission.archivedAt).length, x: 43, y: 73 },
+                    { key: "submissions", label: "Schvalování", detail: "Čeká na vás", icon: "review" as const, count: pendingSubmissions.length, x: 60, y: 53 },
+                    { key: "media", label: "Galerie", detail: "Vzpomínky", icon: "media" as const, count: mediaSubmissions.length, x: 78, y: 57 },
+                    { key: "presentation", label: "Promítání", detail: "Společné chvíle", icon: "media" as const, count: undefined, x: 94, y: 30 },
+                  ] as const).map((stop, index) => (
+                    <button
+                      key={stop.key}
+                      type="button"
+                      className={classNames("trail-waypoint", index % 2 === 0 && "trail-waypoint-parity")}
+                      style={{ left: `${stop.x}%`, top: `${stop.y}%` }}
+                      onClick={() => {
+                        setError("");
+                        setAdminTab(stop.key === "presentation" ? "media" : stop.key);
+                        if (stop.key === "presentation") {
+                          setGalleryPage(0);
+                          if (mediaSubmissions.length > 0) setPresentationIndex(0);
+                        }
+                      }}
+                    >
+                      <span className="trail-waypoint-seal"><AdminIcon name={stop.icon} /></span>
+                      <span className="trail-waypoint-copy">
+                        <span className="trail-waypoint-label">{stop.label}</span>
+                        <span className="trail-waypoint-detail">{stop.detail}</span>
+                      </span>
+                      {stop.count !== undefined && <span className="trail-waypoint-count">{stop.count}</span>}
+                    </button>
+                  ))}
+                  <span className="trail-map-gate" aria-hidden="true">龍門</span>
+                  <span className="trail-map-caption">Cesta tisíce li</span>
+                </div>
+                <aside className="trail-control-panel">
+                  <div className="trail-control-panel-heading">
+                    <span className="trail-control-emblem" aria-hidden="true">令</span>
+                    <div>
+                      <p>Velitelská pečeť</p>
+                      <h3>Čas výpravy</h3>
+                    </div>
                   </div>
-                  {gameState.teams.length > 5 && (
-                    <button type="button" onClick={() => setAdminTab("teams")} className="admin-inline-link">
-                      Všechny týmy <ArrowRight size={14} />
+                  <ElapsedClock startedAt={gameState.gameStartedAt} className="trail-master-clock" />
+                  <p className="trail-start-note">
+                    {gameState.gameStartedAt
+                      ? `Společný start ${new Date(gameState.gameStartedAt).toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })}`
+                      : "Čas se spustí všem týmům současně."}
+                  </p>
+                  {!gameState.gameStartedAt ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleGameControl("start")}
+                      disabled={gameControlBusy || gameState.teams.length === 0}
+                      className="trail-start-button"
+                    >
+                      <Play size={17} fill="currentColor" /> {gameControlBusy ? "Spouštím…" : "Odstartovat hru"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void handleGameControl("restart")}
+                      disabled={gameControlBusy}
+                      className="trail-restart-button"
+                    >
+                      <ArrowRight size={16} className="rotate-180" /> {gameControlBusy ? "Restartuji…" : "Restartovat výpravu"}
                     </button>
                   )}
-                </div>
-                <div className="space-y-2">
-                  {gameState.teams.slice(0, 5).map((team) => {
-                    const completed = team.completedStations.length;
-                    const percent = Math.round((completed / Math.max(gameState.stations.length, 1)) * 100);
-                    return (
-                      <div key={team.id} className="rounded-xl border border-[#e8dcc0] bg-[#faf6ef] px-3 py-2.5">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-black text-[#211d1a]">{team.name}</p>
-                            <p className="text-xs text-[#675d53]">{completed} / {gameState.stations.length} stanovišť hotovo</p>
-                          </div>
-                          <span className="rounded-full bg-[#f2dfb2] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#7a4e1a]">{percent}%</span>
-                        </div>
-                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#efe6d4]">
-                          <div className="h-full rounded-full bg-[#7d4d19]" style={{ width: `${percent}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-
-              <section className="rounded-[24px] bg-[#fffdfa] p-3 shadow-[0_12px_30px_rgba(20,16,14,0.08)]">
-                <h2 className="mb-3 text-lg font-bold text-[#201c19]">K vyřízení</h2>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setAdminTab("submissions")}
-                    className="rounded-xl bg-[#fff5dd] p-3 text-left transition hover:bg-[#ffefca]"
-                  >
-                    <p className="text-sm font-semibold text-[#4f3316]">Důkazy ke schválení</p>
-                    <p className="mt-1 text-2xl font-black text-[#201c19]">{pendingSubmissions.length}</p>
-                    <span className="mt-2 block text-xs font-semibold text-[#7a5826]">Otevřít schvalování →</span>
-                  </button>
-                  <button
-                    onClick={() => setAdminTab("flash")}
-                    className="rounded-xl bg-[#f2f4e8] p-3 text-left transition hover:bg-[#e8edd8]"
-                  >
-                    <p className="text-sm font-semibold text-[#2e4028]">Aktivní přepady</p>
-                    <p className="mt-1 text-2xl font-black text-[#201c19]">{gameState.flashMissions.length}</p>
-                    <span className="mt-2 block text-xs font-semibold text-[#4b6244]">Spravovat přepady →</span>
-                  </button>
-                </div>
-
-                <div className="mt-3 rounded-xl border border-[#ead7a7] bg-[#fffaf2] p-3">
-                  <h3 className="text-base font-black text-[#201c19]">Poslední dění</h3>
-                  <div className="mt-2 space-y-1">
-                    {gameState.events.slice(0, 3).map((event) => (
-                      <div key={event.id} className="flex items-start gap-3 border-b border-[#e9dcc0] py-2 last:border-0">
-                        <span
-                          aria-hidden="true"
-                          className={classNames(
-                            "mt-1.5 h-2 w-2 shrink-0 rounded-full",
-                            event.tone === "success" && "bg-[#4f8a50]",
-                            event.tone === "warning" && "bg-[#c58b32]",
-                            event.tone === "info" && "bg-[#788397]",
-                          )}
-                        />
-                        <p className="min-w-0 flex-1 text-sm text-[#362f2a]">{event.message}</p>
-                        <span className="shrink-0 text-xs text-[#685d51]">
-                          {new Date(event.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      </div>
-                    ))}
+                  {error && <p role="alert" className="trail-control-error">{error}</p>}
+                  <div className="trail-control-stats">
+                    <span>{gameState.teams.length} {gameState.teams.length === 1 ? "tým" : "týmů"}</span>
+                    <span>{pendingSubmissions.length} ke schválení</span>
                   </div>
-                </div>
-
-              </section>
-            </div>
+                  {gameState.events[0] && (
+                    <p className="trail-latest-event">
+                      <span>Poslední zpráva z cesty</span>
+                      {gameState.events[0].message}
+                    </p>
+                  )}
+                </aside>
+              </div>
+            </section>
           )}
 
           {adminTab === "teams" && (
@@ -2370,7 +2382,7 @@ export default function Page() {
                 <div>
                   <p className="admin-eyebrow">Správa výpravy</p>
                   <h2 className="text-2xl font-bold text-[#201c19]">Týmy</h2>
-                  <p className="mt-1 text-sm text-[#675d53]">{gameState.teams.length} týmů · přehled po 8</p>
+                  <p className="mt-1 text-sm text-[#675d53]">{gameState.teams.length} týmů</p>
                 </div>
                 <button
                   type="button"
@@ -2385,33 +2397,42 @@ export default function Page() {
                   const completed = team.completedStations.length;
                   const percent = Math.round((completed / Math.max(gameState.stations.length, 1)) * 100);
                   const teamPending = gameState.submissions.filter(
-                    (submission) => submission.teamId === team.id && submission.status === "pending",
+                    (submission) => submission.teamId === team.id && submission.status === "pending" && !submission.archivedAt,
                   ).length;
+                  const teamStatus = !gameState.gameStartedAt
+                    ? "Čeká na společný start"
+                    : team.flashMissionId
+                      ? "Přepadová výzva"
+                      : teamPending > 0
+                        ? "Čeká na schválení"
+                        : completed >= gameState.stations.length && gameState.stations.length > 0
+                          ? "V cíli"
+                          : completed > 0
+                            ? "Na trase"
+                            : "Připraven";
                   return (
-                    <article key={team.id} className="admin-team-card rounded-xl border border-[#e8dccb] bg-[#faf7f1] p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-lg font-bold text-[#211d1a]">{team.name}</h3>
-                          <p className="mt-1 text-sm text-[#675d53]">
-                            {completed} z {gameState.stations.length} stanovišť
-                          </p>
-                          <p className="admin-team-clock mt-1 inline-flex items-center gap-1.5 font-mono text-xs font-semibold tabular-nums text-[#8b3329]">
-                            <ElapsedClock startedAt={team.startedAt} />
-                          </p>
+                    <article key={team.id} className="admin-team-card">
+                      <div className="admin-team-list-row">
+                        <div className="min-w-0">
+                          <h3>{team.name}</h3>
+                          <p><span className="team-status-dot" />{teamStatus}</p>
                         </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <span className="rounded-full bg-[#f2dfb2] px-2.5 py-1 text-xs font-bold text-[#7a4e1a]">{percent}%</span>
-                          <button
-                            type="button"
-                            onClick={() => void handleRemoveTeam(team)}
-                            disabled={deletingTeamId === team.id}
-                            aria-label={`Odstranit tým ${team.name}`}
-                            title="Odstranit tým"
-                            className="admin-danger-button"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void handleRemoveTeam(team)}
+                          disabled={deletingTeamId === team.id}
+                          aria-label={`Odstranit tým ${team.name}`}
+                          title="Odstranit tým"
+                          className="admin-danger-button"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                      <details className="admin-team-details">
+                        <summary>Podrobnosti <span>{completed} / {gameState.stations.length} zastávek</span></summary>
+                        <div className="admin-team-details-body">
+                      <div className="team-detail-time">
+                        <span>Čas výpravy</span><ElapsedClock startedAt={gameState.gameStartedAt} />
                       </div>
                       <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#efe6d4]">
                         <div className="h-full rounded-full bg-[#7d4d19]" style={{ width: `${percent}%` }} />
@@ -2456,6 +2477,8 @@ export default function Page() {
                           </div>
                         </div>
                       )}
+                        </div>
+                      </details>
                     </article>
                   );
                 })}
@@ -2480,6 +2503,7 @@ export default function Page() {
                 title="Nový tým"
                 description="Zvolte název a přístupové heslo. QR přihlášení lze vytvořit po uložení."
                 onClose={() => setIsTeamDialogOpen(false)}
+                variant="drawer"
               >
                 <div className="admin-dialog-body">
                   <label className="admin-field-label">
@@ -2625,17 +2649,18 @@ export default function Page() {
             {isStationDialogOpen && (
               <AdminDialog
                 title="Nové stanoviště"
-                description="Připravte místo a zadání ve třech rychlých krocích."
+                description="Nejdřív základní údaje. Další možnosti zůstanou schované v nastavení."
                 onClose={() => setIsStationDialogOpen(false)}
+                variant="drawer"
               >
                 <div className="admin-dialog-body">
                   <div className="admin-stepper" aria-label="Kroky nového stanoviště">
-                    {["Místo", "Úkol", "Pravidla"].map((label, index) => (
+                    {["Základ", "Další nastavení"].map((label, index) => (
                       <button
                         key={label}
                         type="button"
                         aria-current={stationFormStep === index ? "step" : undefined}
-                        onClick={() => setStationFormStep(index as 0 | 1 | 2)}
+                        onClick={() => setStationFormStep(index as 0 | 1)}
                       >
                         <span>{index + 1}</span>{label}
                       </button>
@@ -2653,6 +2678,34 @@ export default function Page() {
                       className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
                     />
                   </label>
+                  <label className="admin-field-label md:col-span-2">
+                    Zadání úkolu
+                    <textarea
+                      value={adminStationForm.task}
+                      onChange={(event) => setAdminStationForm((current) => ({ ...current, task: event.target.value }))}
+                      placeholder="Co mají hráči udělat nebo objevit?"
+                      rows={3}
+                      className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
+                    />
+                  </label>
+                  <label className="admin-field-label md:col-span-2">
+                    Jak hráči úkol odevzdají?
+                    <select
+                      value={adminStationForm.type}
+                      onChange={(event) => setAdminStationForm((current) => ({ ...current, type: event.target.value as StationType }))}
+                      className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
+                    >
+                      <option value="text">Textová odpověď</option>
+                      <option value="number">Číselná odpověď</option>
+                      <option value="photo">Fotografie</option>
+                      <option value="video">Video</option>
+                      <option value="multiple-choice">Výběr odpovědi</option>
+                      <option value="riddle">Hádanka</option>
+                      <option value="form">Formulář</option>
+                    </select>
+                  </label>
+                  <details className="station-advanced-settings md:col-span-2">
+                    <summary>UID, nápověda a pravidla</summary>
                   <label className="admin-field-label">
                     Osmimístný UID kód
                     <input
@@ -2724,34 +2777,9 @@ export default function Page() {
                       className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
                     />
                   </label>
+                  </details>
                   </div>
                   <div className="contents" style={{ display: stationFormStep === 1 ? "contents" : "none" }}>
-                  <label className="admin-field-label md:col-span-2">
-                    Zadání úkolu
-                    <textarea
-                      value={adminStationForm.task}
-                      onChange={(event) => setAdminStationForm((current) => ({ ...current, task: event.target.value }))}
-                      placeholder="Co mají hráči na stanovišti udělat?"
-                      rows={3}
-                      className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
-                    />
-                  </label>
-                  <label className="admin-field-label">
-                    Typ odevzdání
-                    <select
-                      value={adminStationForm.type}
-                      onChange={(event) => setAdminStationForm((current) => ({ ...current, type: event.target.value as StationType }))}
-                      className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
-                    >
-                      <option value="text">Textová odpověď</option>
-                      <option value="number">Číselná odpověď</option>
-                      <option value="photo">Fotografie</option>
-                      <option value="video">Video</option>
-                      <option value="multiple-choice">Výběr odpovědi</option>
-                      <option value="riddle">Hádanka</option>
-                      <option value="form">Formulář</option>
-                    </select>
-                  </label>
                   {adminStationForm.type === "multiple-choice" && (
                     <>
                       <label className="admin-field-label md:col-span-2">
@@ -2884,7 +2912,9 @@ export default function Page() {
                     </div>
                   )}
                   </div>
-                  <div className="contents" style={{ display: stationFormStep === 2 ? "contents" : "none" }}>
+                  <div className="contents" style={{ display: stationFormStep === 1 ? "contents" : "none" }}>
+                  <details className="station-advanced-settings md:col-span-2">
+                    <summary>Schvalování</summary>
                   <label className="flex items-start gap-3 rounded-xl border border-[#e1d4b6] bg-white p-3 text-sm text-[#4d3b2a] md:col-span-2">
                     <input
                       type="checkbox"
@@ -2902,21 +2932,22 @@ export default function Page() {
                       </span>
                     </span>
                   </label>
+                  </details>
                   </div>
                 </div>
                 {error && <p className="mt-3 rounded-xl bg-[#fce7e6] px-3 py-2 text-sm text-[#8b2d2d]">{error}</p>}
                 <div className="admin-dialog-actions">
                   <button
                     type="button"
-                    onClick={() => stationFormStep === 0 ? setIsStationDialogOpen(false) : setStationFormStep((step) => (step - 1) as 0 | 1 | 2)}
+                    onClick={() => stationFormStep === 0 ? setIsStationDialogOpen(false) : setStationFormStep(0)}
                     className="admin-secondary-button"
                   >
                     {stationFormStep === 0 ? "Zrušit" : "Zpět"}
                   </button>
-                  {stationFormStep < 2 ? (
+                  {stationFormStep < 1 ? (
                     <button
                       type="button"
-                      onClick={() => setStationFormStep((step) => (step + 1) as 0 | 1 | 2)}
+                      onClick={() => setStationFormStep(1)}
                       className="admin-primary-button"
                     >
                       Pokračovat <ChevronRight size={16} />
@@ -3195,6 +3226,7 @@ export default function Page() {
                   title="Nový přepadový úkol"
                   description="Napište srozumitelné zadání, vyberte týmy a nastavte schvalování."
                   onClose={() => setIsFlashDialogOpen(false)}
+                  variant="drawer"
                 >
                 <div className="admin-dialog-body">
                 <div className="admin-flash-form grid gap-3 md:grid-cols-2">
@@ -3293,11 +3325,11 @@ export default function Page() {
               )}
               <div className="mt-6 border-t border-[#ece3d5] pt-5">
                 <h3 className="mb-3 text-base font-bold text-[#201c19]">Aktivní výzvy</h3>
-                {gameState.flashMissions.length === 0 ? (
+                {gameState.flashMissions.filter((mission) => !mission.archivedAt).length === 0 ? (
                   <p className="rounded-xl bg-[#f5efe8] p-3 text-sm text-[#675d53]">Žádná přepadová výzva neběží.</p>
                 ) : (
                   <div className="grid gap-3 md:grid-cols-2">
-                    {gameState.flashMissions.map((mission) => (
+                    {gameState.flashMissions.filter((mission) => !mission.archivedAt).map((mission) => (
                       <article key={mission.id} className="rounded-xl border border-[#e7d7b4] bg-[#fffaf3] p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -3319,6 +3351,45 @@ export default function Page() {
                   </div>
                 )}
               </div>
+              <details className="trail-archive mt-4">
+                <summary>
+                  Archiv výprav
+                  <span>{gameState.submissions.filter((submission) => submission.archivedAt).length} důkazů</span>
+                </summary>
+                <div className="trail-archive-list">
+                  {gameState.submissions.filter((submission) => submission.archivedAt).length === 0 ? (
+                    <p>Zatím tu nejsou archivované důkazy.</p>
+                  ) : (
+                    [...gameState.submissions]
+                      .filter((submission) => submission.archivedAt)
+                      .sort((first, second) => second.createdAt.localeCompare(first.createdAt))
+                      .map((submission) => {
+                        const mission = submission.missionId
+                          ? gameState.flashMissions.find((item) => item.id === submission.missionId)
+                          : undefined;
+                        const station = getStationById(gameState.stations, submission.stationId);
+                        const team = gameState.teams.find((item) => item.id === submission.teamId);
+                        const title = mission?.title ?? station?.title ?? "Úkol";
+                        const mediaUrl = submission.mediaUrl;
+                        return (
+                          <article key={submission.id}>
+                            <div>
+                              <strong>{team?.name ?? "Odstraněný tým"} · {title}</strong>
+                              <time dateTime={submission.createdAt}>{new Date(submission.createdAt).toLocaleString("cs-CZ")}</time>
+                            </div>
+                            {isStoredMediaUrl(mediaUrl) ? (
+                              <a href={`${mediaUrl}?download=1`} download className="trail-archive-download">
+                                <Download size={14} /> Stáhnout důkaz
+                              </a>
+                            ) : (
+                              <p>{submission.evidence}</p>
+                            )}
+                          </article>
+                        );
+                      })
+                  )}
+                </div>
+              </details>
             </section>
           )}
             </div>

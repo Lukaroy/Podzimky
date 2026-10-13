@@ -46,13 +46,13 @@ export type Submission = {
   mediaUrl?: string;
   comment: string;
   createdAt: string;
+  archivedAt?: string;
 };
 
 export type Team = {
   id: string;
   name: string;
   password: string;
-  startedAt?: string;
   completedStations: string[];
   scannedStationIds: string[];
   flashMissionId?: string;
@@ -67,6 +67,7 @@ export type FlashMission = {
   targetTeamIds: string[];
   requiresApproval: boolean;
   instructions: string;
+  archivedAt?: string;
 };
 
 export type GameEvent = {
@@ -83,6 +84,7 @@ export type GameState = {
   submissions: Submission[];
   flashMissions: FlashMission[];
   events: GameEvent[];
+  gameStartedAt?: string;
 };
 
 export const emptyGameState: GameState = {
@@ -91,6 +93,7 @@ export const emptyGameState: GameState = {
   submissions: [],
   flashMissions: [],
   events: [],
+  gameStartedAt: undefined,
 };
 
 export function normalizeGameState(value?: Partial<GameState> | null): GameState {
@@ -108,7 +111,6 @@ export function normalizeGameState(value?: Partial<GameState> | null): GameState
       ? safeValue.teams.map((team) => ({
           ...team,
           scannedStationIds: Array.isArray(team.scannedStationIds) ? team.scannedStationIds : [],
-          startedAt: typeof team.startedAt === "string" ? team.startedAt : undefined,
         }))
       : [],
     submissions: Array.isArray(safeValue.submissions) ? safeValue.submissions : [],
@@ -116,9 +118,11 @@ export function normalizeGameState(value?: Partial<GameState> | null): GameState
       ? safeValue.flashMissions.map((mission) => ({
           ...mission,
           requiresApproval: mission.requiresApproval ?? true,
+          archivedAt: typeof mission.archivedAt === "string" ? mission.archivedAt : undefined,
         }))
       : [],
     events: Array.isArray(safeValue.events) ? safeValue.events : [],
+    gameStartedAt: typeof safeValue.gameStartedAt === "string" ? safeValue.gameStartedAt : undefined,
   };
 }
 

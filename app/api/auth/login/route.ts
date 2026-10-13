@@ -57,19 +57,17 @@ export async function POST(request: Request) {
   }
   await clearTeamLoginFailures(throttleKey);
 
-  const firstLoginAt = new Date().toISOString();
-  state = await updateGameState((current) => ({
-    ...current,
-    teams: current.teams.map((currentTeam) =>
-      currentTeam.id === team.id
-        ? {
-            ...currentTeam,
-            ...(currentTeam.password.startsWith("scrypt$") ? {} : { password: hashTeamPassword(enteredPassword) }),
-            startedAt: currentTeam.startedAt ?? firstLoginAt,
-          }
-        : currentTeam,
-    ),
-  }));
+  if (!team.password.startsWith("scrypt$")) {
+    await updateGameState((current) => ({
+      ...current,
+      teams: current.teams.map((currentTeam) =>
+        currentTeam.id === team.id
+          ? { ...currentTeam, password: hashTeamPassword(enteredPassword) }
+          : currentTeam,
+      ),
+    }));
+    state = await readGameState();
+  }
 
   const currentTeam = state.teams.find((item) => item.id === team.id);
   if (!currentTeam) return NextResponse.json({ error: "Tým nebyl nalezen." }, { status: 404 });

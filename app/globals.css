@@ -1437,6 +1437,97 @@ video {
   }
 }
 
+.admin-team-card {
+  min-width: 0;
+  align-self: start;
+  border: 1px solid #e5d7c0;
+  border-left: 3px solid #a33a2e;
+  border-radius: 0.6rem;
+  background: linear-gradient(110deg, #fffdf8, #faf4e9);
+  padding: 0.85rem;
+  box-shadow: 0 4px 12px rgba(75, 49, 32, 0.045);
+}
+
+.admin-team-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-team-list-row h3 {
+  overflow: hidden;
+  margin: 0;
+  color: #36251d;
+  font-size: 0.95rem;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-team-list-row p {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.3rem 0 0;
+  color: #77634f;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.team-status-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #bd8a3c;
+  box-shadow: 0 0 0 3px #f5e9d0;
+}
+
+.admin-team-details {
+  margin-top: 0.65rem;
+  border-top: 1px solid #e8ddca;
+  padding-top: 0.55rem;
+}
+
+.admin-team-details > summary {
+  display: flex;
+  cursor: pointer;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: #78372e;
+  font-size: 0.72rem;
+  font-weight: 800;
+  list-style-position: inside;
+}
+
+.admin-team-details > summary span {
+  color: #796953;
+  font-size: 0.68rem;
+  font-weight: 650;
+}
+
+.admin-team-details-body {
+  padding-top: 0.7rem;
+}
+
+.team-detail-time {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: #78644f;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.team-detail-time > span:last-child {
+  color: #8b3329;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
 .admin-shell {
   max-width: 1560px;
   color: #302720;
@@ -2410,5 +2501,765 @@ video {
 @media (max-width: 560px) {
   .admin-header {
     border-radius: 0.45rem;
+  }
+}
+
+.admin-shell {
+  --trail-ink: #37231f;
+  --trail-red: #a32720;
+  --trail-gold: #c49b58;
+  --trail-paper: #fff9eb;
+}
+
+.admin-workspace-hub,
+.admin-workspace-module {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.admin-workspace-hub > .admin-content {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.admin-workspace-module > .admin-content {
+  min-height: 0;
+  flex: 1;
+}
+
+.module-toolbar {
+  display: flex;
+  min-height: 42px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.85rem;
+  border-bottom: 1px solid #ddcdb1;
+  padding: 0 0.15rem 0.65rem;
+}
+
+.module-back-button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid #dfcfae;
+  border-radius: 0.4rem;
+  background: #fff8e9;
+  padding: 0.45rem 0.7rem;
+  color: #76281f;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.module-back-button:hover {
+  background: #f5e9d2;
+}
+
+.module-toolbar-divider {
+  width: 1px;
+  height: 22px;
+  background: #d8c6a6;
+}
+
+.module-toolbar h2 {
+  margin: 0;
+  color: #412b24;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+}
+
+.trail-hub {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #dfceb0;
+  border-radius: 0.75rem;
+  background: #fcf5e6;
+  box-shadow: 0 8px 25px rgba(70, 43, 27, 0.09);
+}
+
+.trail-hub-heading {
+  display: flex;
+  min-height: 76px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+}
+
+.trail-hub-heading .admin-eyebrow {
+  margin-bottom: 0.1rem;
+  font-size: 0.62rem;
+}
+
+.trail-hub-heading h2 {
+  margin: 0;
+  color: #442821;
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 2vw, 1.75rem);
+  line-height: 1.15;
+}
+
+.trail-hub-heading p:last-child {
+  margin: 0.2rem 0 0;
+  color: #725e4c;
+  font-size: 0.75rem;
+}
+
+.trail-status-seal {
+  flex: 0 0 auto;
+  border: 1px solid #d5c19b;
+  border-radius: 999px;
+  background: #f4e8d0;
+  padding: 0.38rem 0.7rem;
+  color: #735838;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.trail-status-running {
+  border-color: #8b3026;
+  background: #f3e0d6;
+  color: #7c261f;
+}
+
+.trail-hub-layout {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) 224px;
+  gap: 0.7rem;
+  padding: 0 0.7rem 0.7rem;
+}
+
+.trail-map-art {
+  position: relative;
+  min-height: 350px;
+  overflow: hidden;
+  border: 1px solid #dcc69d;
+  border-radius: 0.55rem;
+  background:
+    radial-gradient(ellipse at 48% 38%, rgba(249, 237, 207, 0.93), transparent 34%),
+    linear-gradient(160deg, #d8d7b9 0%, #c5c9a6 35%, #e2d8b9 70%, #cfbea0);
+  isolation: isolate;
+}
+
+.trail-map-art::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 0 100%, rgba(76, 100, 68, 0.48), transparent 38%),
+    radial-gradient(ellipse at 100% 100%, rgba(73, 93, 64, 0.45), transparent 42%),
+    repeating-linear-gradient(0deg, transparent 0 29px, rgba(88, 75, 49, 0.035) 30px);
+  content: "";
+}
+
+.trail-mountain {
+  position: absolute;
+  z-index: -1;
+  width: 56%;
+  height: 49%;
+  background: linear-gradient(145deg, rgba(123, 145, 113, 0.55), rgba(91, 117, 91, 0.16));
+  clip-path: polygon(0 100%, 18% 68%, 30% 82%, 54% 23%, 68% 47%, 82% 9%, 100% 100%);
+}
+
+.trail-mountain-back {
+  top: 2%;
+  right: -2%;
+  opacity: 0.52;
+}
+
+.trail-mountain-front {
+  bottom: -5%;
+  left: 11%;
+  transform: scaleX(-1);
+  opacity: 0.42;
+}
+
+.trail-route {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.trail-route path {
+  fill: none;
+  stroke: rgba(107, 72, 40, 0.46);
+  stroke-dasharray: 3 2;
+  stroke-linecap: round;
+  stroke-width: 7;
+  vector-effect: non-scaling-stroke;
+}
+
+.trail-route .trail-route-highlight {
+  stroke: #fbf0d6;
+  stroke-dasharray: 1 2.7;
+  stroke-width: 2;
+}
+
+.trail-lantern {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  width: 32px;
+  height: 42px;
+  place-items: center;
+  border: 2px solid #efd38e;
+  border-radius: 44% 44% 38% 38%;
+  background: linear-gradient(135deg, #bc3a2a, #811e1b);
+  color: #f6d990;
+  font-family: "KaiTi", "STKaiti", Georgia, serif;
+  font-size: 1rem;
+  box-shadow: 0 5px 11px rgba(69, 31, 24, 0.22);
+}
+
+.trail-lantern::after {
+  position: absolute;
+  top: -8px;
+  width: 2px;
+  height: 8px;
+  background: #745a3b;
+  content: "";
+}
+
+.lantern-one {
+  top: 14%;
+  left: 11%;
+}
+
+.lantern-two {
+  right: 16%;
+  bottom: 14%;
+  transform: scale(0.8);
+}
+
+.trail-waypoint {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  width: clamp(112px, 13vw, 150px);
+  min-height: 52px;
+  align-items: center;
+  gap: 0.45rem;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(120, 75, 42, 0.32);
+  border-radius: 0.38rem;
+  background: rgba(255, 250, 235, 0.95);
+  padding: 0.35rem 0.4rem;
+  color: #38241e;
+  text-align: left;
+  box-shadow: 0 4px 10px rgba(63, 47, 29, 0.14);
+  transition: background-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+
+.trail-waypoint:hover {
+  z-index: 4;
+  transform: translate(-50%, -54%);
+  background: #fffdf6;
+  box-shadow: 0 8px 16px rgba(63, 47, 29, 0.22);
+}
+
+.trail-waypoint-seal {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #c69a54;
+  border-radius: 50%;
+  background: #8c2821;
+  color: #ffedc2;
+}
+
+.trail-waypoint-seal svg {
+  width: 15px;
+  height: 15px;
+}
+
+.trail-waypoint-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.trail-waypoint-label {
+  overflow: hidden;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trail-waypoint-detail {
+  overflow: hidden;
+  color: #846e56;
+  font-size: 0.61rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trail-waypoint-count {
+  display: grid;
+  min-width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 999px;
+  background: #ead8b4;
+  color: #6e3527;
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.trail-map-gate {
+  position: absolute;
+  right: 0.85rem;
+  bottom: 0.65rem;
+  z-index: 1;
+  border: 1px solid rgba(107, 45, 33, 0.45);
+  background: rgba(112, 38, 30, 0.92);
+  padding: 0.35rem 0.55rem;
+  color: #f7dda8;
+  font-family: "KaiTi", "STKaiti", Georgia, serif;
+  font-size: 0.77rem;
+  letter-spacing: 0.1em;
+}
+
+.trail-map-caption {
+  position: absolute;
+  bottom: 0.7rem;
+  left: 0.9rem;
+  color: rgba(65, 62, 44, 0.73);
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  font-style: italic;
+}
+
+.trail-control-panel {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  border: 1px solid #ddc99f;
+  border-radius: 0.55rem;
+  background: #fffaf0;
+  padding: 0.8rem;
+}
+
+.trail-control-panel-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid #eadcc0;
+}
+
+.trail-control-emblem {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #c79b53;
+  border-radius: 50%;
+  background: #83271f;
+  color: #f5dcaa;
+  font-family: "KaiTi", "STKaiti", Georgia, serif;
+  font-size: 1.25rem;
+}
+
+.trail-control-panel-heading p {
+  margin: 0;
+  color: #957246;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.trail-control-panel-heading h3 {
+  margin: 0.1rem 0 0;
+  color: #452b22;
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+}
+
+.trail-master-clock {
+  display: block;
+  margin: 0.85rem 0 0.25rem;
+  color: #842b22;
+  font-family: "Courier New", monospace;
+  font-size: clamp(1.45rem, 2vw, 2rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.trail-master-clock svg {
+  display: none;
+}
+
+.trail-start-note {
+  min-height: 2rem;
+  margin: 0;
+  color: #786652;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.trail-start-button,
+.trail-restart-button {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+  border: 1px solid #76231c;
+  border-radius: 0.4rem;
+  background: #8e281f;
+  padding: 0.55rem;
+  color: #fff4df;
+  font-size: 0.76rem;
+  font-weight: 800;
+  transition: background-color 120ms ease;
+}
+
+.trail-start-button:hover:not(:disabled) {
+  background: #a83428;
+}
+
+.trail-restart-button {
+  border-color: #d7c6a7;
+  background: #f4ead8;
+  color: #684c34;
+}
+
+.trail-restart-button:hover:not(:disabled) {
+  background: #ebdcc0;
+}
+
+.trail-start-button:disabled,
+.trail-restart-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.trail-control-error {
+  margin: 0.5rem 0 0;
+  border-radius: 0.35rem;
+  background: #f9e6df;
+  padding: 0.5rem;
+  color: #872d23;
+  font-size: 0.7rem;
+}
+
+.trail-control-stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+  border-top: 1px solid #eadcc0;
+  padding-top: 0.65rem;
+  color: #735d47;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.trail-latest-event {
+  margin: 0.75rem 0 0;
+  border-left: 2px solid #bf9854;
+  padding-left: 0.5rem;
+  color: #554436;
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.trail-latest-event span {
+  display: block;
+  margin-bottom: 0.18rem;
+  color: #987448;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-dialog-drawer {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: auto;
+  display: flex;
+  width: min(500px, calc(100vw - 1rem));
+  max-height: 100dvh;
+  flex-direction: column;
+  transform: none;
+  border-radius: 0.7rem 0 0 0.7rem;
+  animation: admin-drawer-enter 180ms ease-out;
+}
+
+.admin-dialog-drawer .admin-dialog-body {
+  min-height: 0;
+  max-height: none;
+  flex: 1;
+  overscroll-behavior: contain;
+}
+
+.admin-dialog-drawer .admin-dialog-actions {
+  position: sticky;
+  bottom: -1.25rem;
+}
+
+.station-advanced-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  border: 1px solid #e1d2b5;
+  border-radius: 0.5rem;
+  background: #f9f1e2;
+  padding: 0.7rem;
+}
+
+.station-advanced-settings > summary {
+  cursor: pointer;
+  color: #7a3429;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.station-advanced-settings[open] > summary {
+  border-bottom: 1px solid #e6d6b7;
+  padding-bottom: 0.55rem;
+}
+
+.trail-archive {
+  border-top: 1px solid #e1d3bb;
+  padding-top: 0.75rem;
+}
+
+.trail-archive > summary {
+  display: flex;
+  cursor: pointer;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: #60352b;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.trail-archive > summary span {
+  color: #8e7558;
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
+.trail-archive-list {
+  display: grid;
+  max-height: 20rem;
+  gap: 0.45rem;
+  overflow-y: auto;
+  margin-top: 0.7rem;
+}
+
+.trail-archive-list article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid #e7dcc8;
+  border-radius: 0.4rem;
+  background: #fffdf7;
+  padding: 0.6rem;
+}
+
+.trail-archive-list article > div {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.trail-archive-list strong {
+  overflow: hidden;
+  color: #49332b;
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+}
+
+.trail-archive-list time,
+.trail-archive-list article > p {
+  margin: 0;
+  color: #806d57;
+  font-size: 0.65rem;
+}
+
+.trail-archive-download {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 0.35rem;
+  background: #f1e5cf;
+  padding: 0.4rem 0.55rem;
+  color: #703027;
+  font-size: 0.65rem;
+  font-weight: 750;
+}
+
+@keyframes admin-drawer-enter {
+  from { opacity: 0.7; transform: translateX(18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (min-width: 1024px) and (min-height: 700px) {
+  .admin-shell {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .admin-workspace-hub > .admin-content {
+    overflow: hidden;
+  }
+
+  .admin-workspace-module > .admin-content {
+    overflow-y: auto;
+    padding-right: 0.25rem;
+    scrollbar-color: #b88a43 #e8ddc9;
+    scrollbar-width: thin;
+  }
+}
+
+@media (max-width: 1023px) {
+  .admin-shell {
+    min-height: 100svh;
+  }
+
+  .admin-workspace-hub > .admin-content {
+    overflow: visible;
+  }
+
+  .trail-hub {
+    overflow: visible;
+  }
+
+  .trail-hub-layout {
+    grid-template-columns: minmax(0, 1fr) 210px;
+  }
+
+  .trail-map-art {
+    min-height: 440px;
+  }
+}
+
+@media (max-width: 700px) {
+  .trail-hub-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .trail-map-art {
+    min-height: 460px;
+  }
+
+  .trail-control-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    align-items: center;
+    column-gap: 0.75rem;
+  }
+
+  .trail-control-panel-heading {
+    grid-column: 1;
+  }
+
+  .trail-master-clock {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+    font-size: 1.45rem;
+  }
+
+  .trail-start-note {
+    grid-column: 1;
+  }
+
+  .trail-start-button,
+  .trail-restart-button {
+    grid-column: 2;
+    grid-row: 2;
+    margin-top: 0.35rem;
+  }
+
+  .trail-control-stats,
+  .trail-latest-event,
+  .trail-control-error {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .trail-hub-heading {
+    align-items: flex-start;
+    padding: 0.75rem;
+  }
+
+  .trail-status-seal {
+    margin-top: 0.2rem;
+    padding: 0.3rem 0.45rem;
+    font-size: 0.58rem;
+  }
+
+  .trail-map-art {
+    display: grid;
+    min-height: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: center;
+    gap: 0.6rem;
+    padding: 2.5rem 0.65rem;
+  }
+
+  .trail-route {
+    display: none;
+  }
+
+  .trail-waypoint {
+    position: relative;
+    top: auto !important;
+    left: auto !important;
+    width: auto;
+    min-height: 54px;
+    transform: none;
+  }
+
+  .trail-waypoint:hover {
+    transform: translateY(-2px);
+  }
+
+  .trail-lantern {
+    transform: scale(0.75);
+  }
+
+  .trail-map-caption {
+    max-width: 45%;
+  }
+
+  .admin-dialog-drawer {
+    width: 100%;
+    border-radius: 0;
   }
 }

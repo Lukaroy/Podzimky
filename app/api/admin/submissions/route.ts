@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   try {
     const state = await updateGameState((current) => {
       const submission = current.submissions.find((item) => item.id === body.submissionId);
-      if (!submission || submission.status !== "pending") {
+      if (!submission || submission.status !== "pending" || submission.archivedAt) {
         throw new Error("Odevzdání už není dostupné ke schválení.");
       }
       const station = submission.missionId
@@ -41,6 +41,7 @@ export async function POST(request: Request) {
       const mission = submission.missionId
         ? current.flashMissions.find((item) => item.id === submission.missionId)
         : undefined;
+      if (mission?.archivedAt) throw new Error("Odevzdání bylo archivováno při restartu hry.");
       if (!station && !mission) throw new Error("Úkol už neexistuje.");
       const team = current.teams.find((item) => item.id === submission.teamId);
       if (!team) throw new Error("Tým už neexistuje.");
