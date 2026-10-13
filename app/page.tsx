@@ -2506,6 +2506,10 @@ export default function Page() {
                   onClick={() => {
                     setError("");
                     setStationFormStep(0);
+                    setAdminStationForm((current) => ({
+                      ...current,
+                      uid: createUniqueStationUid(gameState.stations),
+                    }));
                     setIsStationDialogOpen(true);
                   }}
                   className="admin-primary-button"
@@ -2602,7 +2606,7 @@ export default function Page() {
             {isStationDialogOpen && (
               <AdminDialog
                 title="Nové stanoviště"
-                description="Nejdřív základní údaje. Další možnosti zůstanou schované v nastavení."
+                description="UID i přihlašovací QR kód se vytvoří automaticky. Doplňte základní zadání a stanoviště uložte."
                 onClose={() => setIsStationDialogOpen(false)}
                 variant="drawer"
               >
@@ -2657,60 +2661,36 @@ export default function Page() {
                       <option value="form">Formulář</option>
                     </select>
                   </label>
-                  <details className="station-advanced-settings md:col-span-2">
-                    <summary>UID, nápověda a pravidla</summary>
-                  <label className="admin-field-label">
-                    Osmimístný UID kód
-                    <input
-                      value={adminStationForm.uid}
-                      onChange={(event) => setAdminStationForm((current) => ({ ...current, uid: event.target.value.toUpperCase().slice(0, 8) }))}
-                      maxLength={8}
-                      placeholder="Např. A2BC34DE"
-                      className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm uppercase"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAdminStationForm((current) => ({
-                        ...current,
-                        uid: createUniqueStationUid(gameState.stations),
-                      }));
-                      setError("");
-                    }}
-                    className="rounded-xl border border-[#b18a4b] bg-[#f4e5c5] px-4 py-3 text-sm font-bold text-[#5a3c18]"
-                  >
-                    Vygenerovat UID
-                  </button>
-                  {isValidUid(adminStationForm.uid) && (
-                    <div className="flex flex-wrap items-center gap-4 rounded-xl border border-[#e1d4b6] bg-[#fffaf1] p-3 md:col-span-2">
-                      <div className="rounded-lg bg-white p-2">
-                        <QRCodeSVG
-                          value={adminStationForm.uid}
-                          size={152}
-                          level="M"
-                          marginSize={4}
-                          title={`QR kód UID ${adminStationForm.uid}`}
-                          data-qr-uid={adminStationForm.uid}
-                        />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-[#201c19]">QR kód pro nové stanoviště</p>
-                        <p className="mt-1 font-mono text-lg tracking-widest text-[#72501f]">{adminStationForm.uid}</p>
-                        <p className="mt-1 max-w-xs text-sm text-[#65574a]">Kód obsahuje stejné UID, které tým po načtení zadá.</p>
-                        <button
-                          onClick={() => {
-                            if (!downloadQrSvg(adminStationForm.uid, `stanoviste-${adminStationForm.uid}.svg`)) {
-                              setError("QR kód se nepodařilo připravit ke stažení.");
-                            }
-                          }}
-                          className="mt-3 rounded-lg border border-[#d4c3a2] bg-white px-3 py-2 text-sm font-semibold text-[#4d3b2a]"
-                        >
-                          Stáhnout QR
-                        </button>
-                      </div>
+                  <div className="station-qr-preview md:col-span-2">
+                    <div className="station-qr-preview-code">
+                      <QRCodeSVG
+                        value={adminStationForm.uid}
+                        size={128}
+                        level="M"
+                        marginSize={4}
+                        title={`Automaticky vytvořený QR kód stanoviště ${adminStationForm.uid}`}
+                        data-qr-uid={adminStationForm.uid}
+                      />
                     </div>
-                  )}
+                    <div>
+                      <p className="station-qr-preview-label">Připravené UID a QR</p>
+                      <p className="station-qr-preview-uid">{adminStationForm.uid}</p>
+                      <p className="station-qr-preview-hint">Kód se automaticky uloží ke stanovišti. QR můžete stáhnout nebo vytisknout.</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!downloadQrSvg(adminStationForm.uid, `stanoviste-${adminStationForm.uid}.svg`)) {
+                            setError("QR kód se nepodařilo připravit ke stažení.");
+                          }
+                        }}
+                        className="station-qr-preview-download"
+                      >
+                        <Download size={14} /> Stáhnout QR
+                      </button>
+                    </div>
+                  </div>
+                  <details className="station-advanced-settings md:col-span-2">
+                    <summary>Nápověda a pravidla</summary>
                   <label className="admin-field-label md:col-span-2">
                     Krátký popis místa
                     <input

@@ -3025,6 +3025,74 @@ video {
   bottom: -1.25rem;
 }
 
+.station-qr-preview {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border: 1px solid #d9c49a;
+  border-left: 3px solid #a33228;
+  border-radius: 0.55rem;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(202, 165, 97, 0.12), transparent 60%),
+    #fffaf0;
+  padding: 0.8rem;
+}
+
+.station-qr-preview-code {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #eadfc9;
+  border-radius: 0.4rem;
+  background: white;
+  padding: 0.45rem;
+}
+
+.station-qr-preview-label {
+  margin: 0;
+  color: #765b35;
+  font-size: 0.66rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.station-qr-preview-uid {
+  margin: 0.2rem 0 0;
+  color: #462b23;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.15rem;
+  font-weight: 850;
+  letter-spacing: 0.13em;
+}
+
+.station-qr-preview-hint {
+  max-width: 26rem;
+  margin: 0.3rem 0 0;
+  color: #766956;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.station-qr-preview-download {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+  border: 1px solid #d9c8a9;
+  border-radius: 0.35rem;
+  background: #f8efdD;
+  padding: 0.35rem 0.55rem;
+  color: #6f3027;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.station-qr-preview-download:hover {
+  background: #f1e2c4;
+}
+
 .station-advanced-settings {
   display: flex;
   flex-direction: column;
