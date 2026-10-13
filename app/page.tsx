@@ -1,6 +1,6 @@
 "use client";
 
-import { Html5QrcodeScanner } from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeScanner } from "html5-qrcode";
 import { upload } from "@vercel/blob/client";
 import {
   inMemoryPersistence,
@@ -235,6 +235,7 @@ export default function Page() {
   const [error, setError] = useState("");
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const cameraPermissionRequestedRef = useRef(false);
   const [manualUidOpen, setManualUidOpen] = useState(false);
   const [manualUidDraft, setManualUidDraft] = useState("");
   const [scanMessage, setScanMessage] = useState("Naskenujte QR kód, nebo zadejte UID ručně.");
@@ -319,6 +320,39 @@ export default function Page() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (
+      !isAuthenticated ||
+      screen !== "team-dashboard" ||
+      !teamId ||
+      cameraPermissionRequestedRef.current
+    ) {
+      return;
+    }
+
+    cameraPermissionRequestedRef.current = true;
+    let isMounted = true;
+
+    Html5Qrcode.getCameras()
+      .then((cameras) => {
+        if (!isMounted) return;
+        setScanMessage(
+          cameras.length > 0
+            ? "Kamera je povolena. Namiřte ji na QR kód stanoviště."
+            : "Kamera nebyla nalezena. Zkontrolujte, že je připojena a povolena.",
+        );
+      })
+      .catch(() => {
+        if (isMounted) {
+          setScanMessage("Povolte přístup ke kameře v nastavení webu a zkuste skenování znovu.");
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, screen, teamId]);
 
   useEffect(() => {
     if (isLoadingGameState || !isAuthenticated) {
@@ -448,7 +482,10 @@ export default function Page() {
       "qr-reader-element",
       {
         fps: 10,
-        qrbox: { width: 250, height: 250 },
+        qrbox: (viewfinderWidth, viewfinderHeight) => {
+          const size = Math.floor(Math.min(viewfinderWidth * 0.8, viewfinderHeight * 0.72, 340));
+          return { width: size, height: size };
+        },
         rememberLastUsedCamera: true,
       },
       false,
@@ -2066,7 +2103,10 @@ export default function Page() {
             <p className="mb-3 rounded-xl bg-[#f1e4c9] px-3 py-2 text-sm text-[#6d4d20]">
               Pro skenování QR kódu povolte v okně prohlížeče přístup ke kameře. Pokud jste přístup dříve zamítli, změňte oprávnění kamery v nastavení webu.
             </p>
-            <div id="qr-reader-element" className="overflow-hidden rounded-2xl border border-[#e8dcc0] bg-[#f7f3ee]" />
+            <p className="mb-2 text-center text-sm font-bold text-[#554b42]">
+              Namiřte kameru tak, aby se celý QR kód vešel do zlatého rámečku.
+            </p>
+            <div id="qr-reader-element" className="qr-reader-element overflow-hidden rounded-2xl border border-[#e8dcc0] bg-[#f7f3ee]" />
             <p className="mt-4 text-sm text-[#554b42]">{scanMessage}</p>
             <div className="mt-3 flex gap-3">
               <button onClick={handleManualUid} className="flex-1 rounded-xl bg-[#f1e4c9] px-3 py-2 text-sm font-bold text-[#6d4d20]">Zadat UID ručně</button>
