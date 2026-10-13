@@ -178,6 +178,7 @@ npm run build
 | Firebase hlásí nepovolenou doménu | Přidejte doménu přesně do Firebase **Authorized domains**. |
 | Tým se nepřihlásí přes Firebase | Ověřte Firebase Admin service account, `FIREBASE_ADMIN_PROJECT_ID` a že tým existuje v herním stavu. |
 | Firebase účet se nemůže přihlásit jako administrátor | Ověřte e-mail/heslo provider a shodu Firebase UID s `FIREBASE_ADMIN_UID`. |
+| QR skener nevidí kameru | Povolte webu přístup ke kameře v dialogu prohlížeče. Pokud byl přístup zamítnut, změňte oprávnění kamery v nastavení webu; skenování vyžaduje HTTPS nebo `localhost`. |
 | Nahrávání souboru selže | Ověřte Blob store, `BLOB_READ_WRITE_TOKEN`, oprávnění prostředí a povolený typ souboru do 50 MB. |
 | Chyba Firebase private key | Zkontrolujte kompletní JSON service accountu a nové řádky `\n` v `FIREBASE_ADMIN_PRIVATE_KEY`. |
 

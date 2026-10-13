@@ -1128,7 +1128,10 @@ export default function Page() {
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                 <button
-                  onClick={() => setScannerOpen(true)}
+                  onClick={() => {
+                    setScanMessage("Pro skenování QR kódu povolte prohlížeči přístup ke kameře.");
+                    setScannerOpen(true);
+                  }}
                   className="rounded-lg bg-[#e2bd70] px-3 py-2.5 text-xs font-bold text-[#40251c] transition hover:bg-[#f0d18b] sm:px-4 sm:text-sm"
                 >
                   <span className="sm:hidden">Skenovat</span>
@@ -1268,7 +1271,10 @@ export default function Page() {
                             <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#8f3529]">Nápověda k místu</p>
                             <p className="mt-2 text-base leading-6 text-[#392d23]">{station.clue || "Nápovědu doplní organizátor."}</p>
                             <button
-                              onClick={() => setScannerOpen(true)}
+                              onClick={() => {
+                                setScanMessage("Pro skenování QR kódu povolte prohlížeči přístup ke kameře.");
+                                setScannerOpen(true);
+                              }}
                               className="mt-4 w-full rounded-lg bg-[#a4332b] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#85271f]"
                             >
                               Naskenovat QR a otevřít úkol
@@ -2057,6 +2063,9 @@ export default function Page() {
               <h3 className="text-xl font-black text-[#1d1a17]">Naskenovat QR</h3>
               <button onClick={() => setScannerOpen(false)} className="rounded-full bg-[#f5efe6] px-3 py-1 text-sm font-bold text-[#4f4339]">Zavřít</button>
             </div>
+            <p className="mb-3 rounded-xl bg-[#f1e4c9] px-3 py-2 text-sm text-[#6d4d20]">
+              Pro skenování QR kódu povolte v okně prohlížeče přístup ke kameře. Pokud jste přístup dříve zamítli, změňte oprávnění kamery v nastavení webu.
+            </p>
             <div id="qr-reader-element" className="overflow-hidden rounded-2xl border border-[#e8dcc0] bg-[#f7f3ee]" />
             <p className="mt-4 text-sm text-[#554b42]">{scanMessage}</p>
             <div className="mt-3 flex gap-3">
