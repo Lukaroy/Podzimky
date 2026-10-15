@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { createTeamCustomToken } from "@/lib/firebase-admin";
-import { findTeamByCredentials, hashTeamPassword, verifyRequestOrigin } from "@/lib/auth";
+import { createManagerCustomToken, createTeamCustomToken } from "@/lib/firebase-admin";
+import { findManagerByCredentials, findTeamByCredentials, hashTeamPassword, verifyRequestOrigin } from "@/lib/auth";
 import { readGameState, updateGameState } from "@/lib/game-store";
 import {
   assertTeamLoginAllowed,
@@ -52,6 +52,11 @@ export async function POST(request: Request) {
   let state = await readGameState();
   const team = findTeamByCredentials(state, body.name, enteredPassword);
   if (!team) {
+    const manager = await findManagerByCredentials(body.name, enteredPassword);
+    if (manager) {
+      await clearTeamLoginFailures(throttleKey);
+      return NextResponse.json({ customToken: await createManagerCustomToken(manager.id), role: "admin" });
+    }
     await recordFailedTeamLogin(throttleKey);
     return NextResponse.json({ error: "Nesprávné přihlašovací údaje." }, { status: 401 });
   }

@@ -42,3 +42,13 @@ model TeamQrCredential {
 
   @@map("team_qr_credentials")
 }
+
+model Manager {
+  id           String   @id
+  username     String   @unique
+  displayName  String   @map("display_name")
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @db.Timestamptz(3) @map("created_at")
+
+  @@map("managers")
+}

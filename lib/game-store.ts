@@ -32,6 +32,7 @@ export type Station = {
     label: string;
     type: "text" | "number" | "multiple-choice";
     options?: string[];
+    answer?: string;
   }>;
 };
 
@@ -85,6 +86,8 @@ export type GameState = {
   flashMissions: FlashMission[];
   events: GameEvent[];
   gameStartedAt?: string;
+  gameStoppedAt?: string;
+  gamePausedMs?: number;
 };
 
 export const emptyGameState: GameState = {
@@ -123,6 +126,8 @@ export function normalizeGameState(value?: Partial<GameState> | null): GameState
       : [],
     events: Array.isArray(safeValue.events) ? safeValue.events : [],
     gameStartedAt: typeof safeValue.gameStartedAt === "string" ? safeValue.gameStartedAt : undefined,
+    gameStoppedAt: typeof safeValue.gameStoppedAt === "string" ? safeValue.gameStoppedAt : undefined,
+    gamePausedMs: typeof safeValue.gamePausedMs === "number" && safeValue.gamePausedMs > 0 ? safeValue.gamePausedMs : 0,
   };
 }
 

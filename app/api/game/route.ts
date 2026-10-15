@@ -112,6 +112,8 @@ export async function POST(request: Request) {
     return {
       ...payload,
       gameStartedAt: current.gameStartedAt,
+      gameStoppedAt: current.gameStoppedAt,
+      gamePausedMs: current.gamePausedMs,
       submissions: [...currentSubmissions.values()],
       flashMissions: [...submittedMissions, ...currentMissions.values()],
       teams: [...mergedExistingTeams, ...addedTeams],

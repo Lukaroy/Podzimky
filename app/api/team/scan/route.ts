@@ -27,6 +27,7 @@ export async function POST(request: Request) {
   let scannedStation: Omit<Station, "answer"> | undefined;
   try {
     state = await updateGameState((current) => {
+      if (current.gameStoppedAt) throw new Error("Hra byla ukončena.");
       const team = current.teams.find((item) => item.id === user.teamId);
       const station = current.stations.find((item) => item.uid.toUpperCase() === uid.trim().toUpperCase());
       if (!team || !station) throw new Error("QR kód nebyl rozpoznán.");

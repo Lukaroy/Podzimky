@@ -4,7 +4,7 @@ import { getPrisma } from "@/lib/db";
 import { verifyFirebaseSessionCookie } from "@/lib/firebase-admin";
 import type { GameState, Team } from "@/lib/game-store";
 
-export type SessionUser = { role: "admin" } | { role: "team"; teamId: string };
+export type SessionUser = { role: "admin"; managerId?: string } | { role: "team"; teamId: string };
 
 export const SESSION_COOKIE_NAME = "tracker_session";
 
@@ -33,6 +33,16 @@ export async function getSession(token: string | undefined): Promise<SessionUser
       session.teamId === null
     ) {
       return { role: "admin" };
+    }
+    if (
+      session.role === "admin" &&
+      session.teamId === null &&
+      decoded.role === "manager" &&
+      typeof decoded.managerId === "string" &&
+      session.firebaseUid === `manager-${decoded.managerId}`
+    ) {
+      const manager = await getPrisma().manager.findUnique({ where: { id: decoded.managerId } });
+      return manager ? { role: "admin", managerId: manager.id } : null;
     }
     if (
       session.role === "team" &&
@@ -121,6 +131,9 @@ export function sanitizeGameState(state: GameState, user: SessionUser): GameStat
     const isCurrent = station.order === nextOrder;
     const visibleStation = { ...station };
     delete visibleStation.answer;
+    if (visibleStation.formQuestions) {
+      visibleStation.formQuestions = visibleStation.formQuestions.map((question) => ({ ...question, answer: undefined }));
+    }
     visibleStation.uid = "";
     if (isCompleted) {
       return { ...visibleStation, uid: "", description: "", clue: "", task: "", answer: undefined, options: undefined, formQuestions: undefined };
@@ -184,6 +197,20 @@ export function verifyRequestOrigin(request: Request) {
   } catch {
     return false;
   }
+}
+
+export function normalizeLoginName(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+}
+
+export async function findManagerByCredentials(name: string, password: string) {
+  const manager = await getPrisma().manager.findUnique({ where: { username: normalizeLoginName(name) } });
+  if (!manager) {
+    // Constant-ish work for unknown usernames.
+    verifyTeamPassword(password, hashTeamPassword("unknown-manager"));
+    return null;
+  }
+  return verifyTeamPassword(password, manager.passwordHash) ? manager : null;
 }
 
 export function findTeamByCredentials(state: GameState, name: string, password: string): Team | undefined {

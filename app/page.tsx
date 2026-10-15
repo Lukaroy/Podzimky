@@ -29,6 +29,7 @@ import {
   Plus,
   QrCode,
   ScanLine,
+  Pause,
   Play,
   Trash2,
   Users,
@@ -72,6 +73,7 @@ type Station = {
     label: string;
     type: "text" | "number" | "multiple-choice";
     options?: string[];
+    answer?: string;
   }>;
 };
 
@@ -125,6 +127,8 @@ type GameState = {
   flashMissions: FlashMission[];
   events: GameEvent[];
   gameStartedAt?: string;
+  gameStoppedAt?: string;
+  gamePausedMs?: number;
 };
 
 const emptyGameState: GameState = {
@@ -134,6 +138,8 @@ const emptyGameState: GameState = {
   flashMissions: [],
   events: [],
   gameStartedAt: undefined,
+  gameStoppedAt: undefined,
+  gamePausedMs: 0,
 };
 
 function getNextOrder(team: Team | null | undefined, stations: Station[]): number {
@@ -301,24 +307,83 @@ async function uploadTeamMedia(file: File, teamId: string) {
   return mediaUrl;
 }
 
-function formatElapsedTime(startedAt: string | undefined, now: number) {
+function formatElapsedTime(startedAt: string | undefined, now: number, stoppedAt?: string, pausedMs = 0) {
   if (!startedAt) return "Čeká na start";
   const startTime = Date.parse(startedAt);
   if (!Number.isFinite(startTime)) return "Čas nedostupný";
-  const totalSeconds = Math.max(0, Math.floor((now - startTime) / 1000));
+  const stoppedTime = stoppedAt ? Date.parse(stoppedAt) : NaN;
+  const endTime = Number.isFinite(stoppedTime) ? stoppedTime : now;
+  const totalSeconds = Math.max(0, Math.floor((endTime - startTime - pausedMs) / 1000));
   const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, "0");
   const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, "0");
   const seconds = (totalSeconds % 60).toString().padStart(2, "0");
   return `${hours}:${minutes}:${seconds}`;
 }
 
-function ElapsedClock({ startedAt, className = "" }: { startedAt?: string; className?: string }) {
+function ElapsedClock({ startedAt, stoppedAt, pausedMs = 0, className = "" }: { startedAt?: string; stoppedAt?: string; pausedMs?: number; className?: string }) {
   const [now, setNow] = useState(0);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
-  return <span className={className}><Clock aria-hidden="true" size={13} /> {formatElapsedTime(startedAt, now)}</span>;
+  return <span className={className}><Clock aria-hidden="true" size={13} /> {formatElapsedTime(startedAt, now, stoppedAt, pausedMs)}{stoppedAt ? " ⏸" : ""}</span>;
+}
+
+function formatEvidence(station: Station | undefined, evidence: string) {
+  if (station?.type !== "form") return evidence;
+  try {
+    const answers = JSON.parse(evidence) as Record<string, unknown>;
+    return (station.formQuestions ?? [])
+      .map((question, index) => `${index + 1}. ${question.label}: ${String(answers[question.id] ?? "—")}`)
+      .join("\n");
+  } catch {
+    return evidence;
+  }
+}
+
+function SubmissionAnswerReview({ station, evidence }: { station?: Station; evidence: string }) {
+  const normalize = (value: string) =>
+    value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+
+  if (station?.type === "form") {
+    let answers: Record<string, unknown> = {};
+    try {
+      answers = JSON.parse(evidence) as Record<string, unknown>;
+    } catch {}
+    return (
+      <div className="mt-2 divide-y divide-[#eadfc9] overflow-hidden rounded-xl border border-[#e7d7b4] bg-white text-sm">
+        {(station.formQuestions ?? []).map((question, index) => {
+          const given = String(answers[question.id] ?? "—");
+          const matches = question.answer ? normalize(given) === normalize(question.answer) : undefined;
+          return (
+            <div key={question.id} className="p-3">
+              <p className="text-xs font-semibold text-[#6f5a49]">{index + 1}. {question.label}</p>
+              <p className="mt-1 font-semibold text-[#2b2523]">
+                {matches !== undefined && (
+                  <span className={matches ? "mr-1.5 text-[#1e7a43]" : "mr-1.5 text-[#b0342a]"}>{matches ? "✓" : "✗"}</span>
+                )}
+                Tým: {given}
+              </p>
+              {question.answer && <p className="text-xs text-[#1e5131]">Správně: {question.answer}</p>}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  const matches = station?.answer ? normalize(evidence) === normalize(station.answer) : undefined;
+  return (
+    <div className="mt-2 rounded-xl border border-[#e7d7b4] bg-white p-3 text-sm">
+      <p className="whitespace-pre-wrap font-semibold text-[#2b2523]">
+        {matches !== undefined && (
+          <span className={matches ? "mr-1.5 text-[#1e7a43]" : "mr-1.5 text-[#b0342a]"}>{matches ? "✓" : "✗"}</span>
+        )}
+        Odpověď týmu: {evidence}
+      </p>
+      {station?.answer && <p className="mt-1 text-xs text-[#1e5131]">Správná odpověď: {station.answer}</p>}
+    </div>
+  );
 }
 
 function createUniqueStationUid(stations: Station[]) {
@@ -386,6 +451,8 @@ function normalizeGameState(value?: Partial<GameState> | null): GameState {
     flashMissions: Array.isArray(safeValue.flashMissions) ? safeValue.flashMissions : [],
     events: Array.isArray(safeValue.events) ? safeValue.events : [],
     gameStartedAt: typeof safeValue.gameStartedAt === "string" ? safeValue.gameStartedAt : undefined,
+    gameStoppedAt: typeof safeValue.gameStoppedAt === "string" ? safeValue.gameStoppedAt : undefined,
+    gamePausedMs: typeof safeValue.gamePausedMs === "number" && safeValue.gamePausedMs > 0 ? safeValue.gamePausedMs : 0,
   };
 }
 
@@ -420,6 +487,8 @@ export default function Page() {
   const [teamPage, setTeamPage] = useState(0);
   const [stationPage, setStationPage] = useState(0);
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
+  const [isCreatingTeam, setIsCreatingTeam] = useState(false);
+  const [createdTeamQr, setCreatedTeamQr] = useState<{ teamId: string; name: string; value: string } | null>(null);
   const [isStationDialogOpen, setIsStationDialogOpen] = useState(false);
   const [isFlashDialogOpen, setIsFlashDialogOpen] = useState(false);
   const [stationFormStep, setStationFormStep] = useState<0 | 1>(0);
@@ -456,6 +525,7 @@ export default function Page() {
       label: "",
       type: "text" as "text" | "number" | "multiple-choice",
       optionsText: "",
+      answer: "",
     },
   });
   const [visibleStationQr, setVisibleStationQr] = useState<string | null>(null);
@@ -471,7 +541,12 @@ export default function Page() {
     targetTeamIds: [] as string[],
     requiresApproval: true,
   });
-  const [adminTab, setAdminTab] = useState<"teams" | "stations" | "submissions" | "media" | "flash">("teams");
+  const [adminTab, setAdminTab] = useState<"teams" | "stations" | "submissions" | "media" | "flash" | "managers">("teams");
+  const [isOwnerAdmin, setIsOwnerAdmin] = useState(false);
+  const [managers, setManagers] = useState<Array<{ id: string; username: string; createdAt: string }>>([]);
+  const [managerForm, setManagerForm] = useState({ username: "", password: "" });
+  const [managerBusy, setManagerBusy] = useState(false);
+  const [managerError, setManagerError] = useState("");
 
   useEffect(() => () => {
     mediaPreviewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -486,7 +561,7 @@ export default function Page() {
         if (!response.ok) {
           throw new Error("Unable to load game state");
         }
-        return response.json() as Promise<{ user: { role: "admin" } | { role: "team"; teamId: string }; state: GameState }>;
+        return response.json() as Promise<{ user: { role: "admin"; managerId?: string } | { role: "team"; teamId: string }; state: GameState }>;
       })
       .then((session) => {
         if (isMounted) {
@@ -496,6 +571,7 @@ export default function Page() {
             setGameState(state);
             const sessionUser = session.user;
             if (sessionUser.role === "admin") {
+              setIsOwnerAdmin(!sessionUser.managerId);
               setScreen("admin-panel");
             } else {
               const restoredTeamId = sessionUser.teamId;
@@ -773,7 +849,7 @@ export default function Page() {
       body: JSON.stringify({ idToken: await credential.user.getIdToken() }),
     });
     const result = await response.json() as {
-      user?: { role: "team"; teamId: string };
+      user?: { role: "team"; teamId: string } | { role: "admin"; managerId?: string };
       state?: GameState;
       error?: string;
     };
@@ -782,7 +858,16 @@ export default function Page() {
     }
     const state = normalizeGameState(result.state);
     lastPersistedStateRef.current = JSON.stringify(state);
-    const team = state.teams.find((item) => item.id === result.user?.teamId);
+    if (result.user.role === "admin") {
+      setGameState(state);
+      setIsOwnerAdmin(false);
+      setIsAuthenticated(true);
+      setError("");
+      setScreen("admin-panel");
+      return;
+    }
+    const loggedTeamId = result.user.teamId;
+    const team = state.teams.find((item) => item.id === loggedTeamId);
     if (!team) throw new Error("Přihlášený tým nebyl nalezen.");
     setGameState(state);
     setTeamId(team.id);
@@ -931,6 +1016,7 @@ export default function Page() {
       lastPersistedStateRef.current = JSON.stringify(state);
       setGameState(state);
       setAdminForm({ email: enteredEmail, password: "" });
+      setIsOwnerAdmin(true);
       setIsAuthenticated(true);
       setError("");
       setScreen("admin-panel");
@@ -960,7 +1046,12 @@ export default function Page() {
     setScreen("team-login");
   };
 
-  const handleGameControl = async (action: "start" | "restart") => {
+  const handleGameControl = async (action: "start" | "restart" | "stop" | "resume") => {
+    if (action === "stop" && !window.confirm(
+      "Ukončit hru? Všem týmům se zobrazí stránka, že hra skončila, a nebudou moci pokračovat.",
+    )) {
+      return;
+    }
     if (action === "restart" && !window.confirm(
       "Restartovat výpravu? Všem týmům se vynuluje čas a postup, aktivní přepady se zruší a dosavadní důkazy se archivují. Týmy zůstanou zachované.",
     )) {
@@ -1021,7 +1112,7 @@ export default function Page() {
       }
     } else if (
       !content.trim() ||
-      (station.type === "form" && Object.values(formAnswers).some((answer) => !answer.trim()))
+      (station.type === "form" && (station.formQuestions ?? []).some((question) => !formAnswers[question.id]?.trim()))
     ) {
       setError("Vyplňte odpověď před odesláním.");
       return;
@@ -1239,12 +1330,12 @@ export default function Page() {
       answer: "",
       optionsText: "",
       formQuestions: [],
-      questionDraft: { label: "", type: "text", optionsText: "" },
+      questionDraft: { label: "", type: "text", optionsText: "", answer: "" },
     });
     setError("");
   };
 
-  const handleAddTeam = () => {
+  const handleAddTeam = async () => {
     const cleanedName = teamFormAdmin.name.trim();
     if (!cleanedName) {
       setError("Název týmu je povinný.");
@@ -1254,34 +1345,59 @@ export default function Page() {
       setError("Heslo týmu musí mít alespoň 8 znaků.");
       return;
     }
+    if (isCreatingTeam) return;
 
     const newTeamId = `team-${crypto.randomUUID().slice(0, 8)}`;
+    const safePrevious = normalizeGameState(gameState);
+    const nextState: GameState = {
+      ...safePrevious,
+      teams: [
+        ...safePrevious.teams,
+        {
+          id: newTeamId,
+          name: cleanedName.toUpperCase(),
+          password: teamFormAdmin.password,
+          completedStations: [],
+          scannedStationIds: [],
+        },
+      ],
+      events: [
+        createEvent(`Admin přidal nový tým ${cleanedName.toUpperCase()}.`, "success"),
+        ...safePrevious.events,
+      ].slice(0, 12),
+    };
 
-    setGameState((previous) => {
-      const safePrevious = normalizeGameState(previous);
-      return {
-        ...safePrevious,
-        teams: [
-          ...safePrevious.teams,
-          {
-            id: newTeamId,
-            name: cleanedName.toUpperCase(),
-            password: teamFormAdmin.password,
-            completedStations: [],
-            scannedStationIds: [],
-          },
-        ],
-        events: [
-          createEvent(`Admin přidal nový tým ${cleanedName.toUpperCase()}.`, "success"),
-          ...safePrevious.events,
-        ].slice(0, 12),
-      };
-    });
-
-    setTeamFormAdmin({ name: "", password: "" });
-    setTeamPage(Math.floor(gameState.teams.length / managementPageSize));
-    setIsTeamDialogOpen(false);
+    setIsCreatingTeam(true);
     setError("");
+    try {
+      const saveResponse = await fetch("/api/game", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nextState),
+      });
+      const saveResult = await saveResponse.json() as { state?: GameState; error?: string };
+      if (!saveResponse.ok || !saveResult.state) {
+        throw new Error(saveResult.error ?? "Tým se nepodařilo uložit.");
+      }
+      const savedState = normalizeGameState(saveResult.state);
+      lastPersistedStateRef.current = JSON.stringify(savedState);
+      setGameState(savedState);
+      setTeamPage(Math.floor((savedState.teams.length - 1) / managementPageSize));
+      setTeamFormAdmin({ name: "", password: "" });
+
+      const qrResponse = await fetch(`/api/team/${encodeURIComponent(newTeamId)}/qr-login`, { method: "POST" });
+      const qrResult = await qrResponse.json() as { token?: string; error?: string };
+      if (!qrResponse.ok || !qrResult.token) {
+        throw new Error(`Tým byl vytvořen, ale QR kód se nepodařilo vytvořit. ${qrResult.error ?? ""}`.trim());
+      }
+      const value = `podzimky-team-login:${qrResult.token}`;
+      setGeneratedTeamQr({ teamId: newTeamId, value });
+      setCreatedTeamQr({ teamId: newTeamId, name: cleanedName.toUpperCase(), value });
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "Tým se nepodařilo vytvořit.");
+    } finally {
+      setIsCreatingTeam(false);
+    }
   };
 
   const handleRemoveTeam = async (team: Team) => {
@@ -1305,6 +1421,55 @@ export default function Page() {
       setError(removeError instanceof Error ? removeError.message : "Tým se nepodařilo odstranit.");
     } finally {
       setDeletingTeamId(null);
+    }
+  };
+
+  const loadManagers = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/managers", { cache: "no-store" });
+      const result = await response.json() as { managers?: typeof managers; error?: string };
+      if (!response.ok || !result.managers) throw new Error(result.error ?? "Správce se nepodařilo načíst.");
+      setManagers(result.managers);
+      setManagerError("");
+    } catch (loadError) {
+      setManagerError(loadError instanceof Error ? loadError.message : "Správce se nepodařilo načíst.");
+    }
+  }, []);
+
+  const handleCreateManager = async () => {
+    if (managerBusy) return;
+    setManagerBusy(true);
+    setManagerError("");
+    try {
+      const response = await fetch("/api/admin/managers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(managerForm),
+      });
+      const result = await response.json() as { managers?: typeof managers; error?: string };
+      if (!response.ok || !result.managers) throw new Error(result.error ?? "Správce se nepodařilo vytvořit.");
+      setManagers(result.managers);
+      setManagerForm({ username: "", password: "" });
+    } catch (createError) {
+      setManagerError(createError instanceof Error ? createError.message : "Správce se nepodařilo vytvořit.");
+    } finally {
+      setManagerBusy(false);
+    }
+  };
+
+  const handleDeleteManager = async (manager: { id: string; username: string }) => {
+    if (!window.confirm(`Odebrat správce „${manager.username}“? Bude okamžitě odhlášen.`)) return;
+    setManagerBusy(true);
+    setManagerError("");
+    try {
+      const response = await fetch(`/api/admin/managers?id=${encodeURIComponent(manager.id)}`, { method: "DELETE" });
+      const result = await response.json() as { managers?: typeof managers; error?: string };
+      if (!response.ok || !result.managers) throw new Error(result.error ?? "Správce se nepodařilo odebrat.");
+      setManagers(result.managers);
+    } catch (deleteError) {
+      setManagerError(deleteError instanceof Error ? deleteError.message : "Správce se nepodařilo odebrat.");
+    } finally {
+      setManagerBusy(false);
     }
   };
 
@@ -1730,6 +1895,19 @@ export default function Page() {
       )}
 
       {screen === "team-dashboard" && activeTeam && (
+        gameState.gameStoppedAt ? (
+          <div className="mx-auto flex min-h-screen max-w-xl items-center justify-center px-4 py-10">
+            <div className="w-full rounded-[30px] border border-[#d5a24a] bg-[#fff5df] p-8 text-center shadow-[0_22px_55px_rgba(116,81,35,0.2)]">
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8e5d1d]">Podzimky 2026</p>
+              <h1 className="mt-3 text-3xl font-black text-[#281d15]">Hra skončila</h1>
+              <p className="mt-3 text-base text-[#5d4536]">Děkujeme za účast, {activeTeam.name}!</p>
+              <p className="mt-4 font-mono text-lg font-bold tabular-nums text-[#8b3329]">
+                <ElapsedClock startedAt={gameState.gameStartedAt} stoppedAt={gameState.gameStoppedAt} pausedMs={gameState.gamePausedMs} />
+              </p>
+              <p className="mt-2 text-sm text-[#756958]">Splněno stanovišť: {activeTeam.completedStations.length} / {gameState.stations.length}</p>
+            </div>
+          </div>
+        ) :
         activeFlashMission ? (
           <div className="mx-auto flex min-h-screen max-w-3xl items-center justify-center px-4 py-10">
             <div className="w-full rounded-[30px] border border-[#d5a24a] bg-[#fff5df] p-6 shadow-[0_22px_55px_rgba(116,81,35,0.2)] sm:p-9">
@@ -1817,7 +1995,7 @@ export default function Page() {
                   <div className="min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#8c929b]">Podzimky 2026</p>
                     <h1 className="truncate text-lg font-bold tracking-tight text-[#1f2937] sm:text-xl">{activeTeam.name}</h1>
-                    <ElapsedClock startedAt={gameState.gameStartedAt} className="player-clock mt-0.5 inline-flex items-center gap-1 font-mono text-xs font-semibold tabular-nums text-[#8b3329]" />
+                    <ElapsedClock startedAt={gameState.gameStartedAt} stoppedAt={gameState.gameStoppedAt} pausedMs={gameState.gamePausedMs} className="player-clock mt-0.5 inline-flex items-center gap-1 font-mono text-xs font-semibold tabular-nums text-[#8b3329]" />
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -2117,9 +2295,9 @@ export default function Page() {
 
                           {station.type === "form" && (
                             <div className="space-y-3">
-                              {station.formQuestions?.map((question) => (
+                              {station.formQuestions?.map((question, questionIndex) => (
                                 <div key={question.id} className="rounded-2xl border border-[#e6dcb7] bg-[#fbf7f0] p-3">
-                                  <p className="mb-2 text-sm font-semibold text-[#3f3428]">{question.label}</p>
+                                  <p className="mb-2 text-sm font-semibold text-[#3f3428]"><span className="mr-1.5 text-[#a4332b]">{questionIndex + 1}.</span>{question.label}</p>
                                   {question.type === "text" && (
                                     <input
                                       value={formDrafts[station.id]?.[question.id] ?? ""}
@@ -2153,11 +2331,18 @@ export default function Page() {
                                   )}
                                   {question.type === "multiple-choice" && (
                                     <div className="space-y-2">
-                                      {question.options?.map((option) => (
-                                        <label key={option} className="flex items-center gap-2 text-sm">
+                                      {question.options?.map((option) => {
+                                        const selected = formDrafts[station.id]?.[question.id] === option;
+                                        return (
+                                        <label
+                                          key={option}
+                                          className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-sm font-medium transition ${selected ? "border-[#a4332b] bg-[#f8e4dc] text-[#6a2b19]" : "border-[#d7c7a8] bg-white text-[#3a3028]"}`}
+                                        >
                                           <input
                                             type="radio"
-                                            checked={formDrafts[station.id]?.[question.id] === option}
+                                            name={`${station.id}-${question.id}`}
+                                            className="accent-[#a4332b]"
+                                            checked={selected}
                                             onChange={() =>
                                               setFormDrafts((current) => ({
                                                 ...current,
@@ -2170,7 +2355,8 @@ export default function Page() {
                                           />
                                           <span>{option}</span>
                                         </label>
-                                      ))}
+                                        );
+                                      })}
                                     </div>
                                   )}
                                 </div>
@@ -2224,6 +2410,7 @@ export default function Page() {
                 { tab: "flash", label: "Přepady", icon: "flash" as const, count: gameState.flashMissions.filter((mission) => !mission.archivedAt).length },
                 { tab: "submissions", label: "Schvalování", icon: "review" as const, count: pendingSubmissions.length },
                 { tab: "media", label: "Galerie", icon: "media" as const, count: mediaSubmissions.length },
+                ...(isOwnerAdmin ? [{ tab: "managers" as const, label: "Správci", icon: "teams" as const, count: managers.length }] : []),
               ] as const).map((item) => (
                 <button
                   key={item.tab}
@@ -2232,6 +2419,7 @@ export default function Page() {
                   onClick={() => {
                     setError("");
                     setAdminTab(item.tab);
+                    if (item.tab === "managers") void loadManagers();
                   }}
                 >
                   <AdminIcon name={item.icon} />
@@ -2258,10 +2446,10 @@ export default function Page() {
                 <span aria-hidden="true">令</span>
                 <div>
                   <p>Stav výpravy</p>
-                  <h2>{gameState.gameStartedAt ? "Hra běží" : "Čeká na start"}</h2>
+                  <h2>{!gameState.gameStartedAt ? "Čeká na start" : gameState.gameStoppedAt ? "Čas zastaven" : "Hra běží"}</h2>
                 </div>
               </div>
-              <ElapsedClock startedAt={gameState.gameStartedAt} className="admin-sidebar-clock" />
+              <ElapsedClock startedAt={gameState.gameStartedAt} stoppedAt={gameState.gameStoppedAt} pausedMs={gameState.gamePausedMs} className="admin-sidebar-clock" />
               <p className="admin-sidebar-game-note">
                 {gameState.gameStartedAt
                   ? `Spuštěno ${new Date(gameState.gameStartedAt).toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })}`
@@ -2277,6 +2465,17 @@ export default function Page() {
                   <Play size={15} fill="currentColor" /> {gameControlBusy ? "Spouštím…" : "Odstartovat"}
                 </button>
               ) : (
+                <>
+                <button
+                  type="button"
+                  onClick={() => void handleGameControl(gameState.gameStoppedAt ? "resume" : "stop")}
+                  disabled={gameControlBusy}
+                  className="admin-sidebar-restart"
+                >
+                  {gameState.gameStoppedAt
+                    ? <><Play size={15} fill="currentColor" /> Pokračovat</>
+                    : <><Pause size={15} /> Ukončit hru</>}
+                </button>
                 <button
                   type="button"
                   onClick={() => void handleGameControl("restart")}
@@ -2285,6 +2484,7 @@ export default function Page() {
                 >
                   <ArrowRight size={15} className="rotate-180" /> {gameControlBusy ? "Restartuji…" : "Restartovat"}
                 </button>
+                </>
               )}
               {error && <p role="alert" className="admin-sidebar-error">{error}</p>}
               <div className="admin-sidebar-summary">
@@ -2321,7 +2521,7 @@ export default function Page() {
               <header className="module-toolbar">
                 <div>
                   <p className="admin-eyebrow">Pracovní plocha</p>
-                  <h2>{adminTab === "teams" ? "Týmy" : adminTab === "stations" ? "Stanoviště" : adminTab === "submissions" ? "Schvalování" : adminTab === "media" ? "Galerie" : "Přepady"}</h2>
+                  <h2>{adminTab === "teams" ? "Týmy" : adminTab === "stations" ? "Stanoviště" : adminTab === "submissions" ? "Schvalování" : adminTab === "media" ? "Galerie" : adminTab === "managers" ? "Správci" : "Přepady"}</h2>
                 </div>
                 <span className={classNames("admin-toolbar-status", gameState.gameStartedAt && "admin-toolbar-status-running")}>
                   <span /> {gameState.gameStartedAt ? "Výprava probíhá" : "Hra nezačala"}
@@ -2385,7 +2585,7 @@ export default function Page() {
                         <summary>Podrobnosti <span>{completed} / {gameState.stations.length} zastávek</span></summary>
                         <div className="admin-team-details-body">
                       <div className="team-detail-time">
-                        <span>Čas výpravy</span><ElapsedClock startedAt={gameState.gameStartedAt} />
+                        <span>Čas výpravy</span><ElapsedClock startedAt={gameState.gameStartedAt} stoppedAt={gameState.gameStoppedAt} pausedMs={gameState.gamePausedMs} />
                       </div>
                       <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#efe6d4]">
                         <div className="h-full rounded-full bg-[#7d4d19]" style={{ width: `${percent}%` }} />
@@ -2453,11 +2653,42 @@ export default function Page() {
             </section>
             {isTeamDialogOpen && (
               <AdminDialog
-                title="Nový tým"
-                description="Zvolte název a přístupové heslo. QR přihlášení lze vytvořit po uložení."
-                onClose={() => setIsTeamDialogOpen(false)}
+                title={createdTeamQr ? `Tým ${createdTeamQr.name} vytvořen` : "Nový tým"}
+                description={createdTeamQr
+                  ? "Tým se může přihlásit heslem, nebo naskenováním tohoto QR kódu. Fungují oba způsoby."
+                  : "Zvolte název a přístupové heslo. Přihlašovací QR kód se vytvoří automaticky."}
+                onClose={() => { setIsTeamDialogOpen(false); setCreatedTeamQr(null); }}
                 variant="drawer"
               >
+                {createdTeamQr ? (
+                <div className="admin-dialog-body">
+                  <div className="flex flex-col items-center gap-3 rounded-xl border border-[#e5d9c7] bg-white p-4">
+                    <QRCodeSVG
+                      value={createdTeamQr.value}
+                      size={200}
+                      level="Q"
+                      marginSize={3}
+                      title={`Přihlašovací QR kód týmu ${createdTeamQr.name}`}
+                      data-qr-uid={createdTeamQr.value}
+                    />
+                    <p className="text-center text-xs text-[#675d53]">Uchovávejte kód bezpečně. Kdokoli s ním se může za tým přihlásit.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!downloadQrSvg(createdTeamQr.value, `prihlaseni-${createdTeamQr.teamId}.svg`)) {
+                          setError("Přihlašovací QR kód se nepodařilo připravit ke stažení.");
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#312d27] px-3 py-2 text-xs font-bold text-white"
+                    >
+                      <Download size={14} /> Stáhnout QR
+                    </button>
+                  </div>
+                  <div className="admin-dialog-actions">
+                    <button type="button" onClick={() => { setIsTeamDialogOpen(false); setCreatedTeamQr(null); }} className="admin-primary-button">Hotovo</button>
+                  </div>
+                </div>
+                ) : (
                 <div className="admin-dialog-body">
                   <label className="admin-field-label">
                     Název týmu
@@ -2484,9 +2715,10 @@ export default function Page() {
                   {error && <p role="alert" className="mt-4 rounded-xl bg-[#fce7e6] px-3 py-2 text-sm text-[#8b2d2d]">{error}</p>}
                   <div className="admin-dialog-actions">
                     <button type="button" onClick={() => setIsTeamDialogOpen(false)} className="admin-secondary-button">Zrušit</button>
-                    <button type="button" onClick={handleAddTeam} className="admin-primary-button">Vytvořit tým</button>
+                    <button type="button" onClick={() => void handleAddTeam()} disabled={isCreatingTeam} className="admin-primary-button">{isCreatingTeam ? "Vytvářím…" : "Vytvořit tým"}</button>
                   </div>
                 </div>
+                )}
               </AdminDialog>
             )}
             </>
@@ -2750,12 +2982,29 @@ export default function Page() {
                   {adminStationForm.type === "form" && (
                     <div className="space-y-3 rounded-xl border border-[#e1d4b6] bg-[#fffaf1] p-3 md:col-span-2">
                       <p className="text-sm font-bold text-[#4d3b2a]">Otázky formuláře</p>
-                      {adminStationForm.formQuestions.map((question) => (
+                      {adminStationForm.formQuestions.map((question, questionIndex, allQuestions) => (
                         <div key={question.id} className="flex items-center justify-between gap-3 rounded-lg bg-white p-3 text-sm">
                           <span className="min-w-0">
-                            <span className="block font-semibold text-[#342b23]">{question.label}</span>
-                            <span className="text-xs text-[#756958]">{question.type === "multiple-choice" ? question.options?.join(" · ") : question.type === "number" ? "Číselná odpověď" : "Textová odpověď"}</span>
+                            <span className="block font-semibold text-[#342b23]">{questionIndex + 1}. {question.label}</span>
+                            <span className="text-xs text-[#756958]">{question.type === "multiple-choice" ? question.options?.join(" · ") : question.type === "number" ? "Číselná odpověď" : "Textová odpověď"}{question.answer ? ` · správně: ${question.answer}` : ""}</span>
                           </span>
+                          <span className="flex shrink-0 gap-1">
+                            {([-1, 1] as const).map((direction) => (
+                              <button
+                                key={direction}
+                                type="button"
+                                aria-label={direction < 0 ? "Posunout nahoru" : "Posunout dolů"}
+                                disabled={direction < 0 ? questionIndex === 0 : questionIndex === allQuestions.length - 1}
+                                onClick={() => setAdminStationForm((current) => {
+                                  const next = [...current.formQuestions];
+                                  [next[questionIndex], next[questionIndex + direction]] = [next[questionIndex + direction], next[questionIndex]];
+                                  return { ...current, formQuestions: next };
+                                })}
+                                className="rounded-lg bg-[#f4e5c5] px-2.5 py-2 text-xs font-bold text-[#5a3c18] disabled:opacity-40"
+                              >
+                                {direction < 0 ? "↑" : "↓"}
+                              </button>
+                            ))}
                           <button
                             type="button"
                             onClick={() => setAdminStationForm((current) => ({
@@ -2766,6 +3015,7 @@ export default function Page() {
                           >
                             Odebrat
                           </button>
+                          </span>
                         </div>
                       ))}
                       <div className="grid gap-2 sm:grid-cols-2">
@@ -2805,6 +3055,15 @@ export default function Page() {
                             className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm sm:col-span-2"
                           />
                         )}
+                        <input
+                          value={adminStationForm.questionDraft.answer}
+                          onChange={(event) => setAdminStationForm((current) => ({
+                            ...current,
+                            questionDraft: { ...current.questionDraft, answer: event.target.value },
+                          }))}
+                          placeholder="Správná odpověď (pro admina, volitelné)"
+                          className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm sm:col-span-2"
+                        />
                       </div>
                       <button
                         type="button"
@@ -2832,9 +3091,10 @@ export default function Page() {
                                 label,
                                 type: current.questionDraft.type,
                                 ...(current.questionDraft.type === "multiple-choice" ? { options: uniqueQuestionOptions } : {}),
+                                ...(current.questionDraft.answer.trim() ? { answer: current.questionDraft.answer.trim() } : {}),
                               },
                             ],
-                            questionDraft: { ...current.questionDraft, label: "", optionsText: "" },
+                            questionDraft: { ...current.questionDraft, label: "", optionsText: "", answer: "" },
                           }));
                           setError("");
                         }}
@@ -2923,7 +3183,7 @@ export default function Page() {
                       {mission && <p className="mt-2 whitespace-pre-wrap rounded-lg bg-white p-3 text-sm text-[#52473d]"><span className="font-bold">Zadání: </span>{mission.description}</p>}
                       {mission?.type === "photo"
                         ? <p className="mt-2 text-xs font-semibold text-[#6f5a49]">Důkaz: fotografie</p>
-                        : <p className="mt-2 whitespace-pre-wrap text-xs text-[#6f5a49]">Důkaz: {submission.evidence}</p>}
+                        : <SubmissionAnswerReview station={mission ? undefined : station} evidence={submission.evidence} />}
                       {isStoredMediaUrl(submission.mediaUrl) && (mission?.type === "photo" || station?.type === "photo") && (
                         <Image
                           src={submission.mediaUrl}
@@ -3137,6 +3397,64 @@ export default function Page() {
             </section>
           )}
 
+          {adminTab === "managers" && isOwnerAdmin && (
+            <section className="rounded-[24px] bg-[#fffdfa] p-4 shadow-[0_12px_30px_rgba(20,16,14,0.08)]">
+              <h2 className="text-xl font-black text-[#201c19]">Správci</h2>
+              <p className="mt-1 text-sm text-[#675d53]">
+                Správce se přihlásí na běžné přihlašovací stránce týmů svým jménem a heslem a dostane se do administrace.
+                Nemůže spravovat další správce.
+              </p>
+              <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                <input
+                  value={managerForm.username}
+                  onChange={(event) => setManagerForm((current) => ({ ...current, username: event.target.value }))}
+                  placeholder="Jméno správce"
+                  maxLength={80}
+                  autoComplete="off"
+                  className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
+                />
+                <input
+                  type="password"
+                  value={managerForm.password}
+                  onChange={(event) => setManagerForm((current) => ({ ...current, password: event.target.value }))}
+                  placeholder="Heslo (alespoň 8 znaků)"
+                  autoComplete="new-password"
+                  className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleCreateManager()}
+                  disabled={managerBusy}
+                  className="admin-primary-button"
+                >
+                  Přidat správce
+                </button>
+              </div>
+              {managerError && <p role="alert" className="mt-3 rounded-xl bg-[#fce7e6] px-3 py-2 text-sm text-[#8b2d2d]">{managerError}</p>}
+              <div className="mt-4 space-y-2">
+                {managers.length === 0 ? (
+                  <p className="rounded-xl bg-[#f5efe8] p-4 text-sm text-[#5e4d3f]">Zatím nejsou přidaní žádní další správci.</p>
+                ) : managers.map((manager) => (
+                  <div key={manager.id} className="flex items-center justify-between gap-3 rounded-xl border border-[#e7d7b4] bg-[#fffaf3] p-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-bold text-[#2b2523]">{manager.username}</p>
+                      <p className="text-xs text-[#756958]">Vytvořen {new Date(manager.createdAt).toLocaleDateString("cs-CZ")}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteManager(manager)}
+                      disabled={managerBusy}
+                      aria-label={`Odebrat správce ${manager.username}`}
+                      className="admin-danger-button"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {adminTab === "flash" && (
             <section className="rounded-[24px] bg-[#fffdfa] p-4 shadow-[0_12px_30px_rgba(20,16,14,0.08)]">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -3315,7 +3633,7 @@ export default function Page() {
                                 <Download size={14} /> Stáhnout důkaz
                               </a>
                             ) : (
-                              <p>{submission.evidence}</p>
+                              <p className="whitespace-pre-wrap">{formatEvidence(station, submission.evidence)}</p>
                             )}
                           </article>
                         );

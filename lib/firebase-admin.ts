@@ -20,18 +20,26 @@ export function createTeamCustomToken(teamId: string) {
   return getFirebaseAdminAuth().createCustomToken(teamId, { role: "team", teamId });
 }
 
+export function createManagerCustomToken(managerId: string) {
+  return getFirebaseAdminAuth().createCustomToken(`manager-${managerId}`, { role: "manager", managerId });
+}
+
 export async function createFirebaseSessionCookie(idToken: string) {
   const auth = getFirebaseAdminAuth();
   const decoded = await auth.verifyIdToken(idToken, true);
   const adminUid = process.env.FIREBASE_ADMIN_UID?.trim();
   const isAdmin = Boolean(adminUid && decoded.uid === adminUid);
+  const managerId = decoded.role === "manager" && typeof decoded.managerId === "string" && decoded.uid === `manager-${decoded.managerId}`
+    ? decoded.managerId
+    : null;
   const teamId = decoded.role === "team" && typeof decoded.teamId === "string"
     ? decoded.teamId
     : null;
-  if (!isAdmin && !teamId) return null;
+  if (!isAdmin && !teamId && !managerId) return null;
   const expiresAt = Date.now() + 1000 * 60 * 60 * 24 * 14;
   const cookie = await auth.createSessionCookie(idToken, { expiresIn: expiresAt - Date.now() });
   if (isAdmin) return { cookie, expiresAt, firebaseUid: decoded.uid, user: { role: "admin" as const } };
+  if (managerId) return { cookie, expiresAt, firebaseUid: decoded.uid, user: { role: "admin" as const, managerId } };
   if (!teamId) return null;
   return { cookie, expiresAt, firebaseUid: decoded.uid, user: { role: "team" as const, teamId } };
 }

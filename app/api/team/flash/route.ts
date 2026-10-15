@@ -63,6 +63,7 @@ export async function POST(request: Request) {
   let submission: Submission | undefined;
   try {
     const state = await updateGameState((current) => {
+      if (current.gameStoppedAt) throw new Error("Hra byla ukončena.");
       const team = current.teams.find((item) => item.id === user.teamId);
       if (!team?.flashMissionId) throw new Error("Tým nemá aktivní přepadový úkol.");
       const mission = current.flashMissions.find((item) => item.id === team.flashMissionId);

@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "Neplatný příkaz." }, { status: 400 });
   }
-  if (body.action !== "start" && body.action !== "restart") {
+  if (body.action !== "start" && body.action !== "restart" && body.action !== "stop" && body.action !== "resume") {
     return NextResponse.json({ error: "Neznámý příkaz pro řízení hry." }, { status: 400 });
   }
 
@@ -44,10 +44,37 @@ export async function POST(request: Request) {
         };
       }
 
+      if (body.action === "stop" || body.action === "resume") {
+        if (!current.gameStartedAt) throw new Error("Hra ještě nezačala.");
+        const now = new Date().toISOString();
+        const stopping = body.action === "stop";
+        if (stopping && current.gameStoppedAt) throw new Error("Čas už je zastavený.");
+        if (!stopping && !current.gameStoppedAt) throw new Error("Čas není zastavený.");
+        const pausedMs = stopping
+          ? current.gamePausedMs
+          : (current.gamePausedMs ?? 0) + Math.max(0, Date.parse(now) - Date.parse(current.gameStoppedAt!));
+        return {
+          ...current,
+          gameStoppedAt: stopping ? now : undefined,
+          gamePausedMs: pausedMs,
+          events: [
+            {
+              id: randomUUID(),
+              message: stopping ? "Čas hry byl zastaven." : "Čas hry byl znovu spuštěn.",
+              tone: stopping ? ("warning" as const) : ("success" as const),
+              createdAt: now,
+            },
+            ...current.events,
+          ].slice(0, 12),
+        };
+      }
+
       const restartedAt = new Date().toISOString();
       return {
         ...current,
         gameStartedAt: restartedAt,
+        gameStoppedAt: undefined,
+        gamePausedMs: 0,
         teams: current.teams.map((team) => ({
           ...team,
           completedStations: [],
