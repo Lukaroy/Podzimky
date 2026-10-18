@@ -12,6 +12,9 @@ export async function POST(request: Request) {
   if (!user || user.role !== "admin") {
     return NextResponse.json({ error: "Přihlaste se jako administrátor." }, { status: 401 });
   }
+  if (user.managerId) {
+    return NextResponse.json({ error: "Hru může ovládat pouze hlavní administrátor." }, { status: 403 });
+  }
 
   let body: { action?: unknown };
   try {
@@ -25,6 +28,7 @@ export async function POST(request: Request) {
 
   try {
     const state = await updateGameState((current) => {
+      if (current.gameClosedAt) throw new Error("Hra už je uzavřená.");
       if (body.action === "start") {
         if (current.gameStartedAt) throw new Error("Hra už běží. Pro nový start použijte restart času a postupu.");
         if (current.teams.length === 0) throw new Error("Před startem vytvořte alespoň jeden tým.");
@@ -80,6 +84,7 @@ export async function POST(request: Request) {
           completedStations: [],
           scannedStationIds: [],
           flashMissionId: undefined,
+          flashMissionsUsed: 0,
         })),
         submissions: current.submissions.map((submission) => ({
           ...submission,

@@ -56,7 +56,9 @@ export type Team = {
   password: string;
   completedStations: string[];
   scannedStationIds: string[];
+  progressVersion?: number;
   flashMissionId?: string;
+  flashMissionsUsed?: number;
 };
 
 export type FlashMission = {
@@ -68,6 +70,8 @@ export type FlashMission = {
   targetTeamIds: string[];
   requiresApproval: boolean;
   instructions: string;
+  sourceTeamId?: string;
+  sourceTeamName?: string;
   archivedAt?: string;
 };
 
@@ -79,6 +83,13 @@ export type GameEvent = {
   createdAt: string;
 };
 
+export type GameResult = {
+  teamId: string;
+  teamName: string;
+  completedStations: number;
+  rank: number;
+};
+
 export type GameState = {
   stations: Station[];
   teams: Team[];
@@ -88,6 +99,10 @@ export type GameState = {
   gameStartedAt?: string;
   gameStoppedAt?: string;
   gamePausedMs?: number;
+  emergencyMessage?: { message: string; createdAt: string };
+  gameClosedAt?: string;
+  gameResults?: GameResult[];
+  ambushTargets?: Array<{ id: string; name: string }>;
 };
 
 export const emptyGameState: GameState = {
@@ -97,6 +112,7 @@ export const emptyGameState: GameState = {
   flashMissions: [],
   events: [],
   gameStartedAt: undefined,
+  gameResults: undefined,
 };
 
 export function normalizeGameState(value?: Partial<GameState> | null): GameState {
@@ -114,6 +130,12 @@ export function normalizeGameState(value?: Partial<GameState> | null): GameState
       ? safeValue.teams.map((team) => ({
           ...team,
           scannedStationIds: Array.isArray(team.scannedStationIds) ? team.scannedStationIds : [],
+          progressVersion: Number.isInteger(team.progressVersion) && (team.progressVersion ?? 0) >= 0
+            ? team.progressVersion
+            : 0,
+          flashMissionsUsed: Number.isInteger(team.flashMissionsUsed) && (team.flashMissionsUsed ?? 0) >= 0
+            ? team.flashMissionsUsed
+            : 0,
         }))
       : [],
     submissions: Array.isArray(safeValue.submissions) ? safeValue.submissions : [],
@@ -128,6 +150,20 @@ export function normalizeGameState(value?: Partial<GameState> | null): GameState
     gameStartedAt: typeof safeValue.gameStartedAt === "string" ? safeValue.gameStartedAt : undefined,
     gameStoppedAt: typeof safeValue.gameStoppedAt === "string" ? safeValue.gameStoppedAt : undefined,
     gamePausedMs: typeof safeValue.gamePausedMs === "number" && safeValue.gamePausedMs > 0 ? safeValue.gamePausedMs : 0,
+    emergencyMessage: safeValue.emergencyMessage &&
+      typeof safeValue.emergencyMessage.message === "string" &&
+      typeof safeValue.emergencyMessage.createdAt === "string"
+      ? safeValue.emergencyMessage
+      : undefined,
+    gameClosedAt: typeof safeValue.gameClosedAt === "string" ? safeValue.gameClosedAt : undefined,
+    gameResults: Array.isArray(safeValue.gameResults)
+      ? safeValue.gameResults.filter((result) =>
+          typeof result.teamId === "string" &&
+          typeof result.teamName === "string" &&
+          Number.isInteger(result.completedStations) &&
+          Number.isInteger(result.rank),
+        )
+      : undefined,
   };
 }
 

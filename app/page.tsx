@@ -1,19 +1,13 @@
 "use client";
 
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
-import { put } from "@vercel/blob/client";
+import type { Html5Qrcode as Html5QrcodeInstance } from "html5-qrcode";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import {
-  inMemoryPersistence,
-  setPersistence,
-  signInWithCustomToken,
-  signInWithEmailAndPassword,
-  signOut,
-} from "firebase/auth";
 import Image from "next/image";
 import {
   ArrowLeft,
   ArrowRight,
+  Activity,
+  AlertTriangle,
   Camera,
   CheckCircle2,
   Clock,
@@ -97,7 +91,9 @@ type Team = {
   password: string;
   completedStations: string[];
   scannedStationIds: string[];
+  progressVersion?: number;
   flashMissionId?: string;
+  flashMissionsUsed?: number;
 };
 
 type FlashMission = {
@@ -109,6 +105,8 @@ type FlashMission = {
   targetTeamIds: string[];
   requiresApproval: boolean;
   instructions: string;
+  sourceTeamId?: string;
+  sourceTeamName?: string;
   archivedAt?: string;
 };
 
@@ -120,6 +118,13 @@ type GameEvent = {
   createdAt: string;
 };
 
+type GameResult = {
+  teamId: string;
+  teamName: string;
+  completedStations: number;
+  rank: number;
+};
+
 type GameState = {
   stations: Station[];
   teams: Team[];
@@ -129,6 +134,10 @@ type GameState = {
   gameStartedAt?: string;
   gameStoppedAt?: string;
   gamePausedMs?: number;
+  emergencyMessage?: { message: string; createdAt: string };
+  gameClosedAt?: string;
+  gameResults?: GameResult[];
+  ambushTargets?: Array<{ id: string; name: string }>;
 };
 
 const emptyGameState: GameState = {
@@ -140,6 +149,7 @@ const emptyGameState: GameState = {
   gameStartedAt: undefined,
   gameStoppedAt: undefined,
   gamePausedMs: 0,
+  gameResults: undefined,
 };
 
 function getNextOrder(team: Team | null | undefined, stations: Station[]): number {
@@ -233,13 +243,14 @@ function AuthVisualModePicker({
   );
 }
 
-function AdminIcon({ name }: { name: "teams" | "stations" | "review" | "media" | "flash" }) {
+function AdminIcon({ name }: { name: "teams" | "stations" | "review" | "media" | "flash" | "live" }) {
   const icons = {
     teams: Users,
     stations: MapPin,
     review: ClipboardCheck,
     media: Images,
     flash: Zap,
+    live: Activity,
   };
   const Icon = icons[name];
   return <Icon aria-hidden="true" size={18} strokeWidth={1.8} className="shrink-0" />;
@@ -247,6 +258,15 @@ function AdminIcon({ name }: { name: "teams" | "stations" | "review" | "media" |
 
 function isValidUid(uid: string) {
   return /^[A-Z0-9]{8}$/i.test(uid.trim());
+}
+
+async function createQrScanner(elementId: string): Promise<Html5QrcodeInstance> {
+  const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
+  return new Html5Qrcode(elementId, {
+    formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+    useBarCodeDetectorIfSupported: true,
+    verbose: false,
+  });
 }
 
 function isStoredMediaUrl(url: string | undefined): url is string {
@@ -290,6 +310,7 @@ async function uploadTeamMedia(file: File, teamId: string) {
     throw new Error(tokenResult.error ?? `Server nevydal oprávnění k nahrávání (HTTP ${tokenResponse.status}).`);
   }
 
+  const { put } = await import("@vercel/blob/client");
   let blob: Awaited<ReturnType<typeof put>>;
   try {
     blob = await put(pathname, file, {
@@ -445,6 +466,12 @@ function normalizeGameState(value?: Partial<GameState> | null): GameState {
       ? safeValue.teams.map((team) => ({
           ...team,
           scannedStationIds: Array.isArray(team.scannedStationIds) ? team.scannedStationIds : [],
+          progressVersion: Number.isInteger(team.progressVersion) && (team.progressVersion ?? 0) >= 0
+            ? team.progressVersion
+            : 0,
+          flashMissionsUsed: Number.isInteger(team.flashMissionsUsed) && (team.flashMissionsUsed ?? 0) >= 0
+            ? team.flashMissionsUsed
+            : 0,
         }))
       : [],
     submissions: Array.isArray(safeValue.submissions) ? safeValue.submissions : [],
@@ -453,6 +480,14 @@ function normalizeGameState(value?: Partial<GameState> | null): GameState {
     gameStartedAt: typeof safeValue.gameStartedAt === "string" ? safeValue.gameStartedAt : undefined,
     gameStoppedAt: typeof safeValue.gameStoppedAt === "string" ? safeValue.gameStoppedAt : undefined,
     gamePausedMs: typeof safeValue.gamePausedMs === "number" && safeValue.gamePausedMs > 0 ? safeValue.gamePausedMs : 0,
+    emergencyMessage: safeValue.emergencyMessage &&
+      typeof safeValue.emergencyMessage.message === "string" &&
+      typeof safeValue.emergencyMessage.createdAt === "string"
+      ? safeValue.emergencyMessage
+      : undefined,
+    gameClosedAt: typeof safeValue.gameClosedAt === "string" ? safeValue.gameClosedAt : undefined,
+    gameResults: Array.isArray(safeValue.gameResults) ? safeValue.gameResults : undefined,
+    ambushTargets: Array.isArray(safeValue.ambushTargets) ? safeValue.ambushTargets : undefined,
   };
 }
 
@@ -541,8 +576,19 @@ export default function Page() {
     targetTeamIds: [] as string[],
     requiresApproval: true,
   });
-  const [adminTab, setAdminTab] = useState<"teams" | "stations" | "submissions" | "media" | "flash" | "managers">("teams");
+  const [teamAmbushForm, setTeamAmbushForm] = useState({
+    targetTeamId: "",
+    title: "",
+    description: "",
+    type: "photo" as "photo" | "video",
+  });
+  const [teamAmbushBusy, setTeamAmbushBusy] = useState(false);
+  const [adminTab, setAdminTab] = useState<"teams" | "stations" | "submissions" | "media" | "flash" | "managers" | "live">("teams");
   const [isOwnerAdmin, setIsOwnerAdmin] = useState(false);
+  const [ownerActionBusy, setOwnerActionBusy] = useState(false);
+  const [emergencyDraft, setEmergencyDraft] = useState("");
+  const [manualTeamId, setManualTeamId] = useState("");
+  const [manualStationId, setManualStationId] = useState("");
   const [managers, setManagers] = useState<Array<{ id: string; username: string; createdAt: string }>>([]);
   const [managerForm, setManagerForm] = useState({ username: "", password: "" });
   const [managerBusy, setManagerBusy] = useState(false);
@@ -572,6 +618,7 @@ export default function Page() {
             const sessionUser = session.user;
             if (sessionUser.role === "admin") {
               setIsOwnerAdmin(!sessionUser.managerId);
+              setAdminTab("teams");
               setScreen("admin-panel");
             } else {
               const restoredTeamId = sessionUser.teamId;
@@ -772,64 +819,63 @@ export default function Page() {
   useEffect(() => {
     if (!scannerOpen) return;
 
-    const scanner = new Html5Qrcode("qr-reader-element", {
-      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-      useBarCodeDetectorIfSupported: true,
-      verbose: false,
-    });
+    let scanner: Html5QrcodeInstance | undefined;
     let isDisposed = false;
     let startSettled = false;
     let hasScanned = false;
 
-    const clearScanner = () => {
-      scanner.clear();
-    };
-
-    void scanner.start(
-      { facingMode: { exact: "environment" } },
-      {
-        fps: 12,
-        qrbox: (viewfinderWidth, viewfinderHeight) => {
-          const size = Math.floor(Math.min(viewfinderWidth * 0.82, viewfinderHeight * 0.72, 360));
-          return { width: size, height: size };
-        },
-        videoConstraints: {
-          facingMode: { exact: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      },
-      (decodedText) => {
-        if (isDisposed || hasScanned) return;
-        hasScanned = true;
-        setScanMessage("QR kód načten, ověřuji stanoviště…");
-        setScannerOpen(false);
-        void handleScanResult(decodedText);
-      },
-      () => undefined,
-    ).then(async () => {
-      startSettled = true;
-      if (isDisposed && scanner.isScanning) await scanner.stop();
-      if (isDisposed) clearScanner();
-    }).catch((scanError: unknown) => {
-      startSettled = true;
-      if (!isDisposed) {
-        const errorName = scanError instanceof Error ? scanError.name : "";
-        setScanMessage(
-          errorName === "NotAllowedError" || errorName === "PermissionDeniedError"
-            ? "Přístup ke kameře je zablokovaný. Povolte kameru v nastavení webu a zkuste to znovu."
-            : errorName === "NotFoundError" || errorName === "DevicesNotFoundError"
-              ? "Nepodařilo se najít zadní kameru tohoto zařízení."
-              : "Kameru se nepodařilo spustit. Zkontrolujte oprávnění a zkuste to znovu.",
+    const clearScanner = () => scanner?.clear();
+    const startScanner = async () => {
+      try {
+        scanner = await createQrScanner("qr-reader-element");
+        if (isDisposed) return;
+        await scanner.start(
+          { facingMode: { exact: "environment" } },
+          {
+            fps: 12,
+            qrbox: (viewfinderWidth, viewfinderHeight) => {
+              const size = Math.floor(Math.min(viewfinderWidth * 0.82, viewfinderHeight * 0.72, 360));
+              return { width: size, height: size };
+            },
+            videoConstraints: {
+              facingMode: { exact: "environment" },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+          },
+          (decodedText) => {
+            if (isDisposed || hasScanned) return;
+            hasScanned = true;
+            setScanMessage("QR kód načten, ověřuji stanoviště…");
+            setScannerOpen(false);
+            void handleScanResult(decodedText);
+          },
+          () => undefined,
         );
-      } else {
-        clearScanner();
+        startSettled = true;
+        if (isDisposed && scanner.isScanning) await scanner.stop();
+        if (isDisposed) clearScanner();
+      } catch (scanError: unknown) {
+        startSettled = true;
+        if (!isDisposed) {
+          const errorName = scanError instanceof Error ? scanError.name : "";
+          setScanMessage(
+            errorName === "NotAllowedError" || errorName === "PermissionDeniedError"
+              ? "Přístup ke kameře je zablokovaný. Povolte kameru v nastavení webu a zkuste to znovu."
+              : errorName === "NotFoundError" || errorName === "DevicesNotFoundError"
+                ? "Nepodařilo se najít zadní kameru tohoto zařízení."
+                : "Kameru se nepodařilo spustit. Zkontrolujte oprávnění a zkuste to znovu.",
+          );
+        } else {
+          clearScanner();
+        }
       }
-    });
+    };
+    void startScanner();
 
     return () => {
       isDisposed = true;
-      if (scanner.isScanning) {
+      if (scanner?.isScanning) {
         void scanner.stop().then(clearScanner).catch((stopError: unknown) => {
           console.error("QR scanner could not be stopped cleanly.", stopError);
         });
@@ -840,7 +886,10 @@ export default function Page() {
   }, [scannerOpen, handleScanResult]);
 
   const completeTeamLogin = useCallback(async (customToken: string) => {
-    const auth = getFirebaseAuth();
+    const [{ inMemoryPersistence, setPersistence, signInWithCustomToken }, auth] = await Promise.all([
+      import("firebase/auth"),
+      getFirebaseAuth(),
+    ]);
     await setPersistence(auth, inMemoryPersistence);
     const credential = await signInWithCustomToken(auth, customToken);
     const response = await fetch("/api/auth/session", {
@@ -861,6 +910,7 @@ export default function Page() {
     if (result.user.role === "admin") {
       setGameState(state);
       setIsOwnerAdmin(false);
+      setAdminTab("teams");
       setIsAuthenticated(true);
       setError("");
       setScreen("admin-panel");
@@ -933,64 +983,67 @@ export default function Page() {
   useEffect(() => {
     if (!teamQrScannerOpen) return;
 
-    const scanner = new Html5Qrcode("team-qr-login-reader", {
-      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-      useBarCodeDetectorIfSupported: true,
-      verbose: false,
-    });
+    let scanner: Html5QrcodeInstance | undefined;
     let isDisposed = false;
     let startSettled = false;
     let hasScanned = false;
 
-    void scanner.start(
-      { facingMode: { exact: "environment" } },
-      {
-        fps: 12,
-        qrbox: (viewfinderWidth, viewfinderHeight) => {
-          const size = Math.floor(Math.min(viewfinderWidth * 0.82, viewfinderHeight * 0.72, 360));
-          return { width: size, height: size };
-        },
-        videoConstraints: {
-          facingMode: { exact: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      },
-      (decodedText) => {
-        if (isDisposed || hasScanned) return;
-        hasScanned = true;
-        setTeamQrScannerOpen(false);
-        void handleTeamQrLogin(decodedText);
-      },
-      () => undefined,
-    ).then(async () => {
-      startSettled = true;
-      if (isDisposed && scanner.isScanning) await scanner.stop();
-      if (isDisposed) scanner.clear();
-    }).catch((scanError: unknown) => {
-      startSettled = true;
-      if (!isDisposed) {
-        const errorName = scanError instanceof Error ? scanError.name : "";
-        const message = errorName === "NotAllowedError" || errorName === "PermissionDeniedError"
-          ? "Přístup ke kameře je zablokovaný. Povolte kameru v nastavení webu."
-          : errorName === "NotFoundError" || errorName === "DevicesNotFoundError"
-            ? "Nepodařilo se najít zadní kameru tohoto zařízení."
-            : "Kameru se nepodařilo spustit. Zkontrolujte oprávnění.";
-        setTeamQrScanMessage(message);
-        setError(message);
-      } else {
-        scanner.clear();
+    const clearScanner = () => scanner?.clear();
+    const startScanner = async () => {
+      try {
+        scanner = await createQrScanner("team-qr-login-reader");
+        if (isDisposed) return;
+        await scanner.start(
+          { facingMode: { exact: "environment" } },
+          {
+            fps: 12,
+            qrbox: (viewfinderWidth, viewfinderHeight) => {
+              const size = Math.floor(Math.min(viewfinderWidth * 0.82, viewfinderHeight * 0.72, 360));
+              return { width: size, height: size };
+            },
+            videoConstraints: {
+              facingMode: { exact: "environment" },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+          },
+          (decodedText) => {
+            if (isDisposed || hasScanned) return;
+            hasScanned = true;
+            setTeamQrScannerOpen(false);
+            void handleTeamQrLogin(decodedText);
+          },
+          () => undefined,
+        );
+        startSettled = true;
+        if (isDisposed && scanner.isScanning) await scanner.stop();
+        if (isDisposed) clearScanner();
+      } catch (scanError: unknown) {
+        startSettled = true;
+        if (!isDisposed) {
+          const errorName = scanError instanceof Error ? scanError.name : "";
+          const message = errorName === "NotAllowedError" || errorName === "PermissionDeniedError"
+            ? "Přístup ke kameře je zablokovaný. Povolte kameru v nastavení webu."
+            : errorName === "NotFoundError" || errorName === "DevicesNotFoundError"
+              ? "Nepodařilo se najít zadní kameru tohoto zařízení."
+              : "Kameru se nepodařilo spustit. Zkontrolujte oprávnění.";
+          setTeamQrScanMessage(message);
+          setError(message);
+        } else {
+          clearScanner();
+        }
       }
-    });
+    };
+    void startScanner();
 
     return () => {
       isDisposed = true;
-      if (scanner.isScanning) {
-        void scanner.stop().then(() => scanner.clear()).catch((stopError: unknown) => {
+      if (scanner?.isScanning) {
+        void scanner.stop().then(clearScanner).catch((stopError: unknown) => {
           console.error("QR login scanner could not be stopped cleanly.", stopError);
         });
       } else if (startSettled) {
-        scanner.clear();
+        clearScanner();
       }
     };
   }, [teamQrScannerOpen, handleTeamQrLogin]);
@@ -1000,7 +1053,10 @@ export default function Page() {
     const enteredPassword = adminPasswordInputRef.current?.value ?? adminForm.password;
 
     try {
-      const auth = getFirebaseAuth();
+      const [{ inMemoryPersistence, setPersistence, signInWithEmailAndPassword }, auth] = await Promise.all([
+        import("firebase/auth"),
+        getFirebaseAuth(),
+      ]);
       await setPersistence(auth, inMemoryPersistence);
       const credential = await signInWithEmailAndPassword(auth, enteredEmail, enteredPassword);
       const sessionResponse = await fetch("/api/auth/session", {
@@ -1017,6 +1073,7 @@ export default function Page() {
       setGameState(state);
       setAdminForm({ email: enteredEmail, password: "" });
       setIsOwnerAdmin(true);
+      setAdminTab("teams");
       setIsAuthenticated(true);
       setError("");
       setScreen("admin-panel");
@@ -1029,12 +1086,18 @@ export default function Page() {
     try {
       const response = await fetch("/api/auth/logout", { method: "POST" });
       if (!response.ok) throw new Error("Odhlášení se nezdařilo.");
-      await signOut(getFirebaseAuth());
+      const [{ signOut }, auth] = await Promise.all([
+        import("firebase/auth"),
+        getFirebaseAuth(),
+      ]);
+      await signOut(auth);
     } catch (logoutError) {
       setError(logoutError instanceof Error ? logoutError.message : "Odhlášení se nezdařilo.");
       return;
     }
     setIsAuthenticated(false);
+    setIsOwnerAdmin(false);
+    setAdminTab("teams");
     lastPersistedStateRef.current = null;
     setTeamId(null);
     setGameState(emptyGameState);
@@ -1048,7 +1111,7 @@ export default function Page() {
 
   const handleGameControl = async (action: "start" | "restart" | "stop" | "resume") => {
     if (action === "stop" && !window.confirm(
-      "Ukončit hru? Všem týmům se zobrazí stránka, že hra skončila, a nebudou moci pokračovat.",
+      "Pozastavit hru? Všem týmům se zobrazí informace o pozastavení a budou čekat, dokud hlavní administrátor hru znovu nespustí.",
     )) {
       return;
     }
@@ -1077,6 +1140,42 @@ export default function Page() {
       setError(controlError instanceof Error ? controlError.message : "Stav hry se nepodařilo změnit.");
     } finally {
       setGameControlBusy(false);
+    }
+  };
+
+  const handleOwnerAction = async (
+    action:
+      | { action: "emergency-message"; message: string }
+      | { action: "clear-emergency-message" }
+      | { action: "intervene"; teamId: string; stationId: string; completed: boolean }
+      | { action: "close-game" },
+  ) => {
+    if (!isOwnerAdmin || ownerActionBusy) return;
+    if (action.action === "close-game" && !window.confirm(
+      "Uzavřít hru a vyhlásit výsledky? Týmy už potom nebudou moci pokračovat a výsledky nepůjde změnit.",
+    )) return;
+
+    setOwnerActionBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/owner-controls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(action),
+      });
+      const result = await response.json() as { state?: GameState; error?: string };
+      if (!response.ok || !result.state) {
+        throw new Error(result.error ?? "Zásah hlavního admina se nepodařilo provést.");
+      }
+      const state = normalizeGameState(result.state);
+      lastPersistedStateRef.current = JSON.stringify(state);
+      setGameState(state);
+      setSaveError("");
+      if (action.action === "emergency-message") setEmergencyDraft("");
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "Zásah hlavního admina se nepodařilo provést.");
+    } finally {
+      setOwnerActionBusy(false);
     }
   };
 
@@ -1196,12 +1295,16 @@ export default function Page() {
     setFlashMediaFile(null);
     setFlashMediaPreview("");
     if (!file) return;
-    if (!["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"].includes(file.type)) {
-      setError("Použijte fotografii JPG, PNG, WebP, GIF nebo AVIF.");
+    const allowedTypes = [
+      "image/jpeg", "image/png", "image/webp", "image/gif", "image/avif",
+      "video/mp4", "video/webm", "video/quicktime",
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      setError("Použijte fotografii JPG, PNG, WebP, GIF nebo AVIF, případně video MP4, WebM či MOV.");
       return;
     }
     if (file.size === 0 || file.size > 50 * 1024 * 1024) {
-      setError("Fotografie musí mít velikost do 50 MB.");
+      setError("Soubor musí mít velikost do 50 MB.");
       return;
     }
     const preview = URL.createObjectURL(file);
@@ -1590,11 +1693,12 @@ export default function Page() {
   const submitFlashMission = async (team: Team) => {
     if (!team.flashMissionId) return;
     const mission = gameState.flashMissions.find((item) => item.id === team.flashMissionId);
-    if (mission?.type === "photo" && !flashMediaFile) {
-      setError("Nejprve nahrajte fotografii k přepadovému úkolu.");
+    const missionNeedsMedia = mission?.type === "photo" || mission?.type === "video";
+    if (missionNeedsMedia && !flashMediaFile) {
+      setError(mission?.type === "video" ? "Nejprve nahrajte video k přepadovému úkolu." : "Nejprve nahrajte fotografii k přepadovému úkolu.");
       return;
     }
-    if (mission?.type !== "photo" && !flashDraft.trim()) {
+    if (!missionNeedsMedia && !flashDraft.trim()) {
       setError("Napište odpověď před odesláním.");
       return;
     }
@@ -1602,14 +1706,14 @@ export default function Page() {
     setIsSubmittingFlash(true);
     setError("");
     try {
-      const mediaUrl = mission?.type === "photo" && flashMediaFile
+      const mediaUrl = missionNeedsMedia && flashMediaFile
         ? await uploadTeamMedia(flashMediaFile, team.id)
         : undefined;
       const response = await fetch("/api/team/flash", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          content: mission?.type === "photo" ? "" : flashDraft,
+          content: missionNeedsMedia ? "" : flashDraft,
           ...(mediaUrl ? { mediaUrl } : {}),
         }),
       });
@@ -1631,6 +1735,39 @@ export default function Page() {
       setError(missionError instanceof Error ? missionError.message : "Přepadový úkol se nepodařilo odeslat.");
     } finally {
       setIsSubmittingFlash(false);
+    }
+  };
+
+  const sendTeamAmbush = async () => {
+    if (!teamAmbushForm.targetTeamId || !teamAmbushForm.title.trim() || !teamAmbushForm.description.trim()) {
+      setError("Vyberte soupeře a zadejte název i zadání přepadu.");
+      return;
+    }
+    setTeamAmbushBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/team/ambush", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetTeamId: teamAmbushForm.targetTeamId,
+          title: teamAmbushForm.title,
+          description: teamAmbushForm.description,
+          type: teamAmbushForm.type,
+        }),
+      });
+      const result = await response.json() as { state?: GameState; error?: string };
+      if (!response.ok || !result.state) {
+        throw new Error(result.error ?? "Přepad se nepodařilo odeslat.");
+      }
+      const state = normalizeGameState(result.state);
+      lastPersistedStateRef.current = JSON.stringify(state);
+      setGameState(state);
+      setTeamAmbushForm({ targetTeamId: "", title: "", description: "", type: "photo" });
+    } catch (ambushError) {
+      setError(ambushError instanceof Error ? ambushError.message : "Přepad se nepodařilo odeslat.");
+    } finally {
+      setTeamAmbushBusy(false);
     }
   };
 
@@ -1730,15 +1867,16 @@ export default function Page() {
     <main className="app-root min-h-screen bg-[#f4f5f7] text-[#202633]">
       {screen === "team-login" && (
         <div className="auth-page login-page">
-          <Image
-            src={authVisualMode === "sunset" ? "/podzimky-palace-sunset-hd.jpg" : "/podzimky-palace-interior-hd.jpg"}
-            alt=""
-            fill
-            preload
-            sizes="100vw"
-            quality={95}
-            className="auth-photo"
-          />
+          <div className="auth-photo-panel" aria-hidden="true">
+            <Image
+              src={authVisualMode === "sunset" ? "/podzimky-palace-sunset-hd.jpg" : "/podzimky-palace-interior-hd.jpg"}
+              alt=""
+              fill
+              sizes="(min-width: 901px) 56vw, 100vw"
+              quality={95}
+              className="auth-photo"
+            />
+          </div>
           <div aria-hidden="true" className="auth-photo-shade" />
           <div className="auth-frame">
             <header className="auth-topbar">
@@ -1820,15 +1958,16 @@ export default function Page() {
 
       {screen === "admin-login" && (
         <div className="auth-page auth-admin-page">
-          <Image
-            src={authVisualMode === "sunset" ? "/podzimky-palace-sunset-hd.jpg" : "/podzimky-palace-interior-hd.jpg"}
-            alt=""
-            fill
-            preload
-            sizes="100vw"
-            quality={95}
-            className="auth-photo"
-          />
+          <div className="auth-photo-panel" aria-hidden="true">
+            <Image
+              src={authVisualMode === "sunset" ? "/podzimky-palace-sunset-hd.jpg" : "/podzimky-palace-interior-hd.jpg"}
+              alt=""
+              fill
+              sizes="(min-width: 901px) 56vw, 100vw"
+              quality={95}
+              className="auth-photo"
+            />
+          </div>
           <div aria-hidden="true" className="auth-photo-shade" />
           <div className="auth-frame">
             <header className="auth-topbar">
@@ -1895,29 +2034,73 @@ export default function Page() {
       )}
 
       {screen === "team-dashboard" && activeTeam && (
-        gameState.gameStoppedAt ? (
+        gameState.gameClosedAt ? (
+          <div className="mx-auto flex min-h-screen max-w-2xl items-center justify-center px-4 py-10">
+            <div className="w-full rounded-[30px] border border-[#d5a24a] bg-[#fff5df] p-8 shadow-[0_22px_55px_rgba(116,81,35,0.2)]">
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8e5d1d]">Podzimky 2026</p>
+              <h1 className="mt-3 text-3xl font-black text-[#281d15]">Výsledky hry</h1>
+              <p className="mt-3 text-base text-[#5d4536]">Děkujeme za účast, {activeTeam.name}.</p>
+              <p className="mt-2 text-sm text-[#756958]">
+                Váš výsledek: {gameState.gameResults?.find((result) => result.teamId === activeTeam.id)?.completedStations ?? activeTeam.completedStations.length} / {gameState.stations.length} stanovišť
+              </p>
+              {gameState.emergencyMessage && (
+                <div role="alert" className="mt-5 rounded-xl border border-[#dc9c77] bg-[#fff0e8] p-4 text-sm font-semibold text-[#78351e]">
+                  <strong className="block">Nouzová zpráva</strong>
+                  <span className="mt-1 block whitespace-pre-wrap">{gameState.emergencyMessage.message}</span>
+                </div>
+              )}
+              <ol className="mt-6 space-y-2">
+                {(gameState.gameResults ?? []).map((result) => (
+                  <li key={result.teamId} className={classNames(
+                    "flex items-center justify-between gap-3 rounded-xl border px-4 py-3",
+                    result.teamId === activeTeam.id ? "border-[#d5a24a] bg-[#fffaf1]" : "border-[#e7d7b4] bg-white/70",
+                  )}>
+                    <span className="font-bold text-[#39291d]">{result.rank}. {result.teamName}</span>
+                    <span className="text-sm text-[#72501f]">{result.completedStations} / {gameState.stations.length} stanovišť</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        ) : gameState.gameStoppedAt ? (
           <div className="mx-auto flex min-h-screen max-w-xl items-center justify-center px-4 py-10">
             <div className="w-full rounded-[30px] border border-[#d5a24a] bg-[#fff5df] p-8 text-center shadow-[0_22px_55px_rgba(116,81,35,0.2)]">
               <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8e5d1d]">Podzimky 2026</p>
-              <h1 className="mt-3 text-3xl font-black text-[#281d15]">Hra skončila</h1>
-              <p className="mt-3 text-base text-[#5d4536]">Děkujeme za účast, {activeTeam.name}!</p>
+              <h1 className="mt-3 text-3xl font-black text-[#281d15]">Hra je pozastavena</h1>
+              <p className="mt-3 text-base text-[#5d4536]">{activeTeam.name}, vyčkejte na pokyn pořadatele.</p>
               <p className="mt-4 font-mono text-lg font-bold tabular-nums text-[#8b3329]">
                 <ElapsedClock startedAt={gameState.gameStartedAt} stoppedAt={gameState.gameStoppedAt} pausedMs={gameState.gamePausedMs} />
               </p>
-              <p className="mt-2 text-sm text-[#756958]">Splněno stanovišť: {activeTeam.completedStations.length} / {gameState.stations.length}</p>
+              {gameState.emergencyMessage && (
+                <div role="alert" className="mt-5 rounded-xl border border-[#dc9c77] bg-[#fff0e8] p-4 text-left text-sm font-semibold text-[#78351e]">
+                  <strong className="block">Nouzová zpráva</strong>
+                  <span className="mt-1 block whitespace-pre-wrap">{gameState.emergencyMessage.message}</span>
+                </div>
+              )}
             </div>
           </div>
         ) :
         activeFlashMission ? (
           <div className="mx-auto flex min-h-screen max-w-3xl items-center justify-center px-4 py-10">
             <div className="w-full rounded-[30px] border border-[#d5a24a] bg-[#fff5df] p-6 shadow-[0_22px_55px_rgba(116,81,35,0.2)] sm:p-9">
+              {gameState.emergencyMessage && (
+                <div role="alert" className="mb-5 rounded-xl border border-[#dc9c77] bg-[#fff0e8] p-4 text-sm font-semibold text-[#78351e]">
+                  <div className="flex items-center gap-2"><AlertTriangle size={18} /> Nouzová zpráva pořadatele</div>
+                  <p className="mt-1 whitespace-pre-wrap">{gameState.emergencyMessage.message}</p>
+                </div>
+              )}
               <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8e5d1d]">Přepadový úkol</p>
+              {activeFlashMission.sourceTeamName && (
+                <p className="mt-2 text-sm font-semibold text-[#8e5d1d]">Přepad od týmu {activeFlashMission.sourceTeamName}</p>
+              )}
               <h1 className="mt-3 text-3xl font-black text-[#281d15]">{activeFlashMission.title}</h1>
               <p className="mt-3 whitespace-pre-wrap text-base leading-relaxed text-[#5d4536]">{activeFlashMission.description}</p>
               <div className="mt-5 rounded-2xl border border-[#e7cf9e] bg-[#fffaf1] p-4 text-sm text-[#483b2e]">
                 {activeFlashMission.type === "photo"
                   ? "Vyfoťte splnění úkolu a nahrajte fotografii."
-                  : "Napište odpověď nebo popište, jak jste zadání splnili."}{" "}
+                  : activeFlashMission.type === "video"
+                    ? "Natočte splnění úkolu a nahrajte video."
+                    : "Napište odpověď nebo popište, jak jste zadání splnili."}{" "}
                 {activeFlashMission.requiresApproval
                   ? "Po odeslání ji zkontroluje pořadatel."
                   : "Po odeslání můžete pokračovat ve hře."}
@@ -1934,28 +2117,39 @@ export default function Page() {
                     </p>
                   )}
                   {error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe5e1] p-3 text-sm text-[#693025]">{error}</p>}
-                  {activeFlashMission.type === "photo" ? (
+                  {activeFlashMission.type === "photo" || activeFlashMission.type === "video" ? (
                     <div className="mt-5">
-                      <label className="block text-sm font-bold text-[#483b2e]" htmlFor="flash-photo">
-                        Fotografie splnění
+                      <label className="block text-sm font-bold text-[#483b2e]" htmlFor="flash-evidence">
+                        {activeFlashMission.type === "video" ? "Video splnění" : "Fotografie splnění"}
                       </label>
                       <input
-                        id="flash-photo"
+                        id="flash-evidence"
                         type="file"
-                        accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
-                        capture="environment"
+                        accept={activeFlashMission.type === "video"
+                          ? "video/mp4,video/webm,video/quicktime"
+                          : "image/jpeg,image/png,image/webp,image/gif,image/avif"}
+                        capture={activeFlashMission.type === "photo" ? "environment" : undefined}
                         onChange={(event) => handleFlashFileUpload(event.target.files?.[0] ?? null)}
                         className="mt-2 block w-full rounded-xl border border-[#dcc58f] bg-white p-3 text-sm"
                       />
                       {flashMediaPreview && (
-                        <Image
-                          src={flashMediaPreview}
-                          alt="Náhled fotografie k přepadovému úkolu"
-                          width={960}
-                          height={640}
-                          unoptimized
-                          className="mt-3 max-h-72 w-full rounded-xl bg-[#f1ece4] object-contain"
-                        />
+                        activeFlashMission.type === "video" ? (
+                          <video
+                            controls
+                            preload="metadata"
+                            src={flashMediaPreview}
+                            className="mt-3 max-h-72 w-full rounded-xl bg-black"
+                          />
+                        ) : (
+                          <Image
+                            src={flashMediaPreview}
+                            alt="Náhled fotografie k přepadovému úkolu"
+                            width={960}
+                            height={640}
+                            unoptimized
+                            className="mt-3 max-h-72 w-full rounded-xl bg-[#f1ece4] object-contain"
+                          />
+                        )
                       )}
                     </div>
                   ) : (
@@ -1977,10 +2171,14 @@ export default function Page() {
                   )}
                   <button
                     onClick={() => void submitFlashMission(activeTeam)}
-                    disabled={(activeFlashMission.type === "photo" ? !flashMediaFile : !flashDraft.trim()) || isSubmittingFlash}
+                    disabled={((activeFlashMission.type === "photo" || activeFlashMission.type === "video") ? !flashMediaFile : !flashDraft.trim()) || isSubmittingFlash}
                     className="mt-5 w-full rounded-2xl bg-[#d59a39] px-4 py-3 text-base font-bold text-[#1d1a17] transition hover:bg-[#e2ad54] disabled:cursor-not-allowed disabled:opacity-55"
                   >
-                    {isSubmittingFlash ? "Odesílám…" : "Odeslat odpověď"}
+                    {isSubmittingFlash
+                      ? "Odesílám…"
+                      : activeFlashMission.type === "photo" || activeFlashMission.type === "video"
+                        ? "Odeslat důkaz"
+                        : "Odeslat odpověď"}
                   </button>
                 </>
               )}
@@ -1988,6 +2186,12 @@ export default function Page() {
           </div>
         ) : (
           <div className="player-shell mx-auto max-w-5xl px-3 py-4 pb-24 sm:px-5 sm:py-6">
+            {gameState.emergencyMessage && (
+              <div role="alert" className="mb-4 rounded-xl border border-[#dc9c77] bg-[#fff0e8] p-4 text-sm font-semibold text-[#78351e] shadow-sm">
+                <div className="flex items-center gap-2"><AlertTriangle size={18} /> Nouzová zpráva pořadatele</div>
+                <p className="mt-1 whitespace-pre-wrap">{gameState.emergencyMessage.message}</p>
+              </div>
+            )}
             <header className="player-header sticky top-2 z-20 mb-5 rounded-2xl border p-4 text-[#1e293b] shadow-sm sm:px-5">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
@@ -2045,6 +2249,93 @@ export default function Page() {
                 )}
               </div>
             )}
+
+            {gameState.gameStartedAt && !gameState.gameStoppedAt && !gameState.gameClosedAt && (
+                <section className="mb-4 rounded-2xl border border-[#e7d8c0] bg-[#fffdfa] p-4 shadow-[0_8px_24px_rgba(29,25,20,0.06)] sm:p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#8e5d1d]">Týmový přepad</p>
+                      <h2 className="mt-1 text-lg font-bold text-[#241d1a]">Zadejte soupeři výzvu</h2>
+                      <p className="mt-1 text-sm text-[#675d53]">
+                        Využito {activeTeam.flashMissionsUsed ?? 0} ze 3 přepadů. Důkaz se uloží do galerie bez schvalování.
+                      </p>
+                    </div>
+                  </div>
+                  {(activeTeam.flashMissionsUsed ?? 0) >= 3 ? (
+                    <p className="mt-4 rounded-xl bg-[#f5efe8] p-3 text-sm text-[#675d53]">
+                      Všechny 3 přepady tohoto týmu už byly využity.
+                    </p>
+                  ) : gameState.ambushTargets?.length ? (
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <label className="block text-sm font-semibold text-[#4d3b2a]">
+                        Soupeřící tým
+                        <select
+                          value={teamAmbushForm.targetTeamId}
+                          onChange={(event) => setTeamAmbushForm((current) => ({ ...current, targetTeamId: event.target.value }))}
+                          disabled={teamAmbushBusy}
+                          className="mt-1 w-full rounded-xl border border-[#d8c6a2] bg-white p-3"
+                        >
+                          <option value="">Vyberte tým</option>
+                          {gameState.ambushTargets.map((target) => (
+                            <option key={target.id} value={target.id}>{target.name}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block text-sm font-semibold text-[#4d3b2a]">
+                        Důkaz splnění
+                        <select
+                          value={teamAmbushForm.type}
+                          onChange={(event) => setTeamAmbushForm((current) => ({
+                            ...current,
+                            type: event.target.value === "video" ? "video" : "photo",
+                          }))}
+                          disabled={teamAmbushBusy}
+                          className="mt-1 w-full rounded-xl border border-[#d8c6a2] bg-white p-3"
+                        >
+                          <option value="photo">Fotografie</option>
+                          <option value="video">Video</option>
+                        </select>
+                      </label>
+                      <label className="block text-sm font-semibold text-[#4d3b2a] sm:col-span-2">
+                        Název výzvy
+                        <input
+                          value={teamAmbushForm.title}
+                          onChange={(event) => setTeamAmbushForm((current) => ({ ...current, title: event.target.value }))}
+                          maxLength={100}
+                          disabled={teamAmbushBusy}
+                          placeholder="Například: Znak výpravy"
+                          className="mt-1 w-full rounded-xl border border-[#d8c6a2] bg-white p-3"
+                        />
+                      </label>
+                      <label className="block text-sm font-semibold text-[#4d3b2a] sm:col-span-2">
+                        Zadání
+                        <textarea
+                          value={teamAmbushForm.description}
+                          onChange={(event) => setTeamAmbushForm((current) => ({ ...current, description: event.target.value }))}
+                          maxLength={2000}
+                          rows={3}
+                          disabled={teamAmbushBusy}
+                          placeholder="Popište, co má soupeř splnit a vyfotit nebo natočit."
+                          className="mt-1 w-full rounded-xl border border-[#d8c6a2] bg-white p-3"
+                        />
+                      </label>
+                      {error && <p role="alert" className="rounded-xl bg-[#fce7e6] p-3 text-sm text-[#8b2d2d] sm:col-span-2">{error}</p>}
+                      <button
+                        type="button"
+                        onClick={() => void sendTeamAmbush()}
+                        disabled={teamAmbushBusy || !teamAmbushForm.targetTeamId || !teamAmbushForm.title.trim() || !teamAmbushForm.description.trim()}
+                        className="rounded-xl bg-[#843b2d] px-4 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-2"
+                      >
+                        {teamAmbushBusy ? "Odesílám přepad…" : "Poslat přepad"}
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="mt-4 rounded-xl bg-[#f5efe8] p-3 text-sm text-[#675d53]">
+                      Teď není dostupný žádný soupeř bez aktivního přepadu.
+                    </p>
+                  )}
+                </section>
+              )}
 
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
               <section className="player-route order-2 rounded-2xl border border-[#e7d8c0] bg-[#fffdfa] p-3 shadow-[0_8px_24px_rgba(29,25,20,0.06)] lg:order-1">
@@ -2409,7 +2700,8 @@ export default function Page() {
                 { tab: "stations", label: "Stanoviště", icon: "stations" as const, count: gameState.stations.length },
                 { tab: "flash", label: "Přepady", icon: "flash" as const, count: gameState.flashMissions.filter((mission) => !mission.archivedAt).length },
                 { tab: "submissions", label: "Schvalování", icon: "review" as const, count: pendingSubmissions.length },
-                { tab: "media", label: "Galerie", icon: "media" as const, count: mediaSubmissions.length },
+                ...(isOwnerAdmin ? [{ tab: "media" as const, label: "Galerie", icon: "media" as const, count: mediaSubmissions.length }] : []),
+                ...(isOwnerAdmin ? [{ tab: "live" as const, label: "Živý přehled", icon: "live" as const, count: gameState.teams.length }] : []),
                 ...(isOwnerAdmin ? [{ tab: "managers" as const, label: "Správci", icon: "teams" as const, count: managers.length }] : []),
               ] as const).map((item) => (
                 <button
@@ -2427,7 +2719,7 @@ export default function Page() {
                   <span className="admin-sidebar-count">{item.count}</span>
                 </button>
               ))}
-              <button
+              {isOwnerAdmin && <button
                 type="button"
                 className="admin-sidebar-presentation"
                 onClick={() => {
@@ -2439,23 +2731,26 @@ export default function Page() {
               >
                 <Play size={17} aria-hidden="true" />
                 <span>Promítání</span>
-              </button>
+              </button>}
             </nav>
             <section className="admin-sidebar-game" aria-label="Ovládání hry">
-              <div className="admin-sidebar-game-heading">
+              {isOwnerAdmin && <div className="admin-sidebar-game-heading">
                 <span aria-hidden="true">令</span>
                 <div>
                   <p>Stav výpravy</p>
-                  <h2>{!gameState.gameStartedAt ? "Čeká na start" : gameState.gameStoppedAt ? "Čas zastaven" : "Hra běží"}</h2>
+                  <h2>{gameState.gameClosedAt ? "Hra uzavřena" : !gameState.gameStartedAt ? "Čeká na start" : gameState.gameStoppedAt ? "Čas zastaven" : "Hra běží"}</h2>
                 </div>
-              </div>
+              </div>}
+              {!isOwnerAdmin && <p className="admin-sidebar-game-note">Čas hry</p>}
               <ElapsedClock startedAt={gameState.gameStartedAt} stoppedAt={gameState.gameStoppedAt} pausedMs={gameState.gamePausedMs} className="admin-sidebar-clock" />
-              <p className="admin-sidebar-game-note">
+              {isOwnerAdmin && <p className="admin-sidebar-game-note">
                 {gameState.gameStartedAt
                   ? `Spuštěno ${new Date(gameState.gameStartedAt).toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })}`
                   : "Společný start pro všechny týmy"}
-              </p>
-              {!gameState.gameStartedAt ? (
+              </p>}
+              {isOwnerAdmin && (gameState.gameClosedAt ? (
+                <p className="admin-sidebar-game-note">Hra byla uzavřena a výsledky vyhlášeny.</p>
+              ) : !gameState.gameStartedAt ? (
                 <button
                   type="button"
                   onClick={() => void handleGameControl("start")}
@@ -2474,7 +2769,7 @@ export default function Page() {
                 >
                   {gameState.gameStoppedAt
                     ? <><Play size={15} fill="currentColor" /> Pokračovat</>
-                    : <><Pause size={15} /> Ukončit hru</>}
+                    : <><Pause size={15} /> Pozastavit hru</>}
                 </button>
                 <button
                   type="button"
@@ -2485,13 +2780,13 @@ export default function Page() {
                   <ArrowRight size={15} className="rotate-180" /> {gameControlBusy ? "Restartuji…" : "Restartovat"}
                 </button>
                 </>
-              )}
-              {error && <p role="alert" className="admin-sidebar-error">{error}</p>}
-              <div className="admin-sidebar-summary">
+              ))}
+              {isOwnerAdmin && error && <p role="alert" className="admin-sidebar-error">{error}</p>}
+              {isOwnerAdmin && <div className="admin-sidebar-summary">
                 <span>{gameState.teams.length} týmů</span>
                 <span>{pendingSubmissions.length} ke schválení</span>
-              </div>
-              {gameState.events[0] && <p className="admin-sidebar-event">{gameState.events[0].message}</p>}
+              </div>}
+              {isOwnerAdmin && gameState.events[0] && <p className="admin-sidebar-event">{gameState.events[0].message}</p>}
             </section>
             <button
               onClick={() => void handleLogout()}
@@ -2521,12 +2816,196 @@ export default function Page() {
               <header className="module-toolbar">
                 <div>
                   <p className="admin-eyebrow">Pracovní plocha</p>
-                  <h2>{adminTab === "teams" ? "Týmy" : adminTab === "stations" ? "Stanoviště" : adminTab === "submissions" ? "Schvalování" : adminTab === "media" ? "Galerie" : adminTab === "managers" ? "Správci" : "Přepady"}</h2>
+                  <h2>{adminTab === "teams" ? "Týmy" : adminTab === "stations" ? "Stanoviště" : adminTab === "submissions" ? "Schvalování" : adminTab === "media" ? "Galerie" : adminTab === "managers" ? "Správci" : adminTab === "live" ? "Živý přehled" : "Přepady"}</h2>
                 </div>
-                <span className={classNames("admin-toolbar-status", gameState.gameStartedAt && "admin-toolbar-status-running")}>
-                  <span /> {gameState.gameStartedAt ? "Výprava probíhá" : "Hra nezačala"}
-                </span>
+                {isOwnerAdmin && <span className={classNames("admin-toolbar-status", gameState.gameStartedAt && "admin-toolbar-status-running")}>
+                  <span /> {gameState.gameClosedAt ? "Hra uzavřena" : gameState.gameStoppedAt ? "Hra pozastavena" : gameState.gameStartedAt ? "Výprava probíhá" : "Hra nezačala"}
+                </span>}
               </header>
+
+          {adminTab === "live" && isOwnerAdmin && (
+            <div className="space-y-4">
+              <section className="rounded-2xl border border-[#e3d9c9] bg-[#fffdfa] p-5 shadow-[0_8px_22px_rgba(25,19,12,0.05)]">
+                <div className="mb-4">
+                  <p className="admin-eyebrow">Hlavní admin</p>
+                  <h2 className="text-xl font-bold text-[#201c19]">Nouzová zpráva</h2>
+                  <p className="mt-1 text-sm text-[#675d53]">Zobrazí se všem přihlášeným týmům a zůstane viditelná do odvolání.</p>
+                </div>
+                {gameState.emergencyMessage && (
+                  <p className="mb-3 whitespace-pre-wrap rounded-xl border border-[#dc9c77] bg-[#fff0e8] p-3 text-sm text-[#78351e]">
+                    Aktivní zpráva: {gameState.emergencyMessage.message}
+                  </p>
+                )}
+                <textarea
+                  value={emergencyDraft}
+                  onChange={(event) => setEmergencyDraft(event.target.value)}
+                  maxLength={500}
+                  rows={3}
+                  disabled={Boolean(gameState.gameClosedAt) || ownerActionBusy}
+                  placeholder="Například: Přerušte hru a dostavte se k hlavnímu stanu."
+                  className="w-full rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm text-[#30251e] outline-none focus:ring-2 focus:ring-[#d59a39]/30 disabled:opacity-60"
+                />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleOwnerAction({ action: "emergency-message", message: emergencyDraft })}
+                    disabled={Boolean(gameState.gameClosedAt) || ownerActionBusy || !emergencyDraft.trim()}
+                    className="admin-primary-button disabled:opacity-50"
+                  >
+                    <AlertTriangle size={16} /> Odeslat všem týmům
+                  </button>
+                  {gameState.emergencyMessage && (
+                    <button
+                      type="button"
+                      onClick={() => void handleOwnerAction({ action: "clear-emergency-message" })}
+                      disabled={Boolean(gameState.gameClosedAt) || ownerActionBusy}
+                      className="rounded-xl border border-[#d8c6a2] bg-white px-4 py-2 text-sm font-semibold text-[#553d2d] disabled:opacity-50"
+                    >
+                      Odvolat zprávu
+                    </button>
+                  )}
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-[#e3d9c9] bg-[#fffdfa] p-5 shadow-[0_8px_22px_rgba(25,19,12,0.05)]">
+                <p className="admin-eyebrow">Hlavní admin</p>
+                <h2 className="text-xl font-bold text-[#201c19]">Ruční zásah do postupu</h2>
+                <p className="mt-1 text-sm text-[#675d53]">Vrácením kroku se zruší splnění i skeny tohoto a následujících stanovišť.</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label className="text-sm font-semibold text-[#483b2e]">
+                    Tým
+                    <select
+                      value={manualTeamId}
+                      onChange={(event) => setManualTeamId(event.target.value)}
+                      disabled={Boolean(gameState.gameClosedAt) || ownerActionBusy}
+                      className="mt-1 w-full rounded-xl border border-[#d8c6a2] bg-white p-3"
+                    >
+                      <option value="">Vyberte tým</option>
+                      {gameState.teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+                    </select>
+                  </label>
+                  <label className="text-sm font-semibold text-[#483b2e]">
+                    Stanoviště
+                    <select
+                      value={manualStationId}
+                      onChange={(event) => setManualStationId(event.target.value)}
+                      disabled={Boolean(gameState.gameClosedAt) || ownerActionBusy}
+                      className="mt-1 w-full rounded-xl border border-[#d8c6a2] bg-white p-3"
+                    >
+                      <option value="">Vyberte stanoviště</option>
+                      {[...gameState.stations].sort((first, second) => first.order - second.order).map((station) => (
+                        <option key={station.id} value={station.id}>{station.order}. {station.title}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleOwnerAction({ action: "intervene", teamId: manualTeamId, stationId: manualStationId, completed: true })}
+                    disabled={Boolean(gameState.gameClosedAt) || ownerActionBusy || !manualTeamId || !manualStationId}
+                    className="admin-primary-button disabled:opacity-50"
+                  >
+                    Ručně splnit stanoviště
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleOwnerAction({ action: "intervene", teamId: manualTeamId, stationId: manualStationId, completed: false })}
+                    disabled={Boolean(gameState.gameClosedAt) || ownerActionBusy || !manualTeamId || !manualStationId}
+                    className="rounded-xl border border-[#d8c6a2] bg-white px-4 py-2 text-sm font-semibold text-[#553d2d] disabled:opacity-50"
+                  >
+                    Vrátit tento krok
+                  </button>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-[#e3d9c9] bg-[#fffdfa] p-5 shadow-[0_8px_22px_rgba(25,19,12,0.05)]">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="admin-eyebrow">Aktualizuje se automaticky</p>
+                    <h2 className="text-xl font-bold text-[#201c19]">Živý přehled hry</h2>
+                  </div>
+                  <span className="text-sm text-[#675d53]">{gameState.teams.length} týmů · {pendingSubmissions.length} čeká na schválení</span>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {gameState.teams.map((team) => {
+                    const completed = team.completedStations.length;
+                    const nextStation = [...gameState.stations]
+                      .sort((first, second) => first.order - second.order)
+                      .find((station) => !team.completedStations.includes(station.id));
+                    const pendingCount = pendingSubmissions.filter((submission) => submission.teamId === team.id).length;
+                    const scannedNext = nextStation && team.scannedStationIds.includes(nextStation.id);
+                    const status = !gameState.gameStartedAt
+                      ? "Čeká na start"
+                      : team.flashMissionId
+                        ? "Řeší přepad"
+                        : pendingCount
+                          ? "Čeká na schválení"
+                          : !nextStation
+                            ? "Dokončeno"
+                            : scannedNext
+                              ? `Na stanovišti: ${nextStation.title}`
+                              : "Na trase";
+                    return (
+                      <article key={team.id} className="rounded-xl border border-[#e8ddc9] bg-white p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <h3 className="font-bold text-[#30251e]">{team.name}</h3>
+                          <span className="rounded-full bg-[#f5eddd] px-2.5 py-1 text-xs font-semibold text-[#72501f]">{status}</span>
+                        </div>
+                        <p className="mt-2 text-sm text-[#675d53]">{completed} / {gameState.stations.length} stanovišť splněno</p>
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#efe6d4]">
+                          <div className="h-full bg-[#7d4d19]" style={{ width: `${Math.min((completed / Math.max(gameState.stations.length, 1)) * 100, 100)}%` }} />
+                        </div>
+                      </article>
+                    );
+                  })}
+                  {gameState.teams.length === 0 && <p className="text-sm text-[#675d53]">Zatím nebyly vytvořeny žádné týmy.</p>}
+                </div>
+                <h3 className="mb-2 mt-6 font-bold text-[#30251e]">Poslední události</h3>
+                <ul className="space-y-2">
+                  {gameState.events.slice(0, 8).map((event) => (
+                    <li key={event.id} className="flex flex-wrap justify-between gap-x-4 gap-y-1 border-t border-[#eee5d6] pt-2 text-sm">
+                      <span className="text-[#483b2e]">{event.message}</span>
+                      <time className="text-xs text-[#8a7a68]" dateTime={event.createdAt}>
+                        {new Date(event.createdAt).toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })}
+                      </time>
+                    </li>
+                  ))}
+                  {gameState.events.length === 0 && <li className="text-sm text-[#675d53]">Zatím bez událostí.</li>}
+                </ul>
+              </section>
+
+              <section className="rounded-2xl border border-[#d5a24a] bg-[#fff5df] p-5 shadow-[0_8px_22px_rgba(25,19,12,0.05)]">
+                <h2 className="text-xl font-bold text-[#39291d]">{gameState.gameClosedAt ? "Hra je uzavřená" : "Uzavření hry a vyhlášení výsledků"}</h2>
+                <p className="mt-1 text-sm text-[#72501f]">
+                  {gameState.gameClosedAt
+                    ? "Výsledky jsou zveřejněné týmům a další herní změny jsou zablokované."
+                    : "Po uzavření se týmy už nemohou účastnit. Pořadí určuje počet splněných stanovišť; při shodě týmy sdílejí umístění."}
+                </p>
+                {!gameState.gameClosedAt && (
+                  <button
+                    type="button"
+                    onClick={() => void handleOwnerAction({ action: "close-game" })}
+                    disabled={!gameState.gameStartedAt || ownerActionBusy}
+                    className="mt-4 rounded-xl bg-[#8e3026] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    Uzavřít hru a vyhlásit výsledky
+                  </button>
+                )}
+                {gameState.gameClosedAt && (
+                  <ol className="mt-4 space-y-2">
+                    {(gameState.gameResults ?? []).map((result) => (
+                      <li key={result.teamId} className="flex justify-between rounded-xl border border-[#e7d7b4] bg-white/70 px-4 py-3 text-sm">
+                        <span className="font-bold">{result.rank}. {result.teamName}</span>
+                        <span>{result.completedStations} stanovišť</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </section>
+              {error && <p role="alert" className="rounded-xl bg-[#fce7e6] p-3 text-sm font-semibold text-[#8b2d2d]">{error}</p>}
+            </div>
+          )}
 
           {adminTab === "teams" && (
             <>
@@ -3214,7 +3693,7 @@ export default function Page() {
             </section>
           )}
 
-          {adminTab === "media" && (
+          {adminTab === "media" && isOwnerAdmin && (
             <section className="rounded-[24px] bg-[#fffdfa] p-4 shadow-[0_12px_30px_rgba(20,16,14,0.08)]">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
@@ -3268,7 +3747,9 @@ export default function Page() {
                             <div className="min-w-0">
                               <p className="truncate text-sm font-bold text-[#2b2523]">{team?.name ?? "Tým"}</p>
                               <p className="mt-1 truncate text-xs text-[#6f5a49]">
-                                {mission?.title ?? (submission.missionId ? "Přepadový úkol" : station?.title ?? "Odstraněné stanoviště")}
+                                {mission?.sourceTeamName
+                                  ? `${mission.title} · přepad od ${mission.sourceTeamName}`
+                                  : mission?.title ?? (submission.missionId ? "Přepadový úkol" : station?.title ?? "Odstraněné stanoviště")}
                               </p>
                             </div>
                             <span className="shrink-0 rounded-full bg-[#f6ddab] px-2 py-1 text-[10px] font-bold text-[#7c5516]">
@@ -3342,7 +3823,9 @@ export default function Page() {
                       <div className="mb-3 flex items-center justify-between gap-3">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-bold">
-                            {team?.name ?? "Tým"} · {mission?.title ?? (submission.missionId ? "Přepadový úkol" : station?.title ?? "Galerie")}
+                            {team?.name ?? "Tým"} · {mission?.sourceTeamName
+                              ? `${mission.title} · přepad od ${mission.sourceTeamName}`
+                              : mission?.title ?? (submission.missionId ? "Přepadový úkol" : station?.title ?? "Galerie")}
                           </p>
                           <p className="text-xs text-white/65">{presentationIndex + 1} / {mediaSubmissions.length}</p>
                         </div>

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getSession, getSessionToken, sanitizeGameState, verifyRequestOrigin } from "@/lib/auth";
 import { getPrisma } from "@/lib/db";
-import { updateGameState } from "@/lib/game-store";
+import { readGameState, updateGameState } from "@/lib/game-store";
 
 export async function DELETE(
   request: Request,
@@ -21,9 +21,13 @@ export async function DELETE(
   if (!/^team-[A-Za-z0-9_-]{1,128}$/.test(teamId)) {
     return NextResponse.json({ error: "Neplatný tým." }, { status: 400 });
   }
+  if ((await readGameState()).gameClosedAt) {
+    return NextResponse.json({ error: "Po uzavření hry už týmy nelze měnit." }, { status: 409 });
+  }
 
   let removedTeamName: string | undefined;
   const state = await updateGameState((current) => {
+    if (current.gameClosedAt) return current;
     const team = current.teams.find((item) => item.id === teamId);
     if (!team) return current;
 
@@ -58,6 +62,9 @@ export async function DELETE(
     };
   });
 
+  if (state.gameClosedAt) {
+    return NextResponse.json({ error: "Po uzavření hry už týmy nelze měnit." }, { status: 409 });
+  }
   if (!removedTeamName) {
     return NextResponse.json({ error: "Tým už neexistuje." }, { status: 404 });
   }

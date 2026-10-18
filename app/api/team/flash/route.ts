@@ -5,13 +5,16 @@ import { NextResponse } from "next/server";
 import { getSession, getSessionToken, sanitizeGameState, verifyRequestOrigin } from "@/lib/auth";
 import { updateGameState, type Submission } from "@/lib/game-store";
 
-const PHOTO_URL_PATTERN = /^\/api\/media\/(team-[A-Za-z0-9_-]{1,128}\/[0-9a-f-]{36}\.(jpg|png|webp|gif|avif))$/i;
-const PHOTO_TYPES: Record<string, string> = {
+const MEDIA_URL_PATTERN = /^\/api\/media\/(team-[A-Za-z0-9_-]{1,128}\/[0-9a-f-]{36}\.(jpg|png|webp|gif|avif|mp4|webm|mov))$/i;
+const MEDIA_TYPES: Record<string, string> = {
   jpg: "image/jpeg",
   png: "image/png",
   webp: "image/webp",
   gif: "image/gif",
   avif: "image/avif",
+  mp4: "video/mp4",
+  webm: "video/webm",
+  mov: "video/quicktime",
 };
 
 export async function POST(request: Request) {
@@ -39,8 +42,8 @@ export async function POST(request: Request) {
   const answer = typeof body.content === "string" ? body.content.trim() : "";
   let mediaUrl: string | undefined;
   if (typeof body.mediaUrl === "string") {
-    const match = PHOTO_URL_PATTERN.exec(body.mediaUrl);
-    if (!match) return NextResponse.json({ error: "Přepadový úkol přijímá pouze fotografii." }, { status: 400 });
+    const match = MEDIA_URL_PATTERN.exec(body.mediaUrl);
+    if (!match) return NextResponse.json({ error: "Přepadový úkol přijímá pouze fotografii nebo video." }, { status: 400 });
     const pathname = match[1];
     if (!pathname.startsWith(`team-${user.teamId}/`)) {
       return NextResponse.json({ error: "Nahraný soubor nepatří tomuto týmu." }, { status: 403 });
@@ -48,8 +51,8 @@ export async function POST(request: Request) {
     const extension = pathname.split(".").at(-1)?.toLowerCase() ?? "";
     try {
       const blob = await head(pathname);
-      if (blob.size === 0 || blob.size > 50 * 1024 * 1024 || blob.contentType !== PHOTO_TYPES[extension]) {
-        return NextResponse.json({ error: "Nahraná fotografie neodpovídá povolenému formátu nebo velikosti." }, { status: 400 });
+      if (blob.size === 0 || blob.size > 50 * 1024 * 1024 || blob.contentType !== MEDIA_TYPES[extension]) {
+        return NextResponse.json({ error: "Nahraný soubor neodpovídá povolenému formátu nebo velikosti." }, { status: 400 });
       }
     } catch (error) {
       if (error instanceof Error && error.name === "BlobNotFoundError") {
@@ -63,21 +66,32 @@ export async function POST(request: Request) {
   let submission: Submission | undefined;
   try {
     const state = await updateGameState((current) => {
-      if (current.gameStoppedAt) throw new Error("Hra byla ukončena.");
+      if (current.gameClosedAt) throw new Error("Hra je uzavřená.");
+      if (current.gameStoppedAt) throw new Error("Hra je pozastavena.");
       const team = current.teams.find((item) => item.id === user.teamId);
       if (!team?.flashMissionId) throw new Error("Tým nemá aktivní přepadový úkol.");
       const mission = current.flashMissions.find((item) => item.id === team.flashMissionId);
       if (!mission || mission.archivedAt || !mission.targetTeamIds.includes(team.id)) {
         throw new Error("Přepadový úkol už není dostupný tomuto týmu.");
       }
-      if (mission.type !== "photo" && mission.type !== "text") {
+      if (mediaUrl) {
+        const isVideo = /\.(mp4|webm|mov)$/i.test(mediaUrl);
+        if ((mission.type === "video") !== isVideo) {
+          throw new Error(mission.type === "video"
+            ? "K tomuto úkolu nahrajte video."
+            : "K tomuto úkolu nahrajte fotografii.");
+        }
+      }
+      if (mission.type !== "photo" && mission.type !== "video" && mission.type !== "text") {
         throw new Error("Tento typ přepadového úkolu není podporovaný.");
       }
-      if (mission.type === "photo" && !mediaUrl) throw new Error("Nahrajte fotografii k přepadovému úkolu.");
-      if (mission.type !== "photo" && (!answer || answer.length > 10_000)) {
+      if ((mission.type === "photo" || mission.type === "video") && !mediaUrl) {
+        throw new Error(mission.type === "video" ? "Nahrajte video k přepadovému úkolu." : "Nahrajte fotografii k přepadovému úkolu.");
+      }
+      if (mission.type === "text" && (!answer || answer.length > 10_000)) {
         throw new Error("Napište odpověď (maximálně 10 000 znaků).");
       }
-      if (mission.type !== "photo" && mediaUrl) throw new Error("Tento přepadový úkol nepřijímá fotografii.");
+      if (mission.type === "text" && mediaUrl) throw new Error("Tento přepadový úkol nepřijímá soubor.");
       if (current.submissions.some((item) =>
         item.missionId === mission.id &&
         item.teamId === team.id &&
@@ -99,6 +113,7 @@ export async function POST(request: Request) {
         comment: "",
         createdAt: new Date().toISOString(),
       };
+      const now = new Date().toISOString();
       const teams = mission.requiresApproval
         ? current.teams
         : current.teams.map((item) =>
@@ -110,7 +125,11 @@ export async function POST(request: Request) {
         teams,
         flashMissions: mission.requiresApproval || missionStillAssigned
           ? current.flashMissions
-          : current.flashMissions.filter((item) => item.id !== mission.id),
+          : mission.sourceTeamId
+            ? current.flashMissions.map((item) =>
+                item.id === mission.id ? { ...item, archivedAt: now } : item,
+              )
+            : current.flashMissions.filter((item) => item.id !== mission.id),
         submissions: [...current.submissions, submission],
         events: [
           {
@@ -120,7 +139,7 @@ export async function POST(request: Request) {
               ? `Tým ${team.name} odeslal odpověď k přepadovému úkolu ${mission.title}.`
               : `Tým ${team.name} splnil přepadový úkol ${mission.title}.`,
             tone: mission.requiresApproval ? "warning" as const : "success" as const,
-            createdAt: new Date().toISOString(),
+            createdAt: now,
           },
           ...current.events,
         ].slice(0, 12),

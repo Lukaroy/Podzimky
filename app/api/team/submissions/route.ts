@@ -71,6 +71,7 @@ export async function POST(request: Request) {
   let updatedTeam: { id: string; completedStations: string[]; scannedStationIds: string[] } | undefined;
   try {
     const nextState = await updateGameState((current) => {
+      if (current.gameClosedAt) throw new Error("Hra je uzavřená.");
       if (current.gameStoppedAt) throw new Error("Hra byla ukončena.");
       const team = current.teams.find((item) => item.id === user.teamId);
       const station = current.stations.find((item) => item.id === body.stationId);

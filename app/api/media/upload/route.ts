@@ -2,6 +2,7 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
 
 import { getSession, getSessionToken, verifyRequestOrigin } from "@/lib/auth";
+import { readGameState } from "@/lib/game-store";
 
 const MEDIA_TYPES = [
   "image/jpeg",
@@ -21,6 +22,9 @@ export async function POST(request: Request) {
   const user = await getSession(getSessionToken(request));
   if (!user || user.role !== "team") {
     return NextResponse.json({ error: "Přihlaste se jako tým." }, { status: 401 });
+  }
+  if ((await readGameState()).gameClosedAt) {
+    return NextResponse.json({ error: "Hra je uzavřená; média už nelze odesílat." }, { status: 409 });
   }
   if (!process.env.BLOB_READ_WRITE_TOKEN?.trim()) {
     return NextResponse.json(

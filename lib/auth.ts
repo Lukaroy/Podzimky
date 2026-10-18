@@ -117,7 +117,15 @@ export function hashTeamPassword(password: string) {
 
 export function sanitizeGameState(state: GameState, user: SessionUser): GameState {
   const safeTeams = state.teams.map((team) => ({ ...team, password: "" }));
-  if (user.role === "admin") return { ...state, teams: safeTeams };
+  if (user.role === "admin") {
+    return {
+      ...state,
+      teams: safeTeams,
+      ...(user.managerId
+        ? { submissions: state.submissions.filter((submission) => submission.status === "pending" && !submission.archivedAt) }
+        : {}),
+    };
+  }
 
   const team = state.teams.find((item) => item.id === user.teamId);
   const nextOrder = Math.max(
@@ -174,6 +182,9 @@ export function sanitizeGameState(state: GameState, user: SessionUser): GameStat
     ...state,
     stations: safeStations,
     teams: safeTeams.filter((team) => team.id === user.teamId),
+    ambushTargets: state.teams
+      .filter((item) => item.id !== user.teamId && !item.flashMissionId)
+      .map(({ id, name }) => ({ id, name })),
     submissions: state.submissions.filter((submission) => submission.teamId === user.teamId),
     flashMissions: state.flashMissions.filter(
       (mission) =>

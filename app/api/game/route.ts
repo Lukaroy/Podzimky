@@ -45,6 +45,9 @@ export async function POST(request: Request) {
   }
 
   const currentState = await readGameState();
+  if (currentState.gameClosedAt) {
+    return NextResponse.json({ error: "Hra je uzavřená a další změny nejsou povolené." }, { status: 409 });
+  }
   const existingTeamIds = new Set(currentState.teams.map((team) => team.id));
   const incomingNames = new Set(currentState.teams.map((team) => team.name.trim().toLowerCase()));
   for (const team of payload.teams) {
@@ -60,12 +63,14 @@ export async function POST(request: Request) {
   }
 
   const nextState = await updateGameState((current) => {
+    if (current.gameClosedAt) return current;
     const submittedTeams = new Map(payload.teams.map((team) => [team.id, team]));
     const isOutdatedGameState = payload.gameStartedAt !== current.gameStartedAt;
     const mergedExistingTeams = current.teams.map((oldTeam) => {
       if (isOutdatedGameState) return oldTeam;
       const team = submittedTeams.get(oldTeam.id);
       if (!team) return oldTeam;
+      const progressIsOutdated = (team.progressVersion ?? 0) !== (oldTeam.progressVersion ?? 0);
       const submittedPassword = team.password.trim();
       const password = submittedPassword
         ? submittedPassword.startsWith("scrypt$")
@@ -76,13 +81,25 @@ export async function POST(request: Request) {
       return {
         ...team,
         password,
-        completedStations: [...new Set([...oldTeam.completedStations, ...team.completedStations])],
-        scannedStationIds: [...new Set([...oldTeam.scannedStationIds, ...team.scannedStationIds])],
+        completedStations: progressIsOutdated
+          ? oldTeam.completedStations
+          : [...new Set([...oldTeam.completedStations, ...team.completedStations])],
+        scannedStationIds: progressIsOutdated
+          ? oldTeam.scannedStationIds
+          : [...new Set([...oldTeam.scannedStationIds, ...team.scannedStationIds])],
+        progressVersion: oldTeam.progressVersion,
+        flashMissionsUsed: oldTeam.flashMissionsUsed ?? 0,
+        flashMissionId: oldTeam.flashMissionId && activeMissionIds.has(oldTeam.flashMissionId)
+          ? oldTeam.flashMissionId
+          : team.flashMissionId && activeMissionIds.has(team.flashMissionId)
+            ? team.flashMissionId
+            : undefined,
       };
     });
     const addedTeams = [...submittedTeams.values()].map((team) => ({
       ...team,
       password: team.password.startsWith("scrypt$") ? team.password : hashTeamPassword(team.password),
+      flashMissionsUsed: 0,
     }));
     const currentSubmissions = new Map(current.submissions.map((submission) => [submission.id, submission]));
     for (const submission of payload.submissions) {
@@ -108,12 +125,20 @@ export async function POST(request: Request) {
         ? { ...mission, archivedAt: existingMission.archivedAt }
         : mission;
     });
+    const activeMissionIds = new Set(
+      [...submittedMissions, ...currentMissions.values()]
+        .filter((mission) => !mission.archivedAt)
+        .map((mission) => mission.id),
+    );
 
     return {
       ...payload,
       gameStartedAt: current.gameStartedAt,
       gameStoppedAt: current.gameStoppedAt,
       gamePausedMs: current.gamePausedMs,
+      emergencyMessage: current.emergencyMessage,
+      gameClosedAt: current.gameClosedAt,
+      gameResults: current.gameResults,
       submissions: [...currentSubmissions.values()],
       flashMissions: [...submittedMissions, ...currentMissions.values()],
       teams: [...mergedExistingTeams, ...addedTeams],
@@ -122,5 +147,8 @@ export async function POST(request: Request) {
         .slice(0, 12),
     };
   });
+  if (nextState.gameClosedAt) {
+    return NextResponse.json({ error: "Hra je uzavřená a další změny nejsou povolené." }, { status: 409 });
+  }
   return NextResponse.json({ ok: true, state: sanitizeGameState(nextState, user) });
 }

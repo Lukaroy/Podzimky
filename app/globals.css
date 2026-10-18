@@ -407,8 +407,16 @@ h3 {
   color: #fff8ed;
 }
 
-.auth-photo {
+.auth-photo-panel {
+  position: absolute;
   z-index: 0;
+  inset: 0 auto 0 0;
+  width: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.auth-photo {
   object-fit: cover;
   object-position: center 42%;
 }
@@ -421,6 +429,26 @@ h3 {
     linear-gradient(90deg, rgba(14, 9, 7, 0.3), rgba(20, 12, 9, 0.08) 48%, rgba(15, 9, 7, 0.38)),
     linear-gradient(0deg, rgba(13, 8, 6, 0.3), transparent 46%, rgba(13, 8, 6, 0.16));
   pointer-events: none;
+}
+
+@media (min-width: 901px) {
+  .auth-photo-panel {
+    width: 100%;
+    background-color: #061521;
+    background-image: url("/podzimky-mid-autumn-desktop.jpeg");
+    background-position: center;
+    background-size: cover;
+  }
+
+  .auth-photo {
+    display: none;
+  }
+
+  .auth-photo-shade {
+    background:
+      linear-gradient(90deg, rgba(4, 14, 21, 0.08) 0%, rgba(4, 14, 21, 0.06) 42%, rgba(4, 14, 21, 0.35) 68%, rgba(4, 14, 21, 0.64) 100%),
+      linear-gradient(0deg, rgba(4, 14, 21, 0.3), transparent 48%, rgba(4, 14, 21, 0.16));
+  }
 }
 
 .auth-frame {

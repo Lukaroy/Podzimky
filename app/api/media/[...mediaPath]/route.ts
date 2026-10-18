@@ -20,7 +20,13 @@ export async function GET(
   const isAllowed = state.submissions.some(
     (submission) =>
       submission.mediaUrl === mediaUrl &&
-      (user.role === "admin" || submission.teamId === user.teamId),
+      (
+        (user.role === "team" && submission.teamId === user.teamId) ||
+        (user.role === "admin" && (
+          !user.managerId ||
+          (submission.status === "pending" && !submission.archivedAt)
+        ))
+      ),
   );
   if (!isAllowed) return NextResponse.json({ error: "Soubor nebyl nalezen." }, { status: 404 });
 

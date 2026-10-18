@@ -31,6 +31,7 @@ export async function POST(request: Request) {
 
   try {
     const state = await updateGameState((current) => {
+      if (current.gameClosedAt) throw new Error("Hra už je uzavřená.");
       const submission = current.submissions.find((item) => item.id === body.submissionId);
       if (!submission || submission.status !== "pending" || submission.archivedAt) {
         throw new Error("Odevzdání už není dostupné ke schválení.");
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
             )
           : current.teams;
       const missionStillAssigned = mission && teams.some((item) => item.flashMissionId === mission.id);
+      const now = new Date().toISOString();
 
       return {
         ...current,
@@ -79,7 +81,7 @@ export async function POST(request: Request) {
               ? `Admin schválil úkol ${station?.title ?? mission?.title ?? ""} pro tým ${team.name}.`
               : `Admin zamítl úkol ${station?.title ?? mission?.title ?? ""} pro tým ${team.name}.`,
             tone: approved ? "success" as const : "warning" as const,
-            createdAt: new Date().toISOString(),
+            createdAt: now,
           },
           ...current.events,
         ].slice(0, 12),

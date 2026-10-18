@@ -41,7 +41,13 @@ Webová týmová hra s QR stanovišti, úkoly ke schválení a galerií fotograf
 
 Herní obsah není předvyplněný v aplikaci. Nová databáze začíná s prázdnou hrou; administrátor přidá týmy a stanoviště po přihlášení.
 
-Administrace umožňuje nastavit u každého stanoviště i přepadové výzvy ruční schválení nebo automatické splnění. Přepad lze zadat jako textovou odpověď nebo fotografický důkaz; čekající důkazy se vyřizují v sekci **Schvalování**. Čas týmu se spustí při prvním přihlášení a zobrazuje se v hráčském rozhraní i administraci. QR kódy stanovišť i týmová přihlašovací QR lze stáhnout jako SVG. Galerie médií má stránkovaný seznam, prezentaci a stažení souborů.
+Administrace umožňuje nastavit u každého stanoviště i přepadové výzvy ruční schválení nebo automatické splnění. Přepad lze zadat jako textovou odpověď nebo fotografický důkaz; čekající důkazy se vyřizují v sekci **Schvalování**. Během běžící hry může každý tým až třikrát zadat soupeři vlastní přepad s fotografickým nebo video důkazem. Odevzdaný důkaz se automaticky označí jako splněný a uloží do galerie bez schválení. Čas týmu se spustí při prvním přihlášení a zobrazuje se v hráčském rozhraní i administraci. QR kódy stanovišť i týmová přihlašovací QR lze stáhnout jako SVG. Galerie médií má stránkovaný seznam, prezentaci a stažení souborů.
+
+Další správci mohou spravovat týmy a stanoviště a sledovat čas, ale nemohou hru spustit, pozastavit ani restartovat a nemají přístup do galerie médií. Tyto ovládací prvky a galerie jsou vyhrazené hlavnímu administrátorovi.
+
+Hlavní administrátor má navíc v sekci **Živý přehled** nástroje pro nouzové zprávy týmům, ruční splnění nebo vrácení stanoviště a živý přehled postupu. Hru může uzavřít a vyhlásit výsledky podle počtu splněných stanovišť; při shodě týmy sdílejí pořadí. Uzavření je konečné a zablokuje další herní změny.
+
+Aplikace běží na vlastní doméně a nenačítá obrazovky z jiných webů. Není ale offline aplikace: přihlášení a herní data vyžadují dostupný Firebase a Neon; výpadek Blobu omezuje nahrávání a přehrávání médií. Při výpadku databáze nebo hostingu nelze pokračovat v herních akcích. Automatická záložní infrastruktura ani offline synchronizace nejsou nakonfigurované.
 
 ## Příprava služeb
 
@@ -109,7 +115,7 @@ Ve Vercelu při ukládání proměnných vyberte správná prostředí **Product
 
    `db:deploy` aplikuje SQL migrace z `prisma/migrations/` přes `DIRECT_URL`. `build` generuje Prisma Client a sestaví Next.js.
 5. Nasaďte projekt. Otevřete doménu Vercel, přihlaste se Firebase administrátorským e-mailem a heslem a vytvořte první týmy a stanoviště.
-6. Ověřte také týmové přihlášení, QR sken a stažení QR kódů, textové i mediální odevzdání, automatické splnění i ruční schválení stanoviště a přepadu a prezentaci i stažení médií v administraci.
+6. Ověřte také týmové přihlášení, QR sken a stažení QR kódů, textové i mediální odevzdání, automatické splnění i ruční schválení stanoviště a přepadu, týmové přepady včetně limitu tří na tým a prezentaci i stažení médií v administraci. Zkontrolujte, že správce vidí pouze čas hry a nemá přístup do galerie ani k ovládání hry.
 
 Vercel při instalaci spouští `postinstall`, který generuje Prisma Client. Build příkaz jej generuje znovu, takže sestavení nezávisí na lokálně vygenerovaném klientovi.
 

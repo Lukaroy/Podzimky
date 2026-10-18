@@ -1,9 +1,6 @@
 "use client";
 
-import { getApp, getApps, initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-
-export function getFirebaseAuth() {
+export async function getFirebaseAuth() {
   const config = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
     authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -13,6 +10,10 @@ export function getFirebaseAuth() {
   if (Object.values(config).some((value) => !value)) {
     throw new Error("Firebase client configuration is incomplete.");
   }
+  const [{ getApp, getApps, initializeApp }, { getAuth }] = await Promise.all([
+    import("firebase/app"),
+    import("firebase/auth"),
+  ]);
   const app = getApps().length ? getApp() : initializeApp(config);
   return getAuth(app);
 }
