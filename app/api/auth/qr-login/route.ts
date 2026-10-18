@@ -6,6 +6,7 @@ import { verifyRequestOrigin } from "@/lib/auth";
 import { getPrisma } from "@/lib/db";
 import { readGameState } from "@/lib/game-store";
 
+// Ověří jednorázový QR přístup týmu a vrátí Firebase custom token.
 export async function POST(request: Request) {
   if (!verifyRequestOrigin(request)) {
     return NextResponse.json({ error: "Požadavek byl odmítnut." }, { status: 403 });
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
   }
 
   const tokenHash = createHash("sha256").update(body.token).digest("hex");
+  // QR token se ověřuje přes hash, stejně jako přihlašovací relace.
   const credential = await getPrisma().teamQrCredential.findUnique({ where: { tokenHash } });
   if (!credential) {
     return NextResponse.json({ error: "QR kód není platný nebo už byl zneplatněn." }, { status: 401 });

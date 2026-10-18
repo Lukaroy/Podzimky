@@ -5,6 +5,7 @@ import { getSession, getSessionToken, verifyRequestOrigin } from "@/lib/auth";
 import { getPrisma } from "@/lib/db";
 import { readGameState } from "@/lib/game-store";
 
+// Vytvoří nový jedinečný přihlašovací QR token pro zadaný tým.
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ teamId: string }> },
@@ -26,6 +27,7 @@ export async function POST(
 
   const token = randomBytes(32).toString("base64url");
   const tokenHash = createHash("sha256").update(token).digest("hex");
+  // Uloží se jen hash; nový kód současně zneplatní předchozí QR týmu.
   await getPrisma().teamQrCredential.upsert({
     where: { teamId },
     create: { teamId, tokenHash },

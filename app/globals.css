@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+/* Sdílené barvy, typografie a vzhled přihlašovacích i herních obrazovek. */
 :root {
   --background: #f3f0e8;
   --foreground: #292b25;

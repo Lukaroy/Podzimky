@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getSession, getSessionToken, verifyRequestOrigin } from "@/lib/auth";
 import { updateGameState, type GameState, type Station } from "@/lib/game-store";
 
+// Ověří UID stanoviště a otevře týmu právě následující úsek trasy.
 export async function POST(request: Request) {
   if (!verifyRequestOrigin(request)) {
     return NextResponse.json({ error: "Požadavek byl odmítnut." }, { status: 403 });
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
   let state: GameState;
   let scannedStation: Omit<Station, "answer"> | undefined;
   try {
+    // Kontrola pořadí i zaznamenání skenu jsou chráněné souběžnou aktualizací.
     state = await updateGameState((current) => {
       if (current.gameClosedAt) throw new Error("Hra je uzavřená.");
       if (current.gameStoppedAt) throw new Error("Hra byla ukončena.");
@@ -42,6 +44,7 @@ export async function POST(request: Request) {
           .map((item) => item.order),
         0,
       ) + 1;
+      // QR lze použít jen pro další nevyřízené stanoviště v trase.
       if (station.order !== nextOrder) throw new Error("Nejdříve dokončete předchozí stanoviště.");
       if (current.submissions.some((item) => item.teamId === team.id && item.stationId === station.id && item.status === "pending")) {
         throw new Error("Úkol už čeká na schválení.");

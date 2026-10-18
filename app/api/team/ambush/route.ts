@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getSession, getSessionToken, sanitizeGameState, verifyRequestOrigin } from "@/lib/auth";
 import { updateGameState } from "@/lib/game-store";
 
+// Založí soupeřícímu týmu přepadový úkol v rámci limitu tří přepadů.
 export async function POST(request: Request) {
   if (!verifyRequestOrigin(request)) {
     return NextResponse.json({ error: "Požadavek byl odmítnut." }, { status: 403 });
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
   const type: "photo" | "video" = body.type === "video" ? "video" : "photo";
 
   try {
+    // V jedné změně ověříme soupeře, limit i přiřazení nového úkolu.
     const state = await updateGameState((current) => {
       if (!current.gameStartedAt) throw new Error("Přepad lze poslat až po startu hry.");
       if (current.gameStoppedAt) throw new Error("Hra je pozastavená.");
@@ -47,6 +49,7 @@ export async function POST(request: Request) {
       if ((sender.flashMissionsUsed ?? 0) >= 3) {
         throw new Error("Tým už vyčerpal všechny 3 přepady.");
       }
+      // Kontrola i přičtení limitu probíhá v jedné aktualizaci stavu.
       if (target.flashMissionId) {
         throw new Error("Vybraný tým už řeší jiný přepad.");
       }

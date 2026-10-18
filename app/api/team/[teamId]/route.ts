@@ -4,6 +4,7 @@ import { getSession, getSessionToken, sanitizeGameState, verifyRequestOrigin } f
 import { getPrisma } from "@/lib/db";
 import { readGameState, updateGameState } from "@/lib/game-store";
 
+// Odstraní tým, jeho herní data, QR přístup i aktivní relace.
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ teamId: string }> },
@@ -26,6 +27,7 @@ export async function DELETE(
   }
 
   let removedTeamName: string | undefined;
+  // Související přepady, odevzdání i události se čistí současně se stavem týmu.
   const state = await updateGameState((current) => {
     if (current.gameClosedAt) return current;
     const team = current.teams.find((item) => item.id === teamId);
@@ -33,6 +35,7 @@ export async function DELETE(
 
     removedTeamName = team.name;
     const teams = current.teams.filter((item) => item.id !== teamId);
+    // Při odebrání týmu odstraníme i jeho přístupy a osiřelé přepady.
     const flashMissions = current.flashMissions
       .map((mission) => ({
         ...mission,

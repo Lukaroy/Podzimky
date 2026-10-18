@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getSession, getSessionToken } from "@/lib/auth";
 import { readGameState } from "@/lib/game-store";
 
+// Ověří oprávnění k médiu a streamuje soukromý soubor z Blob úložiště.
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ mediaPath: string[] }> },
@@ -17,6 +18,7 @@ export async function GET(
   }
   const mediaUrl = `/api/media/${pathname}`;
   const state = await readGameState();
+  // Soukromý Blob se zpřístupní jen účastníkům příslušného odevzdání.
   const isAllowed = state.submissions.some(
     (submission) =>
       submission.mediaUrl === mediaUrl &&

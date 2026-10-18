@@ -1,6 +1,7 @@
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 
+// Inicializuje nebo znovu použije serverovou Firebase Admin instanci.
 function getFirebaseAdminAuth() {
   const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID?.trim();
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL?.trim();
@@ -16,16 +17,20 @@ function getFirebaseAdminAuth() {
   return getAuth(app);
 }
 
+// Vydá krátkodobý Firebase token s identitou týmu.
 export function createTeamCustomToken(teamId: string) {
   return getFirebaseAdminAuth().createCustomToken(teamId, { role: "team", teamId });
 }
 
+// Vydá krátkodobý Firebase token s identitou správce.
 export function createManagerCustomToken(managerId: string) {
   return getFirebaseAdminAuth().createCustomToken(`manager-${managerId}`, { role: "manager", managerId });
 }
 
+// Ověří Firebase ID token, určí roli a připraví serverovou session cookie.
 export async function createFirebaseSessionCookie(idToken: string) {
   const auth = getFirebaseAdminAuth();
+  // Role pochází z ověřených claims, ne z dat poslaných klientem.
   const decoded = await auth.verifyIdToken(idToken, true);
   const adminUid = process.env.FIREBASE_ADMIN_UID?.trim();
   const isAdmin = Boolean(adminUid && decoded.uid === adminUid);
@@ -44,6 +49,7 @@ export async function createFirebaseSessionCookie(idToken: string) {
   return { cookie, expiresAt, firebaseUid: decoded.uid, user: { role: "team" as const, teamId } };
 }
 
+// Ověří platnost Firebase session cookie včetně revokace.
 export async function verifyFirebaseSessionCookie(cookie: string) {
   return getFirebaseAdminAuth().verifySessionCookie(cookie, true);
 }

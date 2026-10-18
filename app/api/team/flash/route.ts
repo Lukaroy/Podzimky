@@ -17,6 +17,7 @@ const MEDIA_TYPES: Record<string, string> = {
   mov: "video/quicktime",
 };
 
+// Přijme odpověď nebo důkaz k aktuálně přiřazenému přepadovému úkolu.
 export async function POST(request: Request) {
   if (!verifyRequestOrigin(request)) {
     return NextResponse.json({ error: "Požadavek byl odmítnut." }, { status: 403 });
@@ -65,6 +66,7 @@ export async function POST(request: Request) {
 
   let submission: Submission | undefined;
   try {
+    // Ověření úkolu a uložení odpovědi proběhnou vůči jednomu aktuálnímu stavu.
     const state = await updateGameState((current) => {
       if (current.gameClosedAt) throw new Error("Hra je uzavřená.");
       if (current.gameStoppedAt) throw new Error("Hra je pozastavena.");
@@ -115,6 +117,7 @@ export async function POST(request: Request) {
       };
       const now = new Date().toISOString();
       const teams = mission.requiresApproval
+        // Po automatickém splnění tým pokračuje; čekající úkol zůstává přiřazen.
         ? current.teams
         : current.teams.map((item) =>
             item.id === team.id ? { ...item, flashMissionId: undefined } : item,

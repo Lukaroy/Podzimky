@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 
+// Nastavení obrázků, komponentové cache a zpracování Tailwind CSS v Turbopacku.
 const nextConfig: NextConfig = {
   images: {
     qualities: [75, 95],

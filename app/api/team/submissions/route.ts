@@ -17,6 +17,7 @@ const MEDIA_TYPES: Record<string, string> = {
   mov: "video/quicktime",
 };
 
+// Ověří a uloží odpověď nebo mediální důkaz týmu ke stanovišti.
 export async function POST(request: Request) {
   if (!verifyRequestOrigin(request)) {
     return NextResponse.json({ error: "Požadavek byl odmítnut." }, { status: 403 });
@@ -70,6 +71,7 @@ export async function POST(request: Request) {
   let submission: Submission | undefined;
   let updatedTeam: { id: string; completedStations: string[]; scannedStationIds: string[] } | undefined;
   try {
+    // Server kontroluje aktuální trasu, typ úkolu a důkaz v jedné aktualizaci.
     const nextState = await updateGameState((current) => {
       if (current.gameClosedAt) throw new Error("Hra je uzavřená.");
       if (current.gameStoppedAt) throw new Error("Hra byla ukončena.");
@@ -94,6 +96,7 @@ export async function POST(request: Request) {
       }
 
       const requiresMedia = station.type === "photo" || station.type === "video";
+      // Typ souboru i odpověď kontroluje server, klientská validace sama nestačí.
       const hasExpectedMedia = mediaUrl && (station.type === "photo"
         ? /\.(jpg|png|webp|gif|avif)$/i.test(mediaUrl)
         : station.type === "video" && /\.(mp4|webm|mov)$/i.test(mediaUrl));

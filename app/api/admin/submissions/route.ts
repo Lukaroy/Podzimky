@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getSession, getSessionToken, sanitizeGameState, verifyRequestOrigin } from "@/lib/auth";
 import { updateGameState } from "@/lib/game-store";
 
+// Schválí nebo zamítne čekající důkaz a synchronizuje s ním postup hry.
 export async function POST(request: Request) {
   if (!verifyRequestOrigin(request)) {
     return NextResponse.json({ error: "Požadavek byl odmítnut." }, { status: 403 });
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
   const comment = typeof body.comment === "string" ? body.comment.trim().slice(0, 500) : undefined;
 
   try {
+    // Odevzdání i navazující postup týmu měníme jako jednu atomickou aktualizaci.
     const state = await updateGameState((current) => {
       if (current.gameClosedAt) throw new Error("Hra už je uzavřená.");
       const submission = current.submissions.find((item) => item.id === body.submissionId);
@@ -48,6 +50,7 @@ export async function POST(request: Request) {
       if (!team) throw new Error("Tým už neexistuje.");
 
       const approved = status === "approved";
+      // Postup týmu se posune až po schválení důkazu, nikoli při samotném odeslání.
       const teams = approved && station
         ? current.teams.map((item) =>
             item.id === team.id && !item.completedStations.includes(station.id)

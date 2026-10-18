@@ -10,6 +10,7 @@ import {
   recordFailedTeamLogin,
 } from "@/lib/login-throttle";
 
+// Ověří přihlašovací údaje týmu nebo správce a vydá Firebase custom token.
 export async function POST(request: Request) {
   if (!verifyRequestOrigin(request)) {
     return NextResponse.json({ error: "Požadavek byl odmítnut." }, { status: 403 });
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
   }
 
   const enteredPassword = body.password;
+  // Omezení pokusů se vztahuje na kombinaci názvu týmu a klientské adresy.
   let throttleKey: string;
   try {
     throttleKey = await assertTeamLoginAllowed(request, body.name);
@@ -63,6 +65,7 @@ export async function POST(request: Request) {
   await clearTeamLoginFailures(throttleKey);
 
   if (!team.password.startsWith("scrypt$")) {
+    // Při úspěšném přihlášení převedeme i stará hesla na scrypt hash.
     await updateGameState((current) => ({
       ...current,
       teams: current.teams.map((currentTeam) =>

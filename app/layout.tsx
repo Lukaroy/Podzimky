@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   description: "Podzimky 2026",
 };
 
+// Vytvoří společný HTML obal a metadata pro všechny stránky aplikace.
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="cs" className="h-full antialiased">

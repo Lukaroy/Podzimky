@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getSession, getSessionToken, sanitizeGameState, verifyRequestOrigin } from "@/lib/auth";
 import { updateGameState } from "@/lib/game-store";
 
+// Spustí, pozastaví, obnoví nebo restartuje hru pro hlavního administrátora.
 export async function POST(request: Request) {
   if (!verifyRequestOrigin(request)) {
     return NextResponse.json({ error: "Požadavek byl odmítnut." }, { status: 403 });
@@ -16,6 +17,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Hru může ovládat pouze hlavní administrátor." }, { status: 403 });
   }
 
+  // Ovládání času a restart zůstávají vyhrazené hlavnímu administrátorovi.
   let body: { action?: unknown };
   try {
     body = await request.json();
@@ -27,6 +29,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Všechny přechody stavu se počítají nad aktuálním záznamem v databázi.
     const state = await updateGameState((current) => {
       if (current.gameClosedAt) throw new Error("Hra už je uzavřená.");
       if (body.action === "start") {
@@ -74,6 +77,7 @@ export async function POST(request: Request) {
       }
 
       const restartedAt = new Date().toISOString();
+      // Restart zachová historii důkazů archivovanou, ale vynuluje týmům postup i přepady.
       return {
         ...current,
         gameStartedAt: restartedAt,

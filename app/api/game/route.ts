@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth";
 import { normalizeGameState, readGameState, updateGameState, type GameState } from "@/lib/game-store";
 
+// Vrátí přihlášenému uživateli herní stav očištěný podle jeho role.
 export async function GET(request: Request) {
   const user = await getSession(getSessionToken(request));
   if (!user) return NextResponse.json({ error: "Přihlaste se pro pokračování." }, { status: 401 });
@@ -17,6 +18,7 @@ export async function GET(request: Request) {
   return NextResponse.json(sanitizeGameState(state, user));
 }
 
+// Sloučí povolené klientské změny se stavem serveru bez ztráty novějších dat.
 export async function POST(request: Request) {
   if (!verifyRequestOrigin(request)) {
     return NextResponse.json({ error: "Požadavek byl odmítnut." }, { status: 403 });
@@ -40,6 +42,7 @@ export async function POST(request: Request) {
   }
 
   if (user.role === "team") {
+    // Týmová obrazovka se obnoví ze serveru; klientem poslaný stav týmu se neukládá.
     const state = await readGameState();
     return NextResponse.json({ ok: true, state: sanitizeGameState(state, user) });
   }
@@ -50,6 +53,7 @@ export async function POST(request: Request) {
   }
   const existingTeamIds = new Set(currentState.teams.map((team) => team.id));
   const incomingNames = new Set(currentState.teams.map((team) => team.name.trim().toLowerCase()));
+  // Nové týmy musí mít jedinečné jméno a dostatečně dlouhé heslo.
   for (const team of payload.teams) {
     if (existingTeamIds.has(team.id)) continue;
     const normalizedName = team.name.trim().toLowerCase();
@@ -64,6 +68,7 @@ export async function POST(request: Request) {
 
   const nextState = await updateGameState((current) => {
     if (current.gameClosedAt) return current;
+    // Klientský snapshot slučujeme se serverem, aby refresh ani stará karta nevrátily čas či postup.
     const submittedTeams = new Map(payload.teams.map((team) => [team.id, team]));
     const isOutdatedGameState = payload.gameStartedAt !== current.gameStartedAt;
     const mergedExistingTeams = current.teams.map((oldTeam) => {
@@ -82,6 +87,7 @@ export async function POST(request: Request) {
         ...team,
         password,
         completedStations: progressIsOutdated
+          // Hlavní admin mohl mezitím změnit postup; starý klient jej nesmí obnovit.
           ? oldTeam.completedStations
           : [...new Set([...oldTeam.completedStations, ...team.completedStations])],
         scannedStationIds: progressIsOutdated
@@ -102,6 +108,7 @@ export async function POST(request: Request) {
       flashMissionsUsed: 0,
     }));
     const currentSubmissions = new Map(current.submissions.map((submission) => [submission.id, submission]));
+    // Zachová již známá odevzdání a přijme jen nové či dosud čekající klientské záznamy.
     for (const submission of payload.submissions) {
       const currentSubmission = currentSubmissions.get(submission.id);
       if (!currentSubmission || (
@@ -113,6 +120,7 @@ export async function POST(request: Request) {
       }
     }
     const mergedEvents = new Map(current.events.map((event) => [event.id, event]));
+    // Přidá klientské události, aniž by přepsal souběžně přijaté události.
     for (const event of payload.events) {
       if (!mergedEvents.has(event.id)) mergedEvents.set(event.id, event);
     }

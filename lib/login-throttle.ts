@@ -16,15 +16,18 @@ export class LoginRateLimitError extends Error {
   }
 }
 
+// Vytvoří anonymní klíč limitu z normalizovaného jména a adresy klienta.
 function getThrottleKey(request: Request, teamName: string) {
   const forwardedFor = request.headers.get("x-vercel-forwarded-for")
     ?? request.headers.get("x-forwarded-for")
     ?? "unknown";
   const clientAddress = forwardedFor.split(",").map((part) => part.trim()).filter(Boolean).at(-1) ?? "unknown";
   const normalizedName = teamName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+  // Hash chrání identitu týmu i adresu před uložením v čitelné podobě.
   return createHash("sha256").update(`${normalizedName}\0${clientAddress}`).digest("hex");
 }
 
+// Zastaví další pokus, pokud tým v aktuálním časovém okně překročil limit.
 export async function assertTeamLoginAllowed(request: Request, teamName: string) {
   const key = getThrottleKey(request, teamName);
   const record = await getPrisma().loginThrottle.findUnique({ where: { key } });
@@ -35,6 +38,7 @@ export async function assertTeamLoginAllowed(request: Request, teamName: string)
   throw new LoginRateLimitError(retryAfterSeconds);
 }
 
+// Zaznamená chybný pokus a občas promaže dávno neaktivní limity.
 export async function recordFailedTeamLogin(key: string) {
   const now = new Date();
   const cutoff = new Date(now.getTime() - WINDOW_MS);
@@ -50,6 +54,7 @@ export async function recordFailedTeamLogin(key: string) {
   });
   cleanupCounter += 1;
   if (cleanupCounter >= 100) {
+    // Staré záznamy mažeme průběžně, ne při každém neúspěšném pokusu.
     cleanupCounter = 0;
     await prisma.loginThrottle.deleteMany({
       where: { windowStartedAt: { lt: new Date(now.getTime() - 24 * 60 * 60 * 1000) } },
@@ -57,6 +62,7 @@ export async function recordFailedTeamLogin(key: string) {
   }
 }
 
+// Odstraní neúspěšné pokusy po úspěšném přihlášení.
 export async function clearTeamLoginFailures(key: string) {
   await getPrisma().loginThrottle.deleteMany({ where: { key } });
 }

@@ -152,6 +152,7 @@ const emptyGameState: GameState = {
   gameResults: undefined,
 };
 
+// Určí pořadí dalšího stanoviště podle již dokončených úkolů týmu.
 function getNextOrder(team: Team | null | undefined, stations: Station[]): number {
   if (!team) return 1;
   const completedOrders = stations
@@ -161,15 +162,18 @@ function getNextOrder(team: Team | null | undefined, stations: Station[]): numbe
   return Math.max(...completedOrders, 0) + 1;
 }
 
+// Bezpečně najde stanoviště jen tehdy, když máme jeho ID.
 function getStationById(stations: Station[], stationId?: string | null) {
   if (!stationId) return undefined;
   return stations.find((station) => station.id === stationId);
 }
 
+// Sestaví CSS třídy a vynechá nepoužité podmíněné hodnoty.
 function classNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
 }
 
+// Vykreslí přístupné modální okno s jednotným zavíráním klávesou Escape.
 function AdminDialog({
   title,
   description,
@@ -184,6 +188,7 @@ function AdminDialog({
   children: ReactNode;
 }) {
   useEffect(() => {
+    // Zavře dialog klávesou Escape a při odpojení odstraní posluchač.
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
@@ -214,6 +219,7 @@ function AdminDialog({
   );
 }
 
+// Nabídne přepnutí mezi variantami grafického vzhledu přihlášení.
 function AuthVisualModePicker({
   mode,
   onChange,
@@ -243,6 +249,7 @@ function AuthVisualModePicker({
   );
 }
 
+// Vybere ikonu administrace podle právě vykreslované sekce.
 function AdminIcon({ name }: { name: "teams" | "stations" | "review" | "media" | "flash" | "live" }) {
   const icons = {
     teams: Users,
@@ -256,10 +263,12 @@ function AdminIcon({ name }: { name: "teams" | "stations" | "review" | "media" |
   return <Icon aria-hidden="true" size={18} strokeWidth={1.8} className="shrink-0" />;
 }
 
+// Kontroluje očekávaný osmiznakový formát QR UID.
 function isValidUid(uid: string) {
   return /^[A-Z0-9]{8}$/i.test(uid.trim());
 }
 
+// Vytvoří QR čtečku s načítáním knihovny až v okamžiku použití.
 async function createQrScanner(elementId: string): Promise<Html5QrcodeInstance> {
   const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
   return new Html5Qrcode(elementId, {
@@ -269,10 +278,12 @@ async function createQrScanner(elementId: string): Promise<Html5QrcodeInstance> 
   });
 }
 
+// Ověří, že URL odpovídá cestě média spravované aplikací.
 function isStoredMediaUrl(url: string | undefined): url is string {
   return Boolean(url && /^\/api\/media\/team-[A-Za-z0-9_-]{1,128}\/[0-9a-f-]{36}\.(jpg|png|webp|gif|avif|mp4|webm|mov)$/i.test(url));
 }
 
+// Nahraje ověřený týmový soubor do soukromého Blob úložiště.
 async function uploadTeamMedia(file: File, teamId: string) {
   const extensions: Record<string, string> = {
     "image/jpeg": "jpg",
@@ -328,6 +339,7 @@ async function uploadTeamMedia(file: File, teamId: string) {
   return mediaUrl;
 }
 
+// Přepočítá začátek, pauzy a aktuální čas na zobrazený herní čas.
 function formatElapsedTime(startedAt: string | undefined, now: number, stoppedAt?: string, pausedMs = 0) {
   if (!startedAt) return "Čeká na start";
   const startTime = Date.parse(startedAt);
@@ -341,6 +353,7 @@ function formatElapsedTime(startedAt: string | undefined, now: number, stoppedAt
   return `${hours}:${minutes}:${seconds}`;
 }
 
+// Každou sekundu obnoví hodiny; interval při odpojení komponenty uklidí.
 function ElapsedClock({ startedAt, stoppedAt, pausedMs = 0, className = "" }: { startedAt?: string; stoppedAt?: string; pausedMs?: number; className?: string }) {
   const [now, setNow] = useState(0);
   useEffect(() => {
@@ -350,6 +363,7 @@ function ElapsedClock({ startedAt, stoppedAt, pausedMs = 0, className = "" }: { 
   return <span className={className}><Clock aria-hidden="true" size={13} /> {formatElapsedTime(startedAt, now, stoppedAt, pausedMs)}{stoppedAt ? " ⏸" : ""}</span>;
 }
 
+// Převede uložené odpovědi formuláře na čitelný text pro administraci.
 function formatEvidence(station: Station | undefined, evidence: string) {
   if (station?.type !== "form") return evidence;
   try {
@@ -362,7 +376,9 @@ function formatEvidence(station: Station | undefined, evidence: string) {
   }
 }
 
+// Porovná odevzdanou odpověď se správnou a zobrazí výsledek kontrole.
 function SubmissionAnswerReview({ station, evidence }: { station?: Station; evidence: string }) {
+  // Pro srovnání ignoruje velikost písmen a diakritiku, nemění uloženou odpověď.
   const normalize = (value: string) =>
     value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 
@@ -407,11 +423,13 @@ function SubmissionAnswerReview({ station, evidence }: { station?: Station; evid
   );
 }
 
+// Vygeneruje osmiznakové UID, které nekoliduje s existujícími stanovišti.
 function createUniqueStationUid(stations: Station[]) {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const existingUids = new Set(stations.map((station) => station.uid.toUpperCase()));
   let uid = "";
 
+  // Zkouší nové náhodné kódy, dokud nenajde dosud nepoužité UID.
   do {
     const randomValues = crypto.getRandomValues(new Uint8Array(8));
     uid = Array.from(randomValues, (value) => alphabet[value % alphabet.length]).join("");
@@ -420,6 +438,7 @@ function createUniqueStationUid(stations: Station[]) {
   return uid;
 }
 
+// Najde QR SVG v DOM a stáhne jeho samostatnou kopii jako soubor.
 function downloadQrSvg(value: string, fileName: string) {
   const qrCode = Array.from(document.querySelectorAll<SVGSVGElement>("[data-qr-uid]")).find(
     (element) => element.dataset.qrUid === value,
@@ -442,6 +461,7 @@ function downloadQrSvg(value: string, fileName: string) {
   return true;
 }
 
+// Vytvoří herní událost s ID a časem pro živý přehled.
 function createEvent(message: string, tone: GameEvent["tone"] = "info", teamId?: string): GameEvent {
   return {
     id: crypto.randomUUID(),
@@ -452,6 +472,7 @@ function createEvent(message: string, tone: GameEvent["tone"] = "info", teamId?:
   };
 }
 
+// Připraví bezpečný klientský stav i při chybějících polích starých záznamů.
 function normalizeGameState(value?: Partial<GameState> | null): GameState {
   const safeValue = value && typeof value === "object" ? value : {};
 
@@ -491,6 +512,7 @@ function normalizeGameState(value?: Partial<GameState> | null): GameState {
   };
 }
 
+// Hlavní klientská stránka řídí přihlášení, obrazovku týmu i administraci.
 export default function Page() {
   const [gameState, setGameState] = useState<GameState>(emptyGameState);
   const [isLoadingGameState, setIsLoadingGameState] = useState(true);
@@ -595,10 +617,12 @@ export default function Page() {
   const [managerError, setManagerError] = useState("");
 
   useEffect(() => () => {
+    // Uvolní adresy lokálních náhledů médií, aby nezůstávaly v paměti.
     mediaPreviewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
   }, []);
 
   useEffect(() => {
+    // Načte serverovou relaci po refreshi a obnoví obrazovku podle uživatelské role.
     let isMounted = true;
 
     fetch("/api/auth/session")
@@ -658,6 +682,7 @@ export default function Page() {
       return;
     }
 
+    // Jednou ověří oprávnění ke kameře a stream hned zastaví, dokud nezačne sken.
     cameraPermissionRequestedRef.current = true;
     let isMounted = true;
     const permissionRequest = navigator.mediaDevices?.getUserMedia
@@ -703,6 +728,7 @@ export default function Page() {
     const serializedState = JSON.stringify(gameState);
     if (serializedState === lastPersistedStateRef.current) return;
 
+    // Krátké zpoždění sloučí rychlé změny a omezí zbytečné zápisy.
     const timer = window.setTimeout(() => {
       setIsSavingGameState(true);
       fetch("/api/game", {
@@ -742,6 +768,7 @@ export default function Page() {
   useEffect(() => {
     if (!isAuthenticated) return;
 
+    // Průběžné načítání sdílí změny s ostatními zařízeními; skryté karty nebudí síť.
     const interval = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
       fetch("/api/game")
@@ -771,6 +798,7 @@ export default function Page() {
   );
   const nextOrder = getNextOrder(activeTeam, gameState.stations);
 
+  // Ověří naskenované UID na serveru a promítne otevřené stanoviště do UI.
   const handleScanResult = useCallback(async (uid: string) => {
     if (!activeTeam) return;
 
@@ -819,12 +847,15 @@ export default function Page() {
   useEffect(() => {
     if (!scannerOpen) return;
 
+    // Spustí kameru pro sken stanoviště a zastaví ji při zavření skeneru.
     let scanner: Html5QrcodeInstance | undefined;
     let isDisposed = false;
     let startSettled = false;
     let hasScanned = false;
 
+    // Uvolní HTML5 QR skener po jeho zastavení.
     const clearScanner = () => scanner?.clear();
+    // Inicializuje kameru, zpracuje jeden výsledek a zobrazí chyby zařízení.
     const startScanner = async () => {
       try {
         scanner = await createQrScanner("qr-reader-element");
@@ -885,6 +916,7 @@ export default function Page() {
     };
   }, [scannerOpen, handleScanResult]);
 
+  // Vymění Firebase token za serverovou cookie a nastaví obrazovku týmu.
   const completeTeamLogin = useCallback(async (customToken: string) => {
     const [{ inMemoryPersistence, setPersistence, signInWithCustomToken }, auth] = await Promise.all([
       import("firebase/auth"),
@@ -892,6 +924,7 @@ export default function Page() {
     ]);
     await setPersistence(auth, inMemoryPersistence);
     const credential = await signInWithCustomToken(auth, customToken);
+    // Firebase token se mění za serverovou cookie; citlivá relace nezůstává v localStorage.
     const response = await fetch("/api/auth/session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -930,6 +963,7 @@ export default function Page() {
     );
   }, []);
 
+  // Ověří přihlašovací údaje týmu a zahájí vytvoření serverové relace.
   const handleTeamLogin = async () => {
     const enteredName = teamNameInputRef.current?.value ?? teamForm.name;
     const enteredPassword = teamPasswordInputRef.current?.value ?? teamForm.password;
@@ -952,6 +986,7 @@ export default function Page() {
     }
   };
 
+  // Ověří obsah přihlašovacího QR týmu a převede token na relaci.
   const handleTeamQrLogin = useCallback(async (decodedText: string) => {
     const prefix = "podzimky-team-login:";
     if (!decodedText.startsWith(prefix)) {
@@ -983,12 +1018,15 @@ export default function Page() {
   useEffect(() => {
     if (!teamQrScannerOpen) return;
 
+    // Spustí přihlašovací QR skener a uklidí kameru při jeho zavření.
     let scanner: Html5QrcodeInstance | undefined;
     let isDisposed = false;
     let startSettled = false;
     let hasScanned = false;
 
+    // Uklidí vykreslený skener po zastavení kamery.
     const clearScanner = () => scanner?.clear();
+    // Spustí sken přihlašovacího kódu a ignoruje duplicitní výsledky.
     const startScanner = async () => {
       try {
         scanner = await createQrScanner("team-qr-login-reader");
@@ -1048,6 +1086,7 @@ export default function Page() {
     };
   }, [teamQrScannerOpen, handleTeamQrLogin]);
 
+  // Přihlásí hlavního administrátora přes Firebase a načte jeho herní stav.
   const handleAdminLogin = async () => {
     const enteredEmail = adminUsernameInputRef.current?.value ?? adminForm.email;
     const enteredPassword = adminPasswordInputRef.current?.value ?? adminForm.password;
@@ -1082,6 +1121,7 @@ export default function Page() {
     }
   };
 
+  // Ukončí relaci na serveru i Firebase a vrátí aplikaci na přihlášení.
   const handleLogout = async () => {
     try {
       const response = await fetch("/api/auth/logout", { method: "POST" });
@@ -1109,6 +1149,7 @@ export default function Page() {
     setScreen("team-login");
   };
 
+  // Odešle administrátorský příkaz pro spuštění, pauzu nebo restart hry.
   const handleGameControl = async (action: "start" | "restart" | "stop" | "resume") => {
     if (action === "stop" && !window.confirm(
       "Pozastavit hru? Všem týmům se zobrazí informace o pozastavení a budou čekat, dokud hlavní administrátor hru znovu nespustí.",
@@ -1143,6 +1184,7 @@ export default function Page() {
     }
   };
 
+  // Provede nouzovou zprávu, ruční zásah nebo uzavření hry hlavním adminem.
   const handleOwnerAction = async (
     action:
       | { action: "emergency-message"; message: string }
@@ -1179,6 +1221,7 @@ export default function Page() {
     }
   };
 
+  // Validuje odpověď týmu, nahraje případný důkaz a odešle stanoviště.
   const submitTeamAnswer = async (station: Station) => {
     if (!activeTeam) return;
     if (submittingStationId === station.id) return;
@@ -1229,6 +1272,7 @@ export default function Page() {
         mediaUrl = await uploadTeamMedia(file, activeTeam.id);
       }
 
+      // Odevzdání se ukládá až po dokončení případného nahrání důkazu.
       const response = await fetch("/api/team/submissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1280,6 +1324,7 @@ export default function Page() {
     }
   };
 
+  // Přepne tým z QR skenování na ruční zadání UID.
   const handleManualUid = () => {
     setScannerOpen(false);
     setManualUidDraft("");
@@ -1287,6 +1332,7 @@ export default function Page() {
     setError("");
   };
 
+  // Ověří soubor přepadu a spravuje jeho lokální náhled.
   const handleFlashFileUpload = (file: File | null) => {
     if (flashMediaPreview) {
       URL.revokeObjectURL(flashMediaPreview);
@@ -1314,6 +1360,7 @@ export default function Page() {
     setError("");
   };
 
+  // Ověří ručně zadané UID a předá ho stejnému toku jako QR sken.
   const submitManualUid = () => {
     if (!isValidUid(manualUidDraft)) {
       setScanMessage("QR kód se nedaří načíst?");
@@ -1325,6 +1372,7 @@ export default function Page() {
     handleScanResult(manualUidDraft);
   };
 
+  // Odešle rozhodnutí správce a aktualizuje stav i navazující stanoviště.
   const handleSubmissionDecision = async (submissionId: string, status: "approved" | "rejected", comment?: string) => {
     setError("");
     try {
@@ -1351,6 +1399,7 @@ export default function Page() {
     }
   };
 
+  // Zkontroluje formulář a přidá nové stanoviště do herního stavu.
   const handleAddStation = () => {
     if (!adminStationForm.title.trim() || !adminStationForm.task.trim()) {
       setError("Vyplňte název a zadání úkolu.");
@@ -1438,6 +1487,7 @@ export default function Page() {
     setError("");
   };
 
+  // Vytvoří tým na serveru a následně vygeneruje jeho přihlašovací QR.
   const handleAddTeam = async () => {
     const cleanedName = teamFormAdmin.name.trim();
     if (!cleanedName) {
@@ -1503,6 +1553,7 @@ export default function Page() {
     }
   };
 
+  // Odstraní tým po potvrzení a opraví aktuální stránku seznamu.
   const handleRemoveTeam = async (team: Team) => {
     if (!window.confirm(`Opravdu odstranit tým „${team.name}“? Odstraní se také jeho odevzdané úkoly a výsledky.`)) {
       return;
@@ -1527,6 +1578,7 @@ export default function Page() {
     }
   };
 
+  // Načte aktuální seznam správců a zobrazí případnou chybu načtení.
   const loadManagers = useCallback(async () => {
     try {
       const response = await fetch("/api/admin/managers", { cache: "no-store" });
@@ -1539,6 +1591,7 @@ export default function Page() {
     }
   }, []);
 
+  // Vytvoří podřízeného správce a obnoví seznam po úspěchu.
   const handleCreateManager = async () => {
     if (managerBusy) return;
     setManagerBusy(true);
@@ -1560,6 +1613,7 @@ export default function Page() {
     }
   };
 
+  // Odebere vybraného správce po potvrzení a aktualizuje seznam účtů.
   const handleDeleteManager = async (manager: { id: string; username: string }) => {
     if (!window.confirm(`Odebrat správce „${manager.username}“? Bude okamžitě odhlášen.`)) return;
     setManagerBusy(true);
@@ -1576,6 +1630,7 @@ export default function Page() {
     }
   };
 
+  // Vydá nový QR přístup týmu, čímž zneplatní jeho předchozí kód.
   const handleGenerateTeamQr = async (team: Team) => {
     if (!window.confirm(`Vygenerováním nového QR kódu přestane fungovat předchozí kód pro tým ${team.name}. Pokračovat?`)) {
       return;
@@ -1597,6 +1652,7 @@ export default function Page() {
     }
   };
 
+  // Prohodí stanoviště se sousedem a přepočítá jejich pořadí.
   const moveStation = (stationId: string, direction: "up" | "down") => {
     setGameState((previous) => {
       const nextStations = [...previous.stations];
@@ -1617,6 +1673,7 @@ export default function Page() {
     });
   };
 
+  // Odebere stanoviště a zachová souvislé pořadí zbývajících položek.
   const removeStation = (stationId: string) => {
     setStationPage((page) => Math.min(page, Math.max(0, Math.ceil((gameState.stations.length - 1) / managementPageSize) - 1)));
     setGameState((previous) => ({
@@ -1627,6 +1684,7 @@ export default function Page() {
     }));
   };
 
+  // Ověří cílové týmy a přiřadí jim nový administrátorský přepad.
   const launchFlashMission = () => {
     const title = flashMissionForm.title.trim();
     const description = flashMissionForm.description.trim();
@@ -1690,6 +1748,7 @@ export default function Page() {
     setError("");
   };
 
+  // Odešle text či médium k právě aktivnímu týmovému přepadovému úkolu.
   const submitFlashMission = async (team: Team) => {
     if (!team.flashMissionId) return;
     const mission = gameState.flashMissions.find((item) => item.id === team.flashMissionId);
@@ -1738,6 +1797,7 @@ export default function Page() {
     }
   };
 
+  // Odešle soupeřovu týmu přepad včetně zvoleného typu důkazu.
   const sendTeamAmbush = async () => {
     if (!teamAmbushForm.targetTeamId || !teamAmbushForm.title.trim() || !teamAmbushForm.description.trim()) {
       setError("Vyberte soupeře a zadejte název i zadání přepadu.");
@@ -1771,6 +1831,7 @@ export default function Page() {
     }
   };
 
+  // Ověří médium pro stanoviště a aktualizuje soubor i jeho náhled.
   const handleFileUpload = (stationId: string, file: File | null) => {
     if (!file) return;
 
@@ -1844,6 +1905,7 @@ export default function Page() {
 
   useEffect(() => {
     if (presentationIndex === null) return;
+    // Klávesnice zavírá prezentaci nebo přechází mezi položkami galerie.
     const handlePresentationKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setPresentationIndex(null);
       if (event.key === "ArrowLeft") setPresentationIndex((index) => index === null ? 0 : Math.max(0, index - 1));

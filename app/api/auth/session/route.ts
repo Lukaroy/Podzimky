@@ -11,6 +11,7 @@ import {
 import { createFirebaseSessionCookie } from "@/lib/firebase-admin";
 import { readGameState } from "@/lib/game-store";
 
+// Načte uživatele relace a jeho oprávněný stav pro obnovu stránky.
 export async function GET(request: Request) {
   const user = await getSession(getSessionToken(request));
   if (!user) return NextResponse.json({ error: "Přihlášení vypršelo." }, { status: 401 });
@@ -19,6 +20,7 @@ export async function GET(request: Request) {
   return NextResponse.json({ user, state: sanitizeGameState(state, user) });
 }
 
+// Vymění ověřený Firebase token za serverovou cookie a uloženou relaci.
 export async function POST(request: Request) {
   if (!verifyRequestOrigin(request)) {
     return NextResponse.json({ error: "Požadavek byl odmítnut." }, { status: 403 });
@@ -35,6 +37,7 @@ export async function POST(request: Request) {
 
   let session;
   try {
+    // Firebase ověří identitu a server teprve potom vydá vlastní HTTP-only cookie.
     session = await createFirebaseSessionCookie(body.idToken);
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && typeof error.code === "string" && error.code.startsWith("auth/")) {

@@ -15,6 +15,7 @@ const MEDIA_TYPES = [
   "video/quicktime",
 ];
 
+// Vydá týmu omezený token pro nahrání jeho vlastního důkazu.
 export async function POST(request: Request) {
   if (!verifyRequestOrigin(request)) {
     return NextResponse.json({ error: "Požadavek byl odmítnut." }, { status: 403 });
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
       request,
       body,
       onBeforeGenerateToken: async (pathname) => {
+        // Každý tým dostane oprávnění nahrávat jen do vlastního adresáře.
         const prefix = `team-${user.teamId}/`;
         if (!pathname.startsWith(prefix) || !/^team-[A-Za-z0-9_-]{1,128}\/[0-9a-f-]{36}\.(jpg|png|webp|gif|avif|mp4|webm|mov)$/i.test(pathname)) {
           throw new Error("Neplatná cesta souboru.");

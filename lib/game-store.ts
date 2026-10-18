@@ -115,6 +115,7 @@ export const emptyGameState: GameState = {
   gameResults: undefined,
 };
 
+// Doplní výchozí hodnoty a zkontroluje základní tvar uloženého stavu hry.
 export function normalizeGameState(value?: Partial<GameState> | null): GameState {
   const safeValue = value && typeof value === "object" ? value : {};
 
@@ -169,7 +170,9 @@ export function normalizeGameState(value?: Partial<GameState> | null): GameState
 
 let databaseReady: Promise<void> | undefined;
 
+// Zajistí, že v databázi existuje jediný aktuální záznam hry.
 export async function ensureDatabase(): Promise<void> {
+  // Paralelní první požadavky sdílejí vytvoření výchozího záznamu.
   databaseReady ??= (async () => {
     await getPrisma().gameState.upsert({
       where: { id: "current" },
@@ -186,6 +189,7 @@ export async function ensureDatabase(): Promise<void> {
   await databaseReady;
 }
 
+// Načte a normalizuje aktuální stav hry z databáze.
 export async function readGameState(): Promise<GameState> {
   await ensureDatabase();
   const prisma = getPrisma();
@@ -194,16 +198,19 @@ export async function readGameState(): Promise<GameState> {
   return normalizeGameState(JSON.parse(JSON.stringify(record.payload)) as Partial<GameState>);
 }
 
+// Aktualizuje stav bezpečně vůči souběžným zápisům a opakuje konfliktovanou změnu.
 export async function updateGameState(
   update: (currentState: GameState) => GameState,
 ): Promise<GameState> {
   await ensureDatabase();
   const prisma = getPrisma();
+  // Opakuje optimistický zápis, dokud nezíská nejnovější verzi záznamu.
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const row = await prisma.gameState.findUnique({ where: { id: "current" } });
     if (!row) throw new Error("Stored game state was not initialized.");
     const stored = JSON.parse(JSON.stringify(row.payload)) as Partial<GameState>;
     const nextState = normalizeGameState(update(normalizeGameState(stored)));
+    // Verze zabrání přepsání změny, kterou mezitím uložil jiný požadavek.
     const result = await prisma.gameState.updateMany({
       where: { id: "current", version: row.version },
       data: {

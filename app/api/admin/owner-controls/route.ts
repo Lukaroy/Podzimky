@@ -10,6 +10,7 @@ type OwnerAction =
   | { action: "intervene"; teamId: string; stationId: string; completed: boolean }
   | { action: "close-game" };
 
+// Zpracuje nouzovou zprávu, ruční zásah nebo uzavření hry pro hlavního admina.
 export async function POST(request: Request) {
   if (!verifyRequestOrigin(request)) {
     return NextResponse.json({ error: "Požadavek byl odmítnut." }, { status: 403 });
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Akci ověřujeme i vůči nejnovějšímu stavu, aby závodil jen jeden výsledek.
     const state = await updateGameState((current) => {
       if (current.gameClosedAt) throw new Error("Hra už je uzavřená.");
       const now = new Date().toISOString();
@@ -68,6 +70,7 @@ export async function POST(request: Request) {
         if (!team || !station) throw new Error("Vybraný tým nebo stanoviště už neexistuje.");
         const orderedStations = [...current.stations].sort((first, second) => first.order - second.order);
         const stationOrder = station.order;
+        // Ruční posun respektuje trasu a sladí s ní i rozpracovaná odevzdání.
         const completedStations = body.completed
           ? [...new Set([
               ...team.completedStations,
@@ -131,6 +134,7 @@ export async function POST(request: Request) {
           second.completedStations - first.completedStations ||
           first.teamName.localeCompare(second.teamName, "cs"),
         );
+      // Při shodném počtu splněných úkolů získají týmy stejné pořadí.
       let rank = 0;
       let previousCompleted: number | undefined;
       const gameResults = ranked.map((result, index) => {

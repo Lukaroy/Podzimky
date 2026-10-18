@@ -8,6 +8,7 @@ export type SessionUser = { role: "admin"; managerId?: string } | { role: "team"
 
 export const SESSION_COOKIE_NAME = "tracker_session";
 
+// Vytáhne hodnotu relace z cookie hlavičky příchozího požadavku.
 export function getSessionToken(request: Request) {
   const cookieHeader = request.headers.get("cookie") ?? "";
   const token = cookieHeader
@@ -18,8 +19,10 @@ export function getSessionToken(request: Request) {
   return token;
 }
 
+// Ověří platnost relace v DB i Firebase a vrátí minimální identitu uživatele.
 export async function getSession(token: string | undefined): Promise<SessionUser | null> {
   if (!token) return null;
+  // V DB držíme hash tokenu; platnost identity ověřuje Firebase při každém požadavku.
   const tokenHash = createHash("sha256").update(token).digest("hex");
   const session = await getPrisma().authSession.findUnique({ where: { tokenHash } });
   if (!session || session.expiresAt.getTime() <= Date.now()) return null;
@@ -61,6 +64,7 @@ export async function getSession(token: string | undefined): Promise<SessionUser
   }
 }
 
+// Uloží Firebase relaci pod hash tokenu, aby ji šlo kdykoli odvolat.
 export async function storeFirebaseSession(
   token: string,
   firebaseUid: string,
@@ -89,12 +93,14 @@ export async function storeFirebaseSession(
   });
 }
 
+// Zneplatní relaci odstraněním jejího hashovaného tokenu z databáze.
 export async function revokeSession(token: string | undefined) {
   if (!token) return;
   const tokenHash = createHash("sha256").update(token).digest("hex");
   await getPrisma().authSession.deleteMany({ where: { tokenHash } });
 }
 
+// Porovná heslo s moderním scrypt hashem nebo dočasně se starým formátem.
 export function verifyTeamPassword(password: string, storedPassword: string) {
   if (storedPassword.startsWith("scrypt$")) {
     const [, salt, expectedHex] = storedPassword.split("$");
@@ -109,13 +115,16 @@ export function verifyTeamPassword(password: string, storedPassword: string) {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
+// Vytvoří náhodně osolený scrypt hash hesla.
 export function hashTeamPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
   const hash = scryptSync(password, salt, 64).toString("hex");
   return `scrypt$${salt}$${hash}`;
 }
 
+// Připraví stav hry tak, aby role dostala jen data, která smí zobrazit.
 export function sanitizeGameState(state: GameState, user: SessionUser): GameState {
+  // Týmům se neposílají hesla, správné odpovědi ani zamčená stanoviště.
   const safeTeams = state.teams.map((team) => ({ ...team, password: "" }));
   if (user.role === "admin") {
     return {
@@ -194,10 +203,12 @@ export function sanitizeGameState(state: GameState, user: SessionUser): GameStat
   };
 }
 
+// Ověří, že požadavek skutečně pochází z veřejného původu aplikace.
 export function verifyRequestOrigin(request: Request) {
   const origin = request.headers.get("origin");
   if (!origin) return process.env.NODE_ENV !== "production";
   try {
+    // Za proxy porovnáváme veřejný host, ne interní adresu serveru.
     const requestUrl = new URL(request.url);
     const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
     const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
@@ -210,10 +221,12 @@ export function verifyRequestOrigin(request: Request) {
   }
 }
 
+// Sjednotí diakritiku a velikost písmen pro porovnání přihlašovacích jmen.
 export function normalizeLoginName(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 }
 
+// Vyhledá správce a bezpečně ověří jeho heslo bez úniku existence účtu.
 export async function findManagerByCredentials(name: string, password: string) {
   const manager = await getPrisma().manager.findUnique({ where: { username: normalizeLoginName(name) } });
   if (!manager) {
@@ -224,7 +237,9 @@ export async function findManagerByCredentials(name: string, password: string) {
   return verifyTeamPassword(password, manager.passwordHash) ? manager : null;
 }
 
+// Najde tým podle normalizovaného jména a porovná uložené heslo.
 export function findTeamByCredentials(state: GameState, name: string, password: string): Team | undefined {
+  // Stejná normalizace umožní přihlásit se bez ohledu na diakritiku či velikost písmen.
   const normalizedName = (value: string) =>
     value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 

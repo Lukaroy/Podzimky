@@ -1,5 +1,6 @@
 "use client";
 
+// Načte Firebase Auth až v prohlížeči a vrátí jeho sdílenou instanci.
 export async function getFirebaseAuth() {
   const config = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -10,6 +11,7 @@ export async function getFirebaseAuth() {
   if (Object.values(config).some((value) => !value)) {
     throw new Error("Firebase client configuration is incomplete.");
   }
+  // Firebase se načte až při přihlašování, aby nezvětšoval úvodní balík.
   const [{ getApp, getApps, initializeApp }, { getAuth }] = await Promise.all([
     import("firebase/app"),
     import("firebase/auth"),
