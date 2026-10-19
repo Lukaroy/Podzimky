@@ -48,7 +48,13 @@ type StationType =
 
 type SubmissionStatus = "pending" | "approved" | "rejected";
 type Screen = "team-login" | "admin-login" | "team-dashboard" | "admin-panel";
-type AuthVisualMode = "sunset" | "interior";
+type AuthVisualMode = "sunset" | "interior" | "lanterns";
+
+const authVisualBackgrounds: Record<AuthVisualMode, string> = {
+  sunset: "/podzimky-palace-sunset-hd.jpg",
+  interior: "/podzimky-palace-interior-hd.jpg",
+  lanterns: "/podzimky-mid-autumn-desktop.jpeg",
+};
 
 type Station = {
   id: string;
@@ -252,6 +258,14 @@ function AuthVisualModePicker({
         onClick={() => onChange("interior")}
       >
         Chrám zevnitř
+      </button>
+      <button
+        type="button"
+        className={classNames("auth-mode-option", mode === "lanterns" && "auth-mode-option-active")}
+        aria-pressed={mode === "lanterns"}
+        onClick={() => onChange("lanterns")}
+      >
+        Lampionová noc
       </button>
     </div>
   );
@@ -1979,6 +1993,14 @@ export default function Page() {
   const visibleStations = gameState.stations.slice(stationPage * managementPageSize, (stationPage + 1) * managementPageSize);
   const completedStationsCount = activeTeam ? activeTeam.completedStations.length : 0;
   const hasFinishedGame = Boolean(activeTeam && gameState.stations.length > 0 && completedStationsCount >= gameState.stations.length);
+  const nextRouteStation = [...gameState.stations]
+    .sort((first, second) => first.order - second.order)
+    .find((station) => !activeTeam?.completedStations.includes(station.id));
+  const currentTeamPendingSubmission = activeTeam
+    ? [...gameState.submissions].reverse().find(
+        (submission) => submission.teamId === activeTeam.id && submission.status === "pending" && !submission.archivedAt,
+      )
+    : undefined;
 
   useEffect(() => {
     if (!activeTeam) {
@@ -2033,7 +2055,7 @@ export default function Page() {
         <div className="auth-page login-page">
           <div className="auth-photo-panel" aria-hidden="true">
             <Image
-              src={authVisualMode === "sunset" ? "/podzimky-palace-sunset-hd.jpg" : "/podzimky-palace-interior-hd.jpg"}
+              src={authVisualBackgrounds[authVisualMode]}
               alt=""
               fill
               sizes="(min-width: 901px) 56vw, 100vw"
@@ -2125,7 +2147,7 @@ export default function Page() {
         <div className="auth-page auth-admin-page">
           <div className="auth-photo-panel" aria-hidden="true">
             <Image
-              src={authVisualMode === "sunset" ? "/podzimky-palace-sunset-hd.jpg" : "/podzimky-palace-interior-hd.jpg"}
+              src={authVisualBackgrounds[authVisualMode]}
               alt=""
               fill
               sizes="(min-width: 901px) 56vw, 100vw"
@@ -2387,7 +2409,14 @@ export default function Page() {
                 </button>
                 </div>
               </div>
-              <div className="mt-4 border-t border-white/15 pt-3">
+              <div
+                className="player-progress mt-4 border-t border-white/15 pt-3"
+                role="progressbar"
+                aria-label="Postup výpravy"
+                aria-valuemin={0}
+                aria-valuemax={gameState.stations.length}
+                aria-valuenow={completedStationsCount}
+              >
                 <div className="mb-2 flex items-center justify-between text-xs">
                   <span className="text-[#6f7783]">Postup výpravy</span>
                   <span className="font-semibold text-[#a4332b]">{completedStationsCount} / {gameState.stations.length}</span>
@@ -2400,6 +2429,51 @@ export default function Page() {
                 </div>
               </div>
             </header>
+
+            {!hasFinishedGame && (
+              <section className="player-next-step" aria-label="Další krok výpravy">
+                <span className="player-next-step-mark" aria-hidden="true">
+                  {currentTeamPendingSubmission ? <Clock size={21} /> : <MapPin size={21} />}
+                </span>
+                <div className="player-next-step-copy">
+                  <p>Váš další krok</p>
+                  <h2>
+                    {!gameState.gameStartedAt
+                      ? "Čeká se na společný start"
+                      : currentTeamPendingSubmission
+                        ? "Úkol čeká na schválení"
+                        : nextRouteStation
+                          ? activeTeam.scannedStationIds.includes(nextRouteStation.id)
+                            ? `Splňte úkol · ${nextRouteStation.title}`
+                            : `Najděte stanoviště ${nextRouteStation.order}`
+                          : "Všechna stanoviště máte za sebou"}
+                  </h2>
+                  <span>
+                    {!gameState.gameStartedAt
+                      ? "Až pořadatel hru spustí, ukážeme vám trasu."
+                      : currentTeamPendingSubmission
+                        ? "Jakmile pořadatel odpověď schválí, můžete pokračovat."
+                        : nextRouteStation && activeTeam.scannedStationIds.includes(nextRouteStation.id)
+                          ? "QR kód už máte načtený. Pokračujte v plnění úkolu níže."
+                          : nextRouteStation
+                            ? "Jděte na správné místo a naskenujte tam QR kód stanoviště."
+                            : "Skvělá práce. Dokončili jste celou trasu."}
+                  </span>
+                </div>
+                {nextRouteStation && !currentTeamPendingSubmission && !activeTeam.scannedStationIds.includes(nextRouteStation.id) && gameState.gameStartedAt && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScanMessage("Spouštím zadní kameru…");
+                      setScannerOpen(true);
+                    }}
+                    className="player-next-step-action"
+                  >
+                    <ScanLine size={17} /> Naskenovat QR
+                  </button>
+                )}
+              </section>
+            )}
 
             {(saveError || isSavingGameState) && (
               <div role={saveError ? "alert" : "status"} className={classNames(
@@ -2858,7 +2932,7 @@ export default function Page() {
                 <h1>Správa hry</h1>
               </div>
             </div>
-            <div className="admin-sidebar-label">Velitelská konzole</div>
+            <div className="admin-sidebar-label">Navigace</div>
             <nav className="admin-sidebar-nav" aria-label="Moduly administrace">
               {([
                 { tab: "teams", label: "Týmy", icon: "teams" as const, count: gameState.teams.length },
@@ -2990,8 +3064,23 @@ export default function Page() {
             <div className="admin-content min-w-0 space-y-4">
               <header className="module-toolbar">
                 <div>
-                  <p className="admin-eyebrow">Pracovní plocha</p>
+                  <p className="admin-eyebrow">{isOwnerAdmin ? "Hlavní pořadatel" : "Správce stanovišť"}</p>
                   <h2>{adminTab === "teams" ? "Týmy" : adminTab === "stations" ? "Stanoviště" : adminTab === "submissions" ? "Schvalování" : adminTab === "media" ? "Galerie" : adminTab === "managers" ? "Správci" : adminTab === "live" ? "Živý přehled" : "Přepady"}</h2>
+                  <p className="module-toolbar-hint">
+                    {adminTab === "teams"
+                      ? "Vytvářejte týmy a sdílejte s nimi přihlašovací QR kódy."
+                      : adminTab === "stations"
+                        ? "Připravte zastávky trasy, jejich úkoly a QR kódy."
+                        : adminTab === "submissions"
+                          ? "Zkontrolujte odevzdané odpovědi a rozhodněte, zda týmy pokračují."
+                          : adminTab === "flash"
+                            ? "Vytvářejte týmové výzvy a sledujte jejich plnění."
+                            : adminTab === "live"
+                              ? "Sledujte postup týmů a stav celé výpravy."
+                              : adminTab === "media"
+                                ? "Prohlížejte si všechny nahrané důkazy a fotografie."
+                                : "Přidejte správce, kteří pomohou s organizací výpravy."}
+                  </p>
                 </div>
                 {isOwnerAdmin && <span className={classNames("admin-toolbar-status", gameState.gameStartedAt && "admin-toolbar-status-running")}>
                   <span /> {gameState.gameClosedAt ? "Hra uzavřena" : gameState.gameStoppedAt ? "Hra pozastavena" : gameState.gameStartedAt ? "Výprava probíhá" : "Hra nezačala"}
