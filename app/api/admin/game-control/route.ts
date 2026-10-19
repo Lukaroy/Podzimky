@@ -24,13 +24,40 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "Neplatný příkaz." }, { status: 400 });
   }
-  if (body.action !== "start" && body.action !== "restart" && body.action !== "stop" && body.action !== "resume") {
+  if (
+    body.action !== "start" &&
+    body.action !== "restart" &&
+    body.action !== "stop" &&
+    body.action !== "resume" &&
+    body.action !== "reopen"
+  ) {
     return NextResponse.json({ error: "Neznámý příkaz pro řízení hry." }, { status: 400 });
   }
 
   try {
     // Všechny přechody stavu se počítají nad aktuálním záznamem v databázi.
     const state = await updateGameState((current) => {
+      if (body.action === "reopen") {
+        if (!current.gameClosedAt) throw new Error("Hra není uzavřená.");
+        const reopenedAt = new Date().toISOString();
+        const stoppedAt = current.gameStoppedAt ?? current.gameClosedAt;
+        return {
+          ...current,
+          gameClosedAt: undefined,
+          gameResults: undefined,
+          gameStoppedAt: undefined,
+          gamePausedMs: (current.gamePausedMs ?? 0) + Math.max(0, Date.parse(reopenedAt) - Date.parse(stoppedAt)),
+          events: [
+            {
+              id: randomUUID(),
+              message: "Hlavní admin znovu otevřel hru. Týmy mohou pokračovat.",
+              tone: "success" as const,
+              createdAt: reopenedAt,
+            },
+            ...current.events,
+          ].slice(0, 12),
+        };
+      }
       if (current.gameClosedAt) throw new Error("Hra už je uzavřená.");
       if (body.action === "start") {
         if (current.gameStartedAt) throw new Error("Hra už běží. Pro nový start použijte restart času a postupu.");

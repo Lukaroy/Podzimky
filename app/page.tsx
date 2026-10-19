@@ -25,7 +25,9 @@ import {
   ScanLine,
   Pause,
   Play,
+  Sparkles,
   Trash2,
+  Trophy,
   Users,
   X,
   Zap,
@@ -166,6 +168,12 @@ function getNextOrder(team: Team | null | undefined, stations: Station[]): numbe
 function getStationById(stations: Station[], stationId?: string | null) {
   if (!stationId) return undefined;
   return stations.find((station) => station.id === stationId);
+}
+
+function createTeamLoginUrl(token: string): string {
+  const url = new URL(window.location.origin);
+  url.searchParams.set("team-login", token);
+  return url.toString();
 }
 
 // Sestaví CSS třídy a vynechá nepoužité podmíněné hodnoty.
@@ -517,6 +525,8 @@ export default function Page() {
   const [gameState, setGameState] = useState<GameState>(emptyGameState);
   const [isLoadingGameState, setIsLoadingGameState] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [loginStatus, setLoginStatus] = useState("Přihlašuji tým…");
   const [isSavingGameState, setIsSavingGameState] = useState(false);
   const [saveError, setSaveError] = useState("");
   const lastPersistedStateRef = useRef<string | null>(null);
@@ -528,6 +538,8 @@ export default function Page() {
   const [showAdminPassword, setShowAdminPassword] = useState(false);
   const [teamQrScannerOpen, setTeamQrScannerOpen] = useState(false);
   const [teamQrScanMessage, setTeamQrScanMessage] = useState("Umístěte přihlašovací QR kód do rámečku.");
+  const loginInProgressRef = useRef(false);
+  const automaticQrLoginAttemptedRef = useRef(false);
   const [teamForm, setTeamForm] = useState({ name: "", password: "" });
   const [adminForm, setAdminForm] = useState({ email: "", password: "" });
   const teamNameInputRef = useRef<HTMLInputElement | null>(null);
@@ -564,6 +576,11 @@ export default function Page() {
   const [mediaFiles, setMediaFiles] = useState<Record<string, File>>({});
   const [mediaPreviews, setMediaPreviews] = useState<Record<string, string>>({});
   const [submittingStationId, setSubmittingStationId] = useState<string | null>(null);
+  const [completionSplash, setCompletionSplash] = useState<{ teamId: string; station: Station } | null>(null);
+  const previousTeamProgressRef = useRef<{
+    teamId: string;
+    completedStationIds: Set<string>;
+  } | null>(null);
   const mediaPreviewUrlsRef = useRef<string[]>([]);
   const [formDrafts, setFormDrafts] = useState<Record<string, Record<string, string>>>({});
   const [adminStationForm, setAdminStationForm] = useState({
@@ -965,6 +982,11 @@ export default function Page() {
 
   // Ověří přihlašovací údaje týmu a zahájí vytvoření serverové relace.
   const handleTeamLogin = async () => {
+    if (loginInProgressRef.current) return;
+    loginInProgressRef.current = true;
+    setIsLoggingIn(true);
+    setLoginStatus("Přihlašuji tým…");
+    setError("");
     const enteredName = teamNameInputRef.current?.value ?? teamForm.name;
     const enteredPassword = teamPasswordInputRef.current?.value ?? teamForm.password;
     try {
@@ -983,25 +1005,49 @@ export default function Page() {
       await completeTeamLogin(loginResult.customToken);
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : "Přihlášení týmu se nezdařilo.");
+    } finally {
+      loginInProgressRef.current = false;
+      setIsLoggingIn(false);
     }
   };
 
-  // Ověří obsah přihlašovacího QR týmu a převede token na relaci.
+  // Ověří přihlašovací QR týmu (odkaz i starší kód) a převede token na relaci.
   const handleTeamQrLogin = useCallback(async (decodedText: string) => {
+    if (loginInProgressRef.current) return;
     const prefix = "podzimky-team-login:";
-    if (!decodedText.startsWith(prefix)) {
+    const decodedValue = decodedText.trim();
+    let token = "";
+    if (decodedValue.startsWith(prefix)) {
+      token = decodedValue.slice(prefix.length);
+    } else if (/^[A-Za-z0-9_-]{43}$/.test(decodedValue)) {
+      token = decodedValue;
+    } else {
+      try {
+        const url = new URL(decodedValue);
+        if (url.origin === window.location.origin && url.pathname === "/") {
+          token = url.searchParams.get("team-login") ?? "";
+        }
+      } catch {
+        token = "";
+      }
+    }
+
+    if (!/^[A-Za-z0-9_-]{43}$/.test(token)) {
       setError("Tento QR kód není přihlašovací kód týmu.");
       setTeamQrScanMessage("Tento kód není určený k přihlášení týmu.");
       return;
     }
 
+    loginInProgressRef.current = true;
+    setIsLoggingIn(true);
+    setLoginStatus("Ověřuji přihlašovací QR kód…");
     try {
       setError("");
       setTeamQrScanMessage("Kód načten, ověřuji přihlášení…");
       const response = await fetch("/api/auth/qr-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: decodedText.slice(prefix.length) }),
+        body: JSON.stringify({ token }),
       });
       const result = await response.json() as { customToken?: string; error?: string };
       if (!response.ok || !result.customToken) {
@@ -1012,8 +1058,26 @@ export default function Page() {
       const message = loginError instanceof Error ? loginError.message : "Přihlášení přes QR kód se nezdařilo.";
       setError(message);
       setTeamQrScanMessage(message);
+    } finally {
+      loginInProgressRef.current = false;
+      setIsLoggingIn(false);
     }
   }, [completeTeamLogin]);
+
+  useEffect(() => {
+    if (isLoadingGameState || automaticQrLoginAttemptedRef.current) return;
+
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("team-login")) return;
+
+    automaticQrLoginAttemptedRef.current = true;
+    const token = url.searchParams.get("team-login") ?? "";
+    url.searchParams.delete("team-login");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    if (!isAuthenticated) {
+      window.setTimeout(() => void handleTeamQrLogin(token), 0);
+    }
+  }, [handleTeamQrLogin, isAuthenticated, isLoadingGameState]);
 
   useEffect(() => {
     if (!teamQrScannerOpen) return;
@@ -1088,6 +1152,11 @@ export default function Page() {
 
   // Přihlásí hlavního administrátora přes Firebase a načte jeho herní stav.
   const handleAdminLogin = async () => {
+    if (loginInProgressRef.current) return;
+    loginInProgressRef.current = true;
+    setIsLoggingIn(true);
+    setLoginStatus("Přihlašuji administrátora…");
+    setError("");
     const enteredEmail = adminUsernameInputRef.current?.value ?? adminForm.email;
     const enteredPassword = adminPasswordInputRef.current?.value ?? adminForm.password;
 
@@ -1118,6 +1187,9 @@ export default function Page() {
       setScreen("admin-panel");
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : "Přihlášení administrátora se nezdařilo.");
+    } finally {
+      loginInProgressRef.current = false;
+      setIsLoggingIn(false);
     }
   };
 
@@ -1150,7 +1222,7 @@ export default function Page() {
   };
 
   // Odešle administrátorský příkaz pro spuštění, pauzu nebo restart hry.
-  const handleGameControl = async (action: "start" | "restart" | "stop" | "resume") => {
+  const handleGameControl = async (action: "start" | "restart" | "stop" | "resume" | "reopen") => {
     if (action === "stop" && !window.confirm(
       "Pozastavit hru? Všem týmům se zobrazí informace o pozastavení a budou čekat, dokud hlavní administrátor hru znovu nespustí.",
     )) {
@@ -1158,6 +1230,11 @@ export default function Page() {
     }
     if (action === "restart" && !window.confirm(
       "Restartovat výpravu? Všem týmům se vynuluje čas a postup, aktivní přepady se zruší a dosavadní důkazy se archivují. Týmy zůstanou zachované.",
+    )) {
+      return;
+    }
+    if (action === "reopen" && !window.confirm(
+      "Znovu otevřít hru? Výsledky se skryjí a týmům zůstane jejich dosavadní postup.",
     )) {
       return;
     }
@@ -1543,7 +1620,7 @@ export default function Page() {
       if (!qrResponse.ok || !qrResult.token) {
         throw new Error(`Tým byl vytvořen, ale QR kód se nepodařilo vytvořit. ${qrResult.error ?? ""}`.trim());
       }
-      const value = `podzimky-team-login:${qrResult.token}`;
+      const value = createTeamLoginUrl(qrResult.token);
       setGeneratedTeamQr({ teamId: newTeamId, value });
       setCreatedTeamQr({ teamId: newTeamId, name: cleanedName.toUpperCase(), value });
     } catch (createError) {
@@ -1644,7 +1721,7 @@ export default function Page() {
       if (!response.ok || !result.token) {
         throw new Error(result.error ?? "Přihlašovací QR kód se nepodařilo vytvořit.");
       }
-      setGeneratedTeamQr({ teamId: team.id, value: `podzimky-team-login:${result.token}` });
+      setGeneratedTeamQr({ teamId: team.id, value: createTeamLoginUrl(result.token) });
     } catch (qrError) {
       setError(qrError instanceof Error ? qrError.message : "Přihlašovací QR kód se nepodařilo vytvořit.");
     } finally {
@@ -1904,6 +1981,31 @@ export default function Page() {
   const hasFinishedGame = Boolean(activeTeam && gameState.stations.length > 0 && completedStationsCount >= gameState.stations.length);
 
   useEffect(() => {
+    if (!activeTeam) {
+      previousTeamProgressRef.current = null;
+      return;
+    }
+
+    const previousProgress = previousTeamProgressRef.current;
+    if (previousProgress?.teamId === activeTeam.id) {
+      const newlyCompletedStationId = activeTeam.completedStations.find(
+        (stationId) => !previousProgress.completedStationIds.has(stationId),
+      );
+      const newlyCompletedStation = gameState.stations.find(
+        (station) => station.id === newlyCompletedStationId,
+      );
+      if (newlyCompletedStation) {
+        setCompletionSplash({ teamId: activeTeam.id, station: newlyCompletedStation });
+      }
+    }
+
+    previousTeamProgressRef.current = {
+      teamId: activeTeam.id,
+      completedStationIds: new Set(activeTeam.completedStations),
+    };
+  }, [activeTeam, gameState.stations]);
+
+  useEffect(() => {
     if (presentationIndex === null) return;
     // Klávesnice zavírá prezentaci nebo přechází mezi položkami galerie.
     const handlePresentationKey = (event: KeyboardEvent) => {
@@ -1996,13 +2098,14 @@ export default function Page() {
 
                   {error ? <p className="auth-error">{error}</p> : null}
 
-                  <button onClick={handleTeamLogin} className="auth-submit">
-                    Vstoupit <ArrowRight size={18} />
+                  <button onClick={handleTeamLogin} className="auth-submit" disabled={isLoggingIn}>
+                    {isLoggingIn ? "Přihlašuji…" : "Vstoupit"} {!isLoggingIn && <ArrowRight size={18} />}
                   </button>
                   <div className="auth-login-divider"><span>nebo</span></div>
                   <button
                     type="button"
                     className="auth-qr-login"
+                    disabled={isLoggingIn}
                     onClick={() => {
                       setError("");
                       setTeamQrScanMessage("Umístěte přihlašovací QR kód do rámečku.");
@@ -2085,8 +2188,8 @@ export default function Page() {
 
                   {error ? <p className="auth-error">{error}</p> : null}
 
-                  <button onClick={handleAdminLogin} className="auth-submit">
-                    Přihlásit se
+                  <button onClick={handleAdminLogin} className="auth-submit" disabled={isLoggingIn}>
+                    {isLoggingIn ? "Přihlašuji…" : "Přihlásit se"}
                   </button>
                 </div>
               </section>
@@ -2492,7 +2595,7 @@ export default function Page() {
 
                         {isAvailable && !isScanned && (
                           <div className="player-clue rounded-xl border p-4">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#8f3529]">Nápověda k místu</p>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#2f6d67]">Nápověda k místu</p>
                             <p className="mt-2 text-base leading-6 text-[#392d23]">{station.clue || "Nápovědu doplní organizátor."}</p>
                             <button
                               onClick={() => {
@@ -2811,7 +2914,17 @@ export default function Page() {
                   : "Společný start pro všechny týmy"}
               </p>}
               {isOwnerAdmin && (gameState.gameClosedAt ? (
+                <>
                 <p className="admin-sidebar-game-note">Hra byla uzavřena a výsledky vyhlášeny.</p>
+                <button
+                  type="button"
+                  onClick={() => void handleGameControl("reopen")}
+                  disabled={gameControlBusy}
+                  className="admin-sidebar-start"
+                >
+                  <Play size={15} fill="currentColor" /> {gameControlBusy ? "Spouštím…" : "Znovu spustit hru"}
+                </button>
+                </>
               ) : !gameState.gameStartedAt ? (
                 <button
                   type="button"
@@ -4301,6 +4414,38 @@ export default function Page() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {completionSplash && completionSplash.teamId === activeTeam?.id && activeTeam && screen === "team-dashboard" && (
+        <div className="completion-splash" role="dialog" aria-modal="true" aria-labelledby="completion-splash-title">
+          <div className="completion-splash-confetti" aria-hidden="true" />
+          <section className="completion-splash-card">
+            <div className="completion-splash-seal"><Trophy size={36} strokeWidth={1.8} /></div>
+            <Sparkles className="completion-splash-sparkle" size={26} aria-hidden="true" />
+            <p className="completion-splash-eyebrow">Stanoviště {completionSplash.station.order} splněno</p>
+            <h2 id="completion-splash-title">Tohle je ono, {activeTeam.name}!</h2>
+            <p className="completion-splash-station">{completionSplash.station.title}</p>
+            <p className="completion-splash-progress">
+              {completedStationsCount} z {gameState.stations.length} stanovišť za vámi
+            </p>
+            <button
+              type="button"
+              autoFocus
+              onClick={() => setCompletionSplash(null)}
+              className="completion-splash-button"
+            >
+              Pokračovat ve výpravě <ArrowRight size={18} />
+            </button>
+          </section>
+        </div>
+      )}
+
+      {isLoggingIn && (
+        <div className="auth-transition" role="status" aria-live="polite" aria-busy="true">
+          <span className="auth-transition-spinner" aria-hidden="true" />
+          <p>{loginStatus}</p>
+          <span className="auth-transition-caption">Chvilku strpení, připravujeme vaši výpravu.</span>
         </div>
       )}
 
