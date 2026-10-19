@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   Camera,
   CheckCircle2,
+  Check,
   Clock,
   ChevronLeft,
   ChevronRight,
@@ -25,9 +26,7 @@ import {
   ScanLine,
   Pause,
   Play,
-  Sparkles,
   Trash2,
-  Trophy,
   Users,
   X,
   Zap,
@@ -590,7 +589,12 @@ export default function Page() {
   const [mediaFiles, setMediaFiles] = useState<Record<string, File>>({});
   const [mediaPreviews, setMediaPreviews] = useState<Record<string, string>>({});
   const [submittingStationId, setSubmittingStationId] = useState<string | null>(null);
-  const [completionSplash, setCompletionSplash] = useState<{ teamId: string; station: Station } | null>(null);
+  const [stationResultAnimation, setStationResultAnimation] = useState<{
+    teamId: string;
+    result: "completed" | "rejected";
+    key: string;
+  } | null>(null);
+  const previousSubmissionStatusesRef = useRef(new Map<string, SubmissionStatus>());
   const previousTeamProgressRef = useRef<{
     teamId: string;
     completedStationIds: Set<string>;
@@ -2003,6 +2007,12 @@ export default function Page() {
     : undefined;
 
   useEffect(() => {
+    if (!stationResultAnimation) return;
+    const timeout = window.setTimeout(() => setStationResultAnimation(null), 1100);
+    return () => window.clearTimeout(timeout);
+  }, [stationResultAnimation]);
+
+  useEffect(() => {
     if (!activeTeam) {
       previousTeamProgressRef.current = null;
       return;
@@ -2017,7 +2027,11 @@ export default function Page() {
         (station) => station.id === newlyCompletedStationId,
       );
       if (newlyCompletedStation) {
-        setCompletionSplash({ teamId: activeTeam.id, station: newlyCompletedStation });
+        setStationResultAnimation({
+          teamId: activeTeam.id,
+          result: "completed",
+          key: newlyCompletedStation.id,
+        });
       }
     }
 
@@ -2026,6 +2040,31 @@ export default function Page() {
       completedStationIds: new Set(activeTeam.completedStations),
     };
   }, [activeTeam, gameState.stations]);
+
+  useEffect(() => {
+    const previousStatuses = previousSubmissionStatusesRef.current;
+    const rejectedSubmission = activeTeam
+      ? [...gameState.submissions].reverse().find(
+          (submission) =>
+            submission.teamId === activeTeam.id &&
+            submission.status === "rejected" &&
+            !submission.archivedAt &&
+            previousStatuses.get(submission.id) === "pending",
+        )
+      : undefined;
+
+    previousSubmissionStatusesRef.current = new Map(
+      gameState.submissions.map((submission) => [submission.id, submission.status]),
+    );
+
+    if (rejectedSubmission) {
+      setStationResultAnimation({
+        teamId: rejectedSubmission.teamId,
+        result: "rejected",
+        key: rejectedSubmission.id,
+      });
+    }
+  }, [activeTeam, gameState.submissions]);
 
   useEffect(() => {
     if (presentationIndex === null) return;
@@ -3063,7 +3102,7 @@ export default function Page() {
           <div className="admin-workspace admin-workspace-module">
             <div className="admin-content min-w-0 space-y-4">
               <header className="module-toolbar">
-                <div>
+                <div className="module-toolbar-copy">
                   <p className="admin-eyebrow">{isOwnerAdmin ? "Hlavní pořadatel" : "Správce stanovišť"}</p>
                   <h2>{adminTab === "teams" ? "Týmy" : adminTab === "stations" ? "Stanoviště" : adminTab === "submissions" ? "Schvalování" : adminTab === "media" ? "Galerie" : adminTab === "managers" ? "Správci" : adminTab === "live" ? "Živý přehled" : "Přepady"}</h2>
                   <p className="module-toolbar-hint">
@@ -3081,6 +3120,17 @@ export default function Page() {
                                 ? "Prohlížejte si všechny nahrané důkazy a fotografie."
                                 : "Přidejte správce, kteří pomohou s organizací výpravy."}
                   </p>
+                </div>
+                <div className="module-toolbar-art" aria-hidden="true">
+                  <Image
+                    src="/podzimky-mid-autumn-desktop.jpeg"
+                    alt=""
+                    fill
+                    sizes="(min-width: 1200px) 480px, 40vw"
+                    className="module-toolbar-image"
+                  />
+                  <span className="module-toolbar-seal">印</span>
+                  <span className="module-toolbar-art-caption">行 · 2026</span>
                 </div>
                 {isOwnerAdmin && <span className={classNames("admin-toolbar-status", gameState.gameStartedAt && "admin-toolbar-status-running")}>
                   <span /> {gameState.gameClosedAt ? "Hra uzavřena" : gameState.gameStoppedAt ? "Hra pozastavena" : gameState.gameStartedAt ? "Výprava probíhá" : "Hra nezačala"}
@@ -4506,27 +4556,23 @@ export default function Page() {
         </div>
       )}
 
-      {completionSplash && completionSplash.teamId === activeTeam?.id && activeTeam && screen === "team-dashboard" && (
-        <div className="completion-splash" role="dialog" aria-modal="true" aria-labelledby="completion-splash-title">
-          <div className="completion-splash-confetti" aria-hidden="true" />
-          <section className="completion-splash-card">
-            <div className="completion-splash-seal"><Trophy size={36} strokeWidth={1.8} /></div>
-            <Sparkles className="completion-splash-sparkle" size={26} aria-hidden="true" />
-            <p className="completion-splash-eyebrow">Stanoviště {completionSplash.station.order} splněno</p>
-            <h2 id="completion-splash-title">Tohle je ono, {activeTeam.name}!</h2>
-            <p className="completion-splash-station">{completionSplash.station.title}</p>
-            <p className="completion-splash-progress">
-              {completedStationsCount} z {gameState.stations.length} stanovišť za vámi
-            </p>
-            <button
-              type="button"
-              autoFocus
-              onClick={() => setCompletionSplash(null)}
-              className="completion-splash-button"
-            >
-              Pokračovat ve výpravě <ArrowRight size={18} />
-            </button>
-          </section>
+      {stationResultAnimation &&
+        stationResultAnimation.teamId === activeTeam?.id &&
+        screen === "team-dashboard" && (
+        <div
+          key={stationResultAnimation.key}
+          className={classNames(
+            "station-result-animation",
+            stationResultAnimation.result === "rejected" && "station-result-animation-rejected",
+          )}
+          role="status"
+          aria-label={stationResultAnimation.result === "completed" ? "Stanoviště splněno" : "Odpověď nebyla schválena"}
+        >
+          <span className="station-result-animation-ring" aria-hidden="true">
+            {stationResultAnimation.result === "completed"
+              ? <Check size={34} strokeWidth={2.6} />
+              : <X size={31} strokeWidth={2.6} />}
+          </span>
         </div>
       )}
 
