@@ -2238,7 +2238,7 @@ export default function Page() {
 
       {screen === "team-dashboard" && activeTeam && (
         gameState.gameClosedAt ? (
-          <div className="mx-auto flex min-h-screen max-w-2xl items-center justify-center px-4 py-10">
+          <div className="team-viewport-scroll mx-auto flex min-h-screen max-w-2xl items-center justify-center px-4 py-10">
             <div className="w-full rounded-[30px] border border-[#d5a24a] bg-[#fff5df] p-8 shadow-[0_22px_55px_rgba(116,81,35,0.2)]">
               <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8e5d1d]">Podzimky 2026</p>
               <h1 className="mt-3 text-3xl font-black text-[#281d15]">Výsledky hry</h1>
@@ -2266,7 +2266,7 @@ export default function Page() {
             </div>
           </div>
         ) : gameState.gameStoppedAt ? (
-          <div className="mx-auto flex min-h-screen max-w-xl items-center justify-center px-4 py-10">
+          <div className="team-viewport-scroll mx-auto flex min-h-screen max-w-xl items-center justify-center px-4 py-10">
             <div className="w-full rounded-[30px] border border-[#d5a24a] bg-[#fff5df] p-8 text-center shadow-[0_22px_55px_rgba(116,81,35,0.2)]">
               <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8e5d1d]">Podzimky 2026</p>
               <h1 className="mt-3 text-3xl font-black text-[#281d15]">Hra je pozastavena</h1>
@@ -2284,7 +2284,7 @@ export default function Page() {
           </div>
         ) :
         activeFlashMission ? (
-          <div className="mx-auto flex min-h-screen max-w-3xl items-center justify-center px-4 py-10">
+          <div className="team-viewport-scroll mx-auto flex min-h-screen max-w-3xl items-center justify-center px-4 py-10">
             <div className="w-full rounded-[30px] border border-[#d5a24a] bg-[#fff5df] p-6 shadow-[0_22px_55px_rgba(116,81,35,0.2)] sm:p-9">
               {gameState.emergencyMessage && (
                 <div role="alert" className="mb-5 rounded-xl border border-[#dc9c77] bg-[#fff0e8] p-4 text-sm font-semibold text-[#78351e]">
