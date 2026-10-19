@@ -563,7 +563,6 @@ export default function Page() {
   const [error, setError] = useState("");
   const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null);
   const [gameControlBusy, setGameControlBusy] = useState(false);
-  const [teamQrBusyId, setTeamQrBusyId] = useState<string | null>(null);
   const [generatedTeamQr, setGeneratedTeamQr] = useState<{ teamId: string; value: string } | null>(null);
   const [galleryPage, setGalleryPage] = useState(0);
   const [teamPage, setTeamPage] = useState(0);
@@ -1722,28 +1721,6 @@ export default function Page() {
       setManagerError(deleteError instanceof Error ? deleteError.message : "Správce se nepodařilo odebrat.");
     } finally {
       setManagerBusy(false);
-    }
-  };
-
-  // Vydá nový QR přístup týmu, čímž zneplatní jeho předchozí kód.
-  const handleGenerateTeamQr = async (team: Team) => {
-    if (!window.confirm(`Vygenerováním nového QR kódu přestane fungovat předchozí kód pro tým ${team.name}. Pokračovat?`)) {
-      return;
-    }
-
-    setTeamQrBusyId(team.id);
-    setError("");
-    try {
-      const response = await fetch(`/api/team/${encodeURIComponent(team.id)}/qr-login`, { method: "POST" });
-      const result = await response.json() as { token?: string; error?: string };
-      if (!response.ok || !result.token) {
-        throw new Error(result.error ?? "Přihlašovací QR kód se nepodařilo vytvořit.");
-      }
-      setGeneratedTeamQr({ teamId: team.id, value: createTeamLoginUrl(result.token) });
-    } catch (qrError) {
-      setError(qrError instanceof Error ? qrError.message : "Přihlašovací QR kód se nepodařilo vytvořit.");
-    } finally {
-      setTeamQrBusyId(null);
     }
   };
 
@@ -3386,15 +3363,6 @@ export default function Page() {
                       <p className="mt-3 text-xs text-[#675d53]">
                         {teamPending > 0 ? `${teamPending} úkol čeká na schválení` : team.flashMissionId ? "Má aktivní přepad" : "Bez čekajících úkolů"}
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => void handleGenerateTeamQr(team)}
-                        disabled={teamQrBusyId === team.id}
-                        className="mt-3 inline-flex items-center gap-2 rounded-lg border border-[#d8c6a2] bg-white px-3 py-2 text-xs font-semibold text-[#553d2d] transition hover:bg-[#f7f0e4] disabled:opacity-60"
-                      >
-                        <QrCode size={15} />
-                        {teamQrBusyId === team.id ? "Vytvářím kód…" : "Vytvořit přihlašovací QR"}
-                      </button>
                       {generatedTeamQr?.teamId === team.id && (
                         <div className="mt-3 flex items-center gap-3 rounded-lg border border-[#e5d9c7] bg-white p-3">
                           <QRCodeSVG
