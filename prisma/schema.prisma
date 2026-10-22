@@ -60,3 +60,15 @@ model Manager {
 
   @@map("managers")
 }
+
+model SupportMessage {
+  id         String   @id
+  teamId     String   @map("team_id")
+  teamName   String   @map("team_name")
+  senderRole String   @map("sender_role")
+  content    String
+  createdAt  DateTime @default(now()) @db.Timestamptz(3) @map("created_at")
+
+  @@index([teamId, createdAt])
+  @@map("support_messages")
+}

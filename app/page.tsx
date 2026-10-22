@@ -21,6 +21,7 @@ import {
   Images,
   LogOut,
   MapPin,
+  MessageCircle,
   Plus,
   QrCode,
   ScanLine,
@@ -35,6 +36,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getFirebaseAuth } from "@/lib/firebase-client";
+import { SupportChat } from "@/app/SupportChat";
 
 type StationType =
   | "photo"
@@ -271,7 +273,7 @@ function AuthVisualModePicker({
 }
 
 // Vybere ikonu administrace podle právě vykreslované sekce.
-function AdminIcon({ name }: { name: "teams" | "stations" | "review" | "media" | "flash" | "live" }) {
+function AdminIcon({ name }: { name: "teams" | "stations" | "review" | "media" | "flash" | "live" | "support" }) {
   const icons = {
     teams: Users,
     stations: MapPin,
@@ -279,6 +281,7 @@ function AdminIcon({ name }: { name: "teams" | "stations" | "review" | "media" |
     media: Images,
     flash: Zap,
     live: Activity,
+    support: MessageCircle,
   };
   const Icon = icons[name];
   return <Icon aria-hidden="true" size={18} strokeWidth={1.8} className="shrink-0" />;
@@ -639,7 +642,7 @@ export default function Page() {
     type: "photo" as "photo" | "video",
   });
   const [teamAmbushBusy, setTeamAmbushBusy] = useState(false);
-  const [adminTab, setAdminTab] = useState<"teams" | "stations" | "submissions" | "media" | "flash" | "managers" | "live">("teams");
+  const [adminTab, setAdminTab] = useState<"teams" | "stations" | "submissions" | "media" | "flash" | "managers" | "live" | "support">("teams");
   const [isOwnerAdmin, setIsOwnerAdmin] = useState(false);
   const [ownerActionBusy, setOwnerActionBusy] = useState(false);
   const [emergencyDraft, setEmergencyDraft] = useState("");
@@ -2938,6 +2941,10 @@ export default function Page() {
         )
       )}
 
+      {screen === "team-dashboard" && teamId && (
+        <SupportChat role="team" teamId={teamId} />
+      )}
+
       {screen === "admin-panel" && (
         <div className="admin-shell admin-console mx-auto max-w-screen-2xl">
           <aside className="admin-sidebar">
@@ -2955,6 +2962,7 @@ export default function Page() {
                 { tab: "stations", label: "Stanoviště", icon: "stations" as const, count: gameState.stations.length },
                 { tab: "flash", label: "Přepady", icon: "flash" as const, count: gameState.flashMissions.filter((mission) => !mission.archivedAt).length },
                 { tab: "submissions", label: "Schvalování", icon: "review" as const, count: pendingSubmissions.length },
+                { tab: "support", label: "Podpora", icon: "support" as const, count: 0 },
                 ...(isOwnerAdmin ? [{ tab: "media" as const, label: "Galerie", icon: "media" as const, count: mediaSubmissions.length }] : []),
                 ...(isOwnerAdmin ? [{ tab: "live" as const, label: "Živý přehled", icon: "live" as const, count: gameState.teams.length }] : []),
                 ...(isOwnerAdmin ? [{ tab: "managers" as const, label: "Správci", icon: "teams" as const, count: managers.length }] : []),
@@ -2971,7 +2979,7 @@ export default function Page() {
                 >
                   <AdminIcon name={item.icon} />
                   <span>{item.label}</span>
-                  <span className="admin-sidebar-count">{item.count}</span>
+                  {item.tab !== "support" && <span className="admin-sidebar-count">{item.count}</span>}
                 </button>
               ))}
               {isOwnerAdmin && <button
@@ -3081,7 +3089,7 @@ export default function Page() {
               <header className="module-toolbar">
                 <div className="module-toolbar-copy">
                   <p className="admin-eyebrow">{isOwnerAdmin ? "Hlavní pořadatel" : "Správce stanovišť"}</p>
-                  <h2>{adminTab === "teams" ? "Týmy" : adminTab === "stations" ? "Stanoviště" : adminTab === "submissions" ? "Schvalování" : adminTab === "media" ? "Galerie" : adminTab === "managers" ? "Správci" : adminTab === "live" ? "Živý přehled" : "Přepady"}</h2>
+                  <h2>{adminTab === "teams" ? "Týmy" : adminTab === "stations" ? "Stanoviště" : adminTab === "submissions" ? "Schvalování" : adminTab === "media" ? "Galerie" : adminTab === "managers" ? "Správci" : adminTab === "live" ? "Živý přehled" : adminTab === "support" ? "Podpora" : "Přepady"}</h2>
                   <p className="module-toolbar-hint">
                     {adminTab === "teams"
                       ? "Vytvářejte týmy a sdílejte s nimi přihlašovací QR kódy."
@@ -3089,6 +3097,8 @@ export default function Page() {
                         ? "Připravte zastávky trasy, jejich úkoly a QR kódy."
                         : adminTab === "submissions"
                           ? "Zkontrolujte odevzdané odpovědi a rozhodněte, zda týmy pokračují."
+                          : adminTab === "support"
+                            ? "Odpovídejte na dotazy účastníků a komunikujte s jednotlivými týmy."
                           : adminTab === "flash"
                             ? "Vytvářejte týmové výzvy a sledujte jejich plnění."
                             : adminTab === "live"
@@ -3113,6 +3123,8 @@ export default function Page() {
                   <span /> {gameState.gameClosedAt ? "Hra uzavřena" : gameState.gameStoppedAt ? "Hra pozastavena" : gameState.gameStartedAt ? "Výprava probíhá" : "Hra nezačala"}
                 </span>}
               </header>
+
+          {adminTab === "support" && <SupportChat role="admin" />}
 
           {adminTab === "live" && isOwnerAdmin && (
             <div className="space-y-4">

@@ -27,7 +27,8 @@ Webová týmová hra s QR stanovišti, úkoly ke schválení a galerií fotograf
 | Cesta | Účel |
 | --- | --- |
 | `app/page.tsx` | Hlavní obrazovka, přihlašovací formuláře, hráčský režim a administrační rozhraní |
-| `app/api/` | Serverová API: přihlášení, správa hry, týmové akce a média |
+| `app/api/` | Serverová API: přihlášení, správa hry, týmové akce, podpora a média |
+| `app/SupportChat.tsx` | Týmový chat podpory a schránka správce |
 | `lib/game-store.ts` | Typy herních dat, jejich normalizace a čtení/zápis přes Prisma |
 | `lib/auth.ts` | Ověření relace, role, oprávnění a hashování hesel týmů |
 | `lib/firebase-client.ts` | Veřejná konfigurace Firebase pro prohlížeč |
@@ -46,6 +47,8 @@ Administrace umožňuje nastavit u každého stanoviště i přepadové výzvy r
 Další správci mohou spravovat týmy a stanoviště a sledovat čas, ale nemohou hru spustit, pozastavit ani restartovat a nemají přístup do galerie médií. Tyto ovládací prvky a galerie jsou vyhrazené hlavnímu administrátorovi.
 
 Hlavní administrátor má navíc v sekci **Živý přehled** nástroje pro nouzové zprávy týmům, ruční splnění nebo vrácení stanoviště a živý přehled postupu. Hru může uzavřít a vyhlásit výsledky podle počtu splněných stanovišť; při shodě týmy sdílejí pořadí. Uzavření je konečné a zablokuje další herní změny.
+
+Týmy mohou přes tlačítko **Podpora** otevřít soukromou konverzaci s pořadateli. Správci i hlavní administrátor mají v administraci společnou schránku a mohou týmům odpovídat; nové zprávy se průběžně načítají.
 
 Aplikace běží na vlastní doméně a nenačítá obrazovky z jiných webů. Není ale offline aplikace: přihlášení a herní data vyžadují dostupný Firebase a Neon; výpadek Blobu omezuje nahrávání a přehrávání médií. Při výpadku databáze nebo hostingu nelze pokračovat v herních akcích. Automatická záložní infrastruktura ani offline synchronizace nejsou nakonfigurované.
 
