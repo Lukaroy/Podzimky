@@ -287,3 +287,238 @@
   font-family: var(--font-hud-mono), ui-monospace, monospace;
   font-size: 0.72rem;
 }
+
+/* ===== Operační centrum: systémová lišta, dok, okna modulů ===== */
+
+.admin-shell.admin-console {
+  grid-template-columns: 232px minmax(0, 1fr);
+}
+
+.admin-console .admin-sidebar {
+  padding: 1rem 0.8rem;
+}
+
+.admin-console .admin-sidebar-brand {
+  min-height: 0;
+  padding-bottom: 0.8rem;
+}
+
+.admin-console .admin-sidebar-brand .admin-brand-mark {
+  width: 38px;
+  height: 38px;
+}
+
+.admin-console .admin-sidebar-brand h1 {
+  font-size: 0.95rem;
+}
+
+.admin-console .admin-sidebar-nav button {
+  min-height: 40px;
+  padding: 0.5rem 0.65rem;
+}
+
+.admin-console .admin-sidebar-game-note,
+.admin-console .admin-sidebar-event {
+  font-size: 0.7rem;
+}
+
+/* Systémová lišta */
+.ops-bar {
+  position: sticky;
+  z-index: 30;
+  top: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.1rem;
+  margin: 0 0 1rem;
+  border: 1px solid rgba(229, 203, 144, 0.4);
+  background:
+    linear-gradient(rgba(229, 203, 144, 0.05) 1px, transparent 1px) 0 0 / 100% 6px,
+    #1f3329;
+  padding: 0.55rem 0.9rem;
+  color: #e9dcc0;
+  font-family: var(--font-hud-mono), ui-monospace, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 6px 18px rgba(35, 38, 30, 0.18);
+}
+
+.ops-bar-id {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.ops-bar-id b {
+  color: #fff3d8;
+  font-family: var(--font-hud-display), system-ui, sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.14em;
+}
+
+.ops-bar-id small {
+  color: #aebcaa;
+  font-size: 0.62rem;
+}
+
+.ops-bar-led {
+  align-self: center;
+  width: 8px;
+  height: 8px;
+  background: #e5cb90;
+  box-shadow: 0 0 8px rgba(229, 203, 144, 0.7);
+}
+
+.ops-chip {
+  border: 1px solid rgba(229, 203, 144, 0.45);
+  padding: 0.2rem 0.55rem;
+  color: #e5cb90;
+  font-weight: 600;
+}
+
+.ops-chip-live {
+  border-color: #8fc79b;
+  color: #a8e0b2;
+  box-shadow: 0 0 10px rgba(143, 199, 155, 0.25);
+}
+
+.ops-bar-clock {
+  color: #f5d68e;
+  font-family: var(--font-hud-mono), ui-monospace, monospace;
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  text-shadow: 0 0 12px rgba(245, 214, 142, 0.4);
+}
+
+.ops-bar-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.ops-bar-stats > span,
+.ops-bar-stats > button {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  border: 1px solid rgba(229, 203, 144, 0.2);
+  background: rgba(229, 203, 144, 0.05);
+  padding: 0.22rem 0.55rem;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+.ops-bar-stats i {
+  color: #aebcaa;
+  font-size: 0.6rem;
+  font-style: normal;
+}
+
+.ops-bar-stats b {
+  color: #fff3d8;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ops-bar-stats > button {
+  cursor: pointer;
+}
+
+.ops-bar-stats > button:hover {
+  border-color: #e5cb90;
+}
+
+.ops-bar-stats > .ops-stat-alert {
+  border-color: #d9674f;
+  background: rgba(165, 35, 29, 0.35);
+}
+
+.ops-bar-stats > .ops-stat-alert b {
+  color: #ffb4a4;
+}
+
+.ops-bar-ticker {
+  min-width: 0;
+  flex: 1 1 16rem;
+  margin: 0;
+  overflow: hidden;
+  color: #aebcaa;
+  font-size: 0.66rem;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ops-bar-ticker::before {
+  margin-right: 0.5rem;
+  color: #e5cb90;
+  content: "▸ LOG";
+}
+
+/* Hlavička modulu jako titulek okna */
+.admin-console .module-toolbar {
+  min-height: 0;
+  padding: 0.7rem 1.1rem;
+}
+
+.admin-console .module-toolbar-copy {
+  max-width: none;
+  flex: 1;
+}
+
+.admin-console .module-toolbar h2 {
+  font-size: 1.25rem;
+  letter-spacing: 0.1em;
+}
+
+.admin-console .module-toolbar .admin-eyebrow {
+  margin: 0 0 0.2rem;
+}
+
+.admin-console .module-toolbar-hint {
+  max-width: none;
+  margin-top: 0.3rem;
+  font-size: 0.75rem;
+}
+
+.admin-console .module-toolbar-seal {
+  position: static;
+  width: 2.4rem;
+  transform: none;
+  flex: 0 0 auto;
+  font-size: 1.2rem;
+}
+
+.admin-console .admin-toolbar-status {
+  display: none;
+}
+
+/* Obsah na celou šířku jako plocha operačního systému */
+.admin-console .admin-workspace > .admin-content {
+  max-width: none;
+}
+
+.admin-console .admin-main {
+  padding-top: 0.9rem;
+}
+
+@media (max-width: 760px) {
+  .ops-bar {
+    gap: 0.45rem 0.8rem;
+    padding: 0.5rem 0.65rem;
+  }
+
+  .ops-bar-id small,
+  .ops-bar-ticker {
+    display: none;
+  }
+
+  .ops-bar-clock {
+    font-size: 1rem;
+  }
+}

@@ -3236,6 +3236,33 @@ export default function Page() {
           </aside>
           <main className="admin-main">
 
+          <div className="ops-bar" role="status" aria-label="Stav operačního centra">
+            <div className="ops-bar-id">
+              <span className="ops-bar-led" aria-hidden="true" />
+              <b>Podzimky OS</b>
+              <small>Operační centrum</small>
+            </div>
+            {isOwnerAdmin && (
+              <span className={classNames("ops-chip", gameState.gameStartedAt && !gameState.gameStoppedAt && !gameState.gameClosedAt && "ops-chip-live")}>
+                {gameState.gameClosedAt ? "Hra uzavřena" : gameState.gameStoppedAt ? "Pozastaveno" : gameState.gameStartedAt ? "Výprava běží" : "Čeká na start"}
+              </span>
+            )}
+            <ElapsedClock startedAt={gameState.gameStartedAt} stoppedAt={gameState.gameStoppedAt} pausedMs={gameState.gamePausedMs} className="ops-bar-clock" />
+            <div className="ops-bar-stats">
+              <span><i>Týmy</i><b>{gameState.teams.length}</b></span>
+              <span><i>Stanoviště</i><b>{gameState.stations.length}</b></span>
+              <span><i>Přepady</i><b>{gameState.flashMissions.filter((mission) => !mission.archivedAt).length}</b></span>
+              <button
+                type="button"
+                className={classNames(pendingSubmissions.length > 0 && "ops-stat-alert")}
+                onClick={() => { setError(""); setAdminTab("submissions"); }}
+              >
+                <i>Ke schválení</i><b>{pendingSubmissions.length}</b>
+              </button>
+            </div>
+            {gameState.events[0] && <p className="ops-bar-ticker">{gameState.events[0].message}</p>}
+          </div>
+
           {(saveError || isSavingGameState) && (
             <div role={saveError ? "alert" : "status"} className={classNames(
               "mb-3 flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs font-semibold",
@@ -3274,17 +3301,7 @@ export default function Page() {
                                 : "Přidejte správce, kteří pomohou s organizací výpravy."}
                   </p>
                 </div>
-                <div className="module-toolbar-art" aria-hidden="true">
-                  <Image
-                    src="/podzimky-mid-autumn-desktop.jpeg"
-                    alt=""
-                    fill
-                    sizes="(min-width: 1200px) 480px, 40vw"
-                    className="module-toolbar-image"
-                  />
-                  <span className="module-toolbar-seal">印</span>
-                  <span className="module-toolbar-art-caption">行 · 2026</span>
-                </div>
+                <span className="module-toolbar-seal" aria-hidden="true">印</span>
                 {isOwnerAdmin && <span className={classNames("admin-toolbar-status", gameState.gameStartedAt && "admin-toolbar-status-running")}>
                   <span /> {gameState.gameClosedAt ? "Hra uzavřena" : gameState.gameStoppedAt ? "Hra pozastavena" : gameState.gameStartedAt ? "Výprava probíhá" : "Hra nezačala"}
                 </span>}
