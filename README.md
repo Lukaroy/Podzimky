@@ -44,6 +44,8 @@ Herní obsah není předvyplněný v aplikaci. Nová databáze začíná s práz
 
 Administrace umožňuje nastavit u každého stanoviště i přepadové výzvy ruční schválení nebo automatické splnění. Přepad lze zadat jako textovou odpověď nebo fotografický důkaz; čekající důkazy se vyřizují v sekci **Schvalování**. Během běžící hry může každý tým až třikrát zadat soupeři vlastní přepad s fotografickým nebo video důkazem. Odevzdaný důkaz se automaticky označí jako splněný a uloží do galerie bez schválení. Čas týmu se spustí při prvním přihlášení a zobrazuje se v hráčském rozhraní i administraci. QR kódy stanovišť i týmová přihlašovací QR lze stáhnout jako SVG. Galerie médií má stránkovaný seznam, prezentaci a stažení souborů.
 
+Před akcí lze u stanoviště použít **Připravit jen QR** a vytisknout jeho kód; název i zadání se doplní později přes **Doplnit** a UID QR zůstane stejné. Hru nelze spustit, dokud všechna stanoviště nemají název i zadání. V sekci **Týmy** lze také předem vytvořit neutrální QR kartičky, stáhnout je jako SVG a při založení skutečného týmu jednu přiřadit. Kartička pak přihlašuje k přiřazenému týmu a její token se po vytvoření z bezpečnostních důvodů znovu nezobrazuje.
+
 Další správci mohou spravovat týmy a stanoviště a sledovat čas, ale nemohou hru spustit, pozastavit ani restartovat a nemají přístup do galerie médií. Tyto ovládací prvky a galerie jsou vyhrazené hlavnímu administrátorovi.
 
 Hlavní administrátor má navíc v sekci **Živý přehled** nástroje pro nouzové zprávy týmům, ruční splnění nebo vrácení stanoviště a živý přehled postupu. Hru může uzavřít a vyhlásit výsledky podle počtu splněných stanovišť; při shodě týmy sdílejí pořadí. Uzavření je konečné a zablokuje další herní změny.

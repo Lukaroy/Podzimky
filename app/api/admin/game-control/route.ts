@@ -62,6 +62,9 @@ export async function POST(request: Request) {
       if (body.action === "start") {
         if (current.gameStartedAt) throw new Error("Hra už běží. Pro nový start použijte restart času a postupu.");
         if (current.teams.length === 0) throw new Error("Před startem vytvořte alespoň jeden tým.");
+        if (current.stations.some((station) => station.isDraft || !station.title.trim() || !station.task.trim())) {
+          throw new Error("Před startem doplňte název a zadání všech připravených stanovišť.");
+        }
         const gameStartedAt = new Date().toISOString();
         return {
           ...current,

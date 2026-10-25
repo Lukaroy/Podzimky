@@ -28,19 +28,27 @@ export async function POST(request: Request) {
 
   const tokenHash = createHash("sha256").update(body.token).digest("hex");
   // QR token se ověřuje přes hash, stejně jako přihlašovací relace.
-  const credential = await getPrisma().teamQrCredential.findUnique({ where: { tokenHash } });
-  if (!credential) {
+  const [credential, card] = await Promise.all([
+    getPrisma().teamQrCredential.findUnique({ where: { tokenHash } }),
+    getPrisma().teamQrCard.findUnique({ where: { tokenHash } }),
+  ]);
+  const teamId = credential?.teamId ?? card?.teamId;
+  if (!teamId) {
+    if (card) {
+      return NextResponse.json({ error: "Týmová QR kartička ještě nebyla přiřazena." }, { status: 409 });
+    }
     return NextResponse.json({ error: "QR kód není platný nebo už byl zneplatněn." }, { status: 401 });
   }
 
   const state = await readGameState();
-  if (!state.teams.some((team) => team.id === credential.teamId)) {
-    await getPrisma().teamQrCredential.deleteMany({ where: { teamId: credential.teamId } });
+  if (!state.teams.some((team) => team.id === teamId)) {
+    if (credential) await getPrisma().teamQrCredential.deleteMany({ where: { teamId } });
+    if (card) await getPrisma().teamQrCard.updateMany({ where: { id: card.id }, data: { teamId: null } });
     return NextResponse.json({ error: "Tým už neexistuje." }, { status: 403 });
   }
 
   return NextResponse.json(
-    { customToken: await createTeamCustomToken(credential.teamId) },
+    { customToken: await createTeamCustomToken(teamId) },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

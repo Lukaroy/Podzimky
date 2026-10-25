@@ -51,6 +51,12 @@ type SubmissionStatus = "pending" | "approved" | "rejected";
 type Screen = "team-login" | "admin-login" | "team-dashboard" | "admin-panel";
 type AuthVisualMode = "sunset" | "interior" | "lanterns";
 
+type TeamQrCard = {
+  id: string;
+  teamId: string | null;
+  createdAt: string;
+};
+
 const authVisualBackgrounds: Record<AuthVisualMode, string> = {
   sunset: "/podzimky-palace-sunset-hd.jpg",
   interior: "/podzimky-palace-interior-hd.jpg",
@@ -67,6 +73,7 @@ type Station = {
   task: string;
   type: StationType;
   requiresApproval: boolean;
+  isDraft?: boolean;
   instructions?: string;
   options?: string[];
   answer?: string;
@@ -573,7 +580,11 @@ export default function Page() {
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false);
   const [isCreatingTeam, setIsCreatingTeam] = useState(false);
   const [createdTeamQr, setCreatedTeamQr] = useState<{ teamId: string; name: string; value: string } | null>(null);
+  const [teamQrCards, setTeamQrCards] = useState<TeamQrCard[]>([]);
+  const [teamQrCardSecrets, setTeamQrCardSecrets] = useState<Record<string, string>>({});
+  const [isCreatingTeamQrCard, setIsCreatingTeamQrCard] = useState(false);
   const [isStationDialogOpen, setIsStationDialogOpen] = useState(false);
+  const [editingStationId, setEditingStationId] = useState<string | null>(null);
   const [isFlashDialogOpen, setIsFlashDialogOpen] = useState(false);
   const [stationFormStep, setStationFormStep] = useState<0 | 1>(0);
   const [presentationIndex, setPresentationIndex] = useState<number | null>(null);
@@ -626,6 +637,7 @@ export default function Page() {
   const [teamFormAdmin, setTeamFormAdmin] = useState({
     name: "",
     password: "",
+    qrCardId: "",
   });
   const [flashMissionForm, setFlashMissionForm] = useState({
     title: "",
@@ -652,6 +664,26 @@ export default function Page() {
   const [managerForm, setManagerForm] = useState({ username: "", password: "" });
   const [managerBusy, setManagerBusy] = useState(false);
   const [managerError, setManagerError] = useState("");
+
+  const loadTeamQrCards = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/team-qr-cards", { cache: "no-store" });
+      const result = await response.json() as { cards?: TeamQrCard[]; error?: string };
+      if (!response.ok || !result.cards) {
+        throw new Error(result.error ?? "QR kartičky se nepodařilo načíst.");
+      }
+      const loadedCards = result.cards;
+      setTeamQrCards((currentCards) => {
+        const loadedById = new Map(loadedCards.map((card) => [card.id, card]));
+        return [
+          ...currentCards.map((card) => loadedById.get(card.id) ?? card),
+          ...loadedCards.filter((card) => !currentCards.some((current) => current.id === card.id)),
+        ];
+      });
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "QR kartičky se nepodařilo načíst.");
+    }
+  }, []);
 
   useEffect(() => () => {
     // Uvolní adresy lokálních náhledů médií, aby nezůstávaly v paměti.
@@ -681,6 +713,7 @@ export default function Page() {
               setIsOwnerAdmin(!sessionUser.managerId);
               setAdminTab("teams");
               setScreen("admin-panel");
+              void loadTeamQrCards();
             } else {
               const restoredTeamId = sessionUser.teamId;
               setTeamId(restoredTeamId);
@@ -707,7 +740,7 @@ export default function Page() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [loadTeamQrCards]);
 
   useEffect(() => {
     if (
@@ -984,6 +1017,7 @@ export default function Page() {
       setIsAuthenticated(true);
       setError("");
       setScreen("admin-panel");
+      void loadTeamQrCards();
       return;
     }
     const loggedTeamId = result.user.teamId;
@@ -998,7 +1032,7 @@ export default function Page() {
     setSelectedStationId(
       state.stations.find((station) => station.order === getNextOrder(team, state.stations))?.id ?? null,
     );
-  }, []);
+  }, [loadTeamQrCards]);
 
   // Ověří přihlašovací údaje týmu a zahájí vytvoření serverové relace.
   const handleTeamLogin = async () => {
@@ -1205,6 +1239,7 @@ export default function Page() {
       setIsAuthenticated(true);
       setError("");
       setScreen("admin-panel");
+      void loadTeamQrCards();
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : "Přihlášení administrátora se nezdařilo.");
     } finally {
@@ -1497,8 +1532,8 @@ export default function Page() {
   };
 
   // Zkontroluje formulář a přidá nové stanoviště do herního stavu.
-  const handleAddStation = () => {
-    if (!adminStationForm.title.trim() || !adminStationForm.task.trim()) {
+  const handleAddStation = (qrOnly = false) => {
+    if (!qrOnly && (!adminStationForm.title.trim() || !adminStationForm.task.trim())) {
       setError("Vyplňte název a zadání úkolu.");
       return;
     }
@@ -1507,7 +1542,7 @@ export default function Page() {
       setError("UID musí obsahovat přesně 8 písmen nebo číslic.");
       return;
     }
-    if (gameState.stations.some((station) => station.uid.toUpperCase() === uid)) {
+    if (gameState.stations.some((station) => station.id !== editingStationId && station.uid.toUpperCase() === uid)) {
       setError("Toto UID už používá jiné stanoviště. Vygenerujte nové.");
       return;
     }
@@ -1515,15 +1550,16 @@ export default function Page() {
       .split("\n")
       .map((option) => option.trim())
       .filter(Boolean))];
-    if (adminStationForm.type === "multiple-choice" && options.length < 2) {
+    if (!qrOnly && adminStationForm.type === "multiple-choice" && options.length < 2) {
       setError("Výběr odpovědi potřebuje alespoň dvě možnosti, každou na samostatný řádek.");
       return;
     }
-    if (adminStationForm.type === "multiple-choice" && adminStationForm.answer && !options.includes(adminStationForm.answer.trim())) {
+    if (!qrOnly && adminStationForm.type === "multiple-choice" && adminStationForm.answer && !options.includes(adminStationForm.answer.trim())) {
       setError("Správná odpověď musí být jedna z uvedených možností.");
       return;
     }
     if (
+      !qrOnly &&
       !adminStationForm.requiresApproval &&
       !["photo", "video", "form"].includes(adminStationForm.type) &&
       !adminStationForm.answer.trim()
@@ -1531,41 +1567,53 @@ export default function Page() {
       setError("Při automatickém splnění zadejte správnou odpověď, kterou server ověří.");
       return;
     }
-    if (adminStationForm.type === "form" && adminStationForm.formQuestions.length === 0) {
+    if (!qrOnly && adminStationForm.type === "form" && adminStationForm.formQuestions.length === 0) {
       setError("Formulář potřebuje alespoň jednu přidanou otázku.");
       return;
     }
 
+    const previousStation = gameState.stations.find((station) => station.id === editingStationId);
     const newStation: Station = {
-      id: `station-${crypto.randomUUID().slice(0, 8)}`,
-      order: gameState.stations.length + 1,
-      title: adminStationForm.title.trim(),
+      id: previousStation?.id ?? `station-${crypto.randomUUID().slice(0, 8)}`,
+      order: previousStation?.order ?? gameState.stations.length + 1,
+      title: qrOnly ? `Stanoviště ${gameState.stations.length + 1}` : adminStationForm.title.trim(),
       description: adminStationForm.description.trim(),
       clue: adminStationForm.clue.trim(),
-      task: adminStationForm.task.trim(),
+      task: qrOnly ? "" : adminStationForm.task.trim(),
       uid,
-      type: adminStationForm.type,
-      requiresApproval: adminStationForm.requiresApproval,
+      type: qrOnly ? "text" : adminStationForm.type,
+      requiresApproval: qrOnly || adminStationForm.requiresApproval,
+      ...(qrOnly ? { isDraft: true } : {}),
       instructions: adminStationForm.instructions,
-      ...(adminStationForm.answer.trim() ? { answer: adminStationForm.answer.trim() } : {}),
-      ...(adminStationForm.type === "multiple-choice" ? { options } : {}),
-      ...(adminStationForm.type === "form" ? { formQuestions: adminStationForm.formQuestions } : {}),
+      ...(!qrOnly && adminStationForm.answer.trim() ? { answer: adminStationForm.answer.trim() } : {}),
+      ...(!qrOnly && adminStationForm.type === "multiple-choice" ? { options } : {}),
+      ...(!qrOnly && adminStationForm.type === "form" ? { formQuestions: adminStationForm.formQuestions } : {}),
     };
 
     setGameState((previous) => {
       const safePrevious = normalizeGameState(previous);
       return {
         ...safePrevious,
-        stations: [...safePrevious.stations, newStation],
+        stations: previousStation
+          ? safePrevious.stations.map((station) => station.id === previousStation.id ? newStation : station)
+          : [...safePrevious.stations, newStation],
         events: [
-          createEvent(`Admin přidal nové stanoviště ${newStation.title}.`, "info"),
+          createEvent(
+            previousStation
+              ? `Admin upravil stanoviště ${newStation.title}.`
+              : qrOnly
+                ? `Admin připravil QR pro stanoviště ${newStation.title}.`
+                : `Admin přidal nové stanoviště ${newStation.title}.`,
+            "info",
+          ),
           ...safePrevious.events,
         ].slice(0, 12),
       };
     });
     setVisibleStationQr(newStation.id);
-    setStationPage(Math.floor(gameState.stations.length / managementPageSize));
+    if (!previousStation) setStationPage(Math.floor(gameState.stations.length / managementPageSize));
     setIsStationDialogOpen(false);
+    setEditingStationId(null);
 
     setAdminStationForm({
       title: "",
@@ -1591,12 +1639,13 @@ export default function Page() {
       setError("Název týmu je povinný.");
       return;
     }
-    if (teamFormAdmin.password.length < 8) {
+    if (!teamFormAdmin.qrCardId && teamFormAdmin.password.length < 8) {
       setError("Heslo týmu musí mít alespoň 8 znaků.");
       return;
     }
     if (isCreatingTeam) return;
 
+    const qrCardId = teamFormAdmin.qrCardId;
     const newTeamId = `team-${crypto.randomUUID().slice(0, 8)}`;
     const safePrevious = normalizeGameState(gameState);
     const nextState: GameState = {
@@ -1606,7 +1655,7 @@ export default function Page() {
         {
           id: newTeamId,
           name: cleanedName.toUpperCase(),
-          password: teamFormAdmin.password,
+          password: teamFormAdmin.password.trim() || crypto.randomUUID(),
           completedStations: [],
           scannedStationIds: [],
         },
@@ -1633,7 +1682,7 @@ export default function Page() {
       lastPersistedStateRef.current = JSON.stringify(savedState);
       setGameState(savedState);
       setTeamPage(Math.floor((savedState.teams.length - 1) / managementPageSize));
-      setTeamFormAdmin({ name: "", password: "" });
+      setTeamFormAdmin({ name: "", password: "", qrCardId: "" });
 
       const qrResponse = await fetch(`/api/team/${encodeURIComponent(newTeamId)}/qr-login`, { method: "POST" });
       const qrResult = await qrResponse.json() as { token?: string; error?: string };
@@ -1643,6 +1692,20 @@ export default function Page() {
       const value = createTeamLoginUrl(qrResult.token);
       setGeneratedTeamQr({ teamId: newTeamId, value });
       setCreatedTeamQr({ teamId: newTeamId, name: cleanedName.toUpperCase(), value });
+      if (qrCardId) {
+        const assignResponse = await fetch("/api/admin/team-qr-cards", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cardId: qrCardId, teamId: newTeamId }),
+        });
+        const assignResult = await assignResponse.json() as { error?: string };
+        if (!assignResponse.ok) {
+          throw new Error(assignResult.error ?? "QR kartičku se nepodařilo přiřadit.");
+        }
+        setTeamQrCards((cards) => cards.map((card) =>
+          card.id === qrCardId ? { ...card, teamId: newTeamId } : card,
+        ));
+      }
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Tým se nepodařilo vytvořit.");
     } finally {
@@ -1667,6 +1730,9 @@ export default function Page() {
       const state = normalizeGameState(result.state);
       lastPersistedStateRef.current = JSON.stringify(state);
       setGameState(state);
+      setTeamQrCards((cards) => cards.map((card) =>
+        card.teamId === team.id ? { ...card, teamId: null } : card,
+      ));
       setTeamPage((page) => Math.min(page, Math.max(0, Math.ceil(state.teams.length / managementPageSize) - 1)));
     } catch (removeError) {
       setError(removeError instanceof Error ? removeError.message : "Tým se nepodařilo odstranit.");
@@ -1687,6 +1753,48 @@ export default function Page() {
       setManagerError(loadError instanceof Error ? loadError.message : "Správce se nepodařilo načíst.");
     }
   }, []);
+
+  const handleCreateTeamQrCard = async () => {
+    if (isCreatingTeamQrCard) return;
+    setIsCreatingTeamQrCard(true);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/team-qr-cards", { method: "POST" });
+      const result = await response.json() as { card?: TeamQrCard; token?: string; error?: string };
+      if (!response.ok || !result.card || !result.token) {
+        throw new Error(result.error ?? "QR kartičku se nepodařilo vytvořit.");
+      }
+      const card = result.card;
+      const token = result.token;
+      setTeamQrCards((cards) => [...cards, card]);
+      setTeamQrCardSecrets((secrets) => ({
+        ...secrets,
+        [card.id]: createTeamLoginUrl(token),
+      }));
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "QR kartičku se nepodařilo vytvořit.");
+    } finally {
+      setIsCreatingTeamQrCard(false);
+    }
+  };
+
+  const handleRemoveTeamQrCard = async (cardId: string) => {
+    if (!window.confirm("Odebrat nepřiřazenou QR kartičku? Její vytištěný QR pak přestane fungovat.")) return;
+    setError("");
+    try {
+      const response = await fetch(`/api/admin/team-qr-cards?id=${encodeURIComponent(cardId)}`, { method: "DELETE" });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "QR kartičku se nepodařilo odebrat.");
+      setTeamQrCards((cards) => cards.filter((card) => card.id !== cardId));
+      setTeamQrCardSecrets((secrets) => {
+        const next = { ...secrets };
+        delete next[cardId];
+        return next;
+      });
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : "QR kartičku se nepodařilo odebrat.");
+    }
+  };
 
   // Vytvoří podřízeného správce a obnoví seznam po úspěchu.
   const handleCreateManager = async () => {
@@ -2975,6 +3083,7 @@ export default function Page() {
                     setError("");
                     setAdminTab(item.tab);
                     if (item.tab === "managers") void loadManagers();
+                    if (item.tab === "teams") void loadTeamQrCards();
                   }}
                 >
                   <AdminIcon name={item.icon} />
@@ -3321,7 +3430,11 @@ export default function Page() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => { setError(""); setIsTeamDialogOpen(true); }}
+                  onClick={() => {
+                    setError("");
+                    setTeamFormAdmin({ name: "", password: "", qrCardId: "" });
+                    setIsTeamDialogOpen(true);
+                  }}
                   className="admin-primary-button"
                 >
                   <Plus size={17} /> Přidat tým
@@ -3414,6 +3527,83 @@ export default function Page() {
                   </p>
                 )}
               </div>
+              <section className="mt-6 border-t border-[#e3d9c9] pt-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-bold text-[#201c19]">QR kartičky pro týmy</h3>
+                    <p className="mt-1 max-w-2xl text-sm text-[#675d53]">
+                      Vytvořte a vytiskněte neutrální kartičky před akcí. Při založení týmu pak jednu přiřaďte; QR se nemění.
+                      QR tajný kód se zobrazí jen při vytvoření, proto si kartičku hned stáhněte.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleCreateTeamQrCard()}
+                    disabled={isCreatingTeamQrCard}
+                    className="admin-secondary-button"
+                  >
+                    <Plus size={16} /> {isCreatingTeamQrCard ? "Vytvářím…" : "Vytvořit QR kartičku"}
+                  </button>
+                </div>
+                {error && <p role="alert" className="mt-3 rounded-xl bg-[#fce7e6] p-3 text-sm font-semibold text-[#8b2d2d]">{error}</p>}
+                {teamQrCards.length > 0 ? (
+                  <div className="mt-3 grid gap-2 md:grid-cols-2">
+                    {teamQrCards.map((card) => {
+                      const team = gameState.teams.find((item) => item.id === card.teamId);
+                      const value = teamQrCardSecrets[card.id];
+                      const label = `Kartička ${card.id.slice(0, 8).toUpperCase()}`;
+                      return (
+                        <article key={card.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-[#e3d9c9] bg-white p-3">
+                          {value ? (
+                            <QRCodeSVG
+                              value={value}
+                              size={96}
+                              level="Q"
+                              marginSize={3}
+                              title={`Přihlašovací QR ${label}`}
+                              data-qr-uid={value}
+                            />
+                          ) : (
+                            <div className="flex h-24 w-24 items-center justify-center rounded-lg bg-[#f5efe8] text-center text-xs font-semibold text-[#675d53]">
+                              QR se po vytvoření znovu nezobrazí
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-[#201c19]">{label}</p>
+                            <p className="text-sm text-[#675d53]">
+                              {team ? `Přiřazeno týmu ${team.name}` : "Zatím nepřiřazeno"}
+                            </p>
+                            {value && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!downloadQrSvg(value, `tymova-karticka-${card.id.slice(0, 8)}.svg`)) {
+                                    setError("QR kartičku se nepodařilo připravit ke stažení.");
+                                  }
+                                }}
+                                className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[#312d27] px-3 py-2 text-xs font-bold text-white"
+                              >
+                                <Download size={14} /> Stáhnout QR
+                              </button>
+                            )}
+                            {!team && (
+                              <button
+                                type="button"
+                                onClick={() => void handleRemoveTeamQrCard(card.id)}
+                                className="ml-2 mt-2 inline-flex items-center gap-1 rounded-lg border border-[#d8c6a2] px-3 py-2 text-xs font-bold text-[#6a2b19]"
+                              >
+                                <Trash2 size={13} /> Odebrat
+                              </button>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-[#675d53]">Zatím nemáte žádné připravené QR kartičky.</p>
+                )}
+              </section>
               {teamPageCount > 1 && (
                 <div className="admin-pagination">
                   <span>{teamPage * managementPageSize + 1}–{Math.min((teamPage + 1) * managementPageSize, gameState.teams.length)} z {gameState.teams.length}</span>
@@ -3429,7 +3619,7 @@ export default function Page() {
                 title={createdTeamQr ? `Tým ${createdTeamQr.name} vytvořen` : "Nový tým"}
                 description={createdTeamQr
                   ? "Tým se může přihlásit heslem, nebo naskenováním tohoto QR kódu. Fungují oba způsoby."
-                  : "Zvolte název a přístupové heslo. Přihlašovací QR kód se vytvoří automaticky."}
+                  : "Zvolte název a heslo, nebo přiřaďte QR kartičku připravenou před akcí."}
                 onClose={() => { setIsTeamDialogOpen(false); setCreatedTeamQr(null); }}
                 variant="drawer"
               >
@@ -3457,6 +3647,7 @@ export default function Page() {
                       <Download size={14} /> Stáhnout QR
                     </button>
                   </div>
+                  {error && <p role="alert" className="rounded-xl bg-[#fce7e6] p-3 text-sm font-semibold text-[#8b2d2d]">{error}</p>}
                   <div className="admin-dialog-actions">
                     <button type="button" onClick={() => { setIsTeamDialogOpen(false); setCreatedTeamQr(null); }} className="admin-primary-button">Hotovo</button>
                   </div>
@@ -3481,9 +3672,25 @@ export default function Page() {
                       autoComplete="new-password"
                       value={teamFormAdmin.password}
                       onChange={(event) => setTeamFormAdmin((current) => ({ ...current, password: event.target.value }))}
-                      placeholder="Alespoň 8 znaků"
+                      placeholder={teamFormAdmin.qrCardId ? "Volitelné při přiřazení QR kartičky" : "Alespoň 8 znaků"}
                       className="w-full rounded-xl border p-3 text-sm"
                     />
+                  </label>
+                  <label className="admin-field-label mt-4">
+                    Předem vytištěná QR kartička (volitelné)
+                    <select
+                      value={teamFormAdmin.qrCardId}
+                      onChange={(event) => setTeamFormAdmin((current) => ({ ...current, qrCardId: event.target.value }))}
+                      className="w-full rounded-xl border p-3 text-sm"
+                    >
+                      <option value="">Vytvořit běžný týmový QR</option>
+                      {teamQrCards.map((card) => card.teamId === null && (
+                        <option key={card.id} value={card.id}>Kartička {card.id.slice(0, 8).toUpperCase()}</option>
+                      ))}
+                    </select>
+                    <span className="text-xs font-normal text-[#675d53]">
+                      Přiřazením se dříve vytištěný QR začne přihlašovat k tomuto týmu.
+                    </span>
                   </label>
                   {error && <p role="alert" className="mt-4 rounded-xl bg-[#fce7e6] px-3 py-2 text-sm text-[#8b2d2d]">{error}</p>}
                   <div className="admin-dialog-actions">
@@ -3511,6 +3718,7 @@ export default function Page() {
                   onClick={() => {
                     setError("");
                     setStationFormStep(0);
+                    setEditingStationId(null);
                     setAdminStationForm((current) => ({
                       ...current,
                       uid: createUniqueStationUid(gameState.stations),
@@ -3532,6 +3740,7 @@ export default function Page() {
                         <div className="min-w-0">
                           <h3 className="truncate text-sm font-bold text-[#201c19]">{station.title}</h3>
                           <p className="font-mono text-xs text-[#756958]">{station.uid}</p>
+                          {station.isDraft && <p className="text-xs font-semibold text-[#9a4b22]">QR připraveno · doplňte název a úkol</p>}
                         </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
@@ -3541,6 +3750,32 @@ export default function Page() {
                           aria-expanded={visibleStationQr === station.id}
                         >
                           {visibleStationQr === station.id ? "Skrýt QR" : "QR kód"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setError("");
+                            setStationFormStep(0);
+                            setEditingStationId(station.id);
+                            setAdminStationForm({
+                              title: station.title,
+                              description: station.description,
+                              clue: station.clue,
+                              task: station.task,
+                              uid: station.uid,
+                              type: station.type,
+                              instructions: station.instructions ?? "",
+                              requiresApproval: station.requiresApproval,
+                              answer: station.answer ?? "",
+                              optionsText: station.options?.join("\n") ?? "",
+                              formQuestions: station.formQuestions ?? [],
+                              questionDraft: { label: "", type: "text", optionsText: "", answer: "" },
+                            });
+                            setIsStationDialogOpen(true);
+                          }}
+                          className="rounded-md border border-[#d4c3a2] bg-white px-2.5 py-1.5 text-xs font-bold text-[#4d3b2a]"
+                        >
+                          {station.isDraft ? "Doplnit" : "Upravit"}
                         </button>
                         <button
                           type="button"
@@ -3610,9 +3845,11 @@ export default function Page() {
             </section>
             {isStationDialogOpen && (
               <AdminDialog
-                title="Nové stanoviště"
-                description="UID i přihlašovací QR kód se vytvoří automaticky. Doplňte základní zadání a stanoviště uložte."
-                onClose={() => setIsStationDialogOpen(false)}
+                title={editingStationId ? "Upravit stanoviště" : "Nové stanoviště"}
+                description={editingStationId
+                  ? "Upravte podrobnosti. UID ani vytištěný QR kód se nezmění."
+                  : "UID i QR kód se vytvoří automaticky. Zadání můžete doplnit později."}
+                onClose={() => { setIsStationDialogOpen(false); setEditingStationId(null); }}
                 variant="drawer"
               >
                 <div className="admin-dialog-body">
@@ -3911,16 +4148,27 @@ export default function Page() {
                     {stationFormStep === 0 ? "Zrušit" : "Zpět"}
                   </button>
                   {stationFormStep < 1 ? (
-                    <button
-                      type="button"
-                      onClick={() => setStationFormStep(1)}
-                      className="admin-primary-button"
-                    >
-                      Pokračovat <ChevronRight size={16} />
-                    </button>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {!editingStationId && (
+                        <button
+                          type="button"
+                          onClick={() => handleAddStation(true)}
+                          className="admin-secondary-button"
+                        >
+                          Připravit jen QR
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setStationFormStep(1)}
+                        className="admin-primary-button"
+                      >
+                        Pokračovat <ChevronRight size={16} />
+                      </button>
+                    </div>
                   ) : (
-                    <button type="button" onClick={handleAddStation} className="admin-primary-button">
-                      Uložit stanoviště
+                    <button type="button" onClick={() => handleAddStation()} className="admin-primary-button">
+                      {editingStationId ? "Uložit změny" : "Uložit stanoviště"}
                     </button>
                   )}
                 </div>

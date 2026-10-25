@@ -23,6 +23,7 @@ export type Station = {
   task: string;
   type: StationType;
   requiresApproval: boolean;
+  isDraft?: boolean;
   instructions?: string;
   options?: string[];
   answer?: string;
