@@ -33,7 +33,7 @@ import {
   Zap,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type PointerEvent as ReactPointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getFirebaseAuth } from "@/lib/firebase-client";
 import { SupportChat } from "@/app/SupportChat";
@@ -218,11 +218,44 @@ function AdminDialog({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
+  const windowRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<{ x: number; y: number; dx: number; dy: number } | null>(null);
+
+  // Okno jde přesouvat za titulkovou lištu jako na desktopu.
+  const startDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest("button")) return;
+    const element = windowRef.current;
+    if (!element) return;
+    dragRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      dx: Number.parseFloat(element.style.getPropertyValue("--win-dx")) || 0,
+      dy: Number.parseFloat(element.style.getPropertyValue("--win-dy")) || 0,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const moveDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    const element = windowRef.current;
+    if (!drag || !element) return;
+    element.style.setProperty("--win-dx", `${drag.dx + event.clientX - drag.x}px`);
+    element.style.setProperty("--win-dy", `${drag.dy + event.clientY - drag.y}px`);
+  };
+  const endDrag = () => { dragRef.current = null; };
+
   return (
     <DialogPrimitive.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="admin-dialog-backdrop" />
-        <DialogPrimitive.Content className={classNames("admin-dialog", variant === "drawer" && "admin-dialog-drawer")}>
+        <DialogPrimitive.Content ref={windowRef} className={classNames("admin-dialog", variant === "drawer" && "admin-dialog-drawer")}>
+        <div className="admin-dialog-titlebar" onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
+          <DialogPrimitive.Close asChild>
+            <button type="button" aria-label="Zavřít okno" className="admin-dialog-dot admin-dialog-dot-close" />
+          </DialogPrimitive.Close>
+          <span className="admin-dialog-dot admin-dialog-dot-min" aria-hidden="true" />
+          <span className="admin-dialog-dot admin-dialog-dot-max" aria-hidden="true" />
+          <span className="admin-dialog-titlebar-name" aria-hidden="true">podzimky://{title.toLowerCase().replace(/\s+/g, "-")}</span>
+        </div>
         <header className="admin-dialog-header">
           <div className="admin-dialog-seal" aria-hidden="true">印</div>
           <div className="min-w-0 flex-1">

@@ -983,106 +983,147 @@
   }
 }
 
-/* ===== Modální okna jako okna operačního systému ===== */
+/* ===== Modální okna: skutečná okna uprostřed plochy, přesouvatelná za titulek ===== */
+.admin-dialog-titlebar {
+  display: none;
+}
+
 @media (min-width: 900px) {
   .admin-dialog-backdrop {
-    background: rgba(18, 32, 25, 0.55);
-    backdrop-filter: blur(3px);
+    background: rgba(14, 26, 20, 0.5);
+    backdrop-filter: blur(2px);
   }
 
   .admin-dialog,
   .admin-dialog.admin-dialog-drawer {
+    --win-dx: 0px;
+    --win-dy: 0px;
+    top: 50%;
+    right: auto;
+    bottom: auto;
+    left: 50%;
     display: flex;
+    width: min(640px, calc(100vw - 3rem));
+    max-height: min(86dvh, 820px);
     flex-direction: column;
-    border: 1px solid #cdbb96;
-    border-radius: 12px;
+    transform: translate(calc(-50% + var(--win-dx)), calc(-50% + var(--win-dy)));
+    border: 1px solid #b9a578;
+    border-radius: 10px;
     background: #fbf6ea;
-    box-shadow: 0 1px 0 #fff inset, 0 28px 70px rgba(14, 24, 18, 0.5);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6) inset, 0 30px 80px rgba(8, 16, 12, 0.55), 0 4px 0 rgba(0, 0, 0, 0.08);
+    animation: os-window-open 190ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
   }
 
-  .admin-dialog.admin-dialog-drawer {
-    top: 56px;
-    right: 14px;
-    bottom: 14px;
-    max-height: none;
-    width: min(500px, calc(100vw - 28px));
+  @keyframes os-window-open {
+    from { opacity: 0; transform: translate(calc(-50% + var(--win-dx)), calc(-50% + var(--win-dy))) scale(0.94); }
+    to { opacity: 1; transform: translate(calc(-50% + var(--win-dx)), calc(-50% + var(--win-dy))) scale(1); }
   }
 
-  /* Titulková lišta okna se třemi puntíky */
-  .admin-dialog::before {
+  .admin-dialog .admin-dialog-titlebar {
+    position: relative;
+    display: flex;
     flex: 0 0 auto;
-    height: 30px;
-    border-bottom: 1px solid #d9c9a5;
-    background:
-      radial-gradient(circle at 20px 15px, #c8452f 5px, transparent 5.5px),
-      radial-gradient(circle at 40px 15px, #d9a43f 5px, transparent 5.5px),
-      radial-gradient(circle at 60px 15px, #5f9a6b 5px, transparent 5.5px),
-      linear-gradient(#f3ead4, #eadfc3);
-    content: "";
+    align-items: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 12px;
+    border-bottom: 1px solid #c9b88f;
+    background: linear-gradient(#f1e7cf, #e4d6b4);
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .admin-dialog .admin-dialog-titlebar:active {
+    cursor: grabbing;
+  }
+
+  .admin-dialog-dot {
+    width: 12px;
+    height: 12px;
+    flex: 0 0 auto;
+    padding: 0;
+    border: 1px solid rgba(0, 0, 0, 0.22);
+    border-radius: 50%;
+  }
+
+  .admin-dialog-dot-close { background: #d9573f; cursor: pointer; }
+  .admin-dialog-dot-close:hover { background: #ef6a50; box-shadow: 0 0 0 3px rgba(217, 87, 63, 0.25); }
+  .admin-dialog-dot-min { background: #e0a93d; }
+  .admin-dialog-dot-max { background: #6ba877; }
+
+  .admin-dialog-titlebar-name {
+    position: absolute;
+    right: 5rem;
+    left: 5rem;
+    overflow: hidden;
+    color: #6a5a3c;
+    font-family: var(--font-hud-mono), ui-monospace, monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
   }
 
   .admin-dialog .admin-dialog-header {
     flex: 0 0 auto;
     align-items: center;
-    padding: 0.85rem 1.1rem;
+    gap: 0.8rem;
+    padding: 0.9rem 1.2rem;
     border-bottom: 1px solid #e2d3b0;
-    background: #fbf6ea;
+    background: transparent;
   }
 
-  .admin-dialog .admin-dialog-header .admin-eyebrow {
-    margin: 0 0 0.15rem;
-    font-size: 0.6rem;
+  .admin-dialog .admin-dialog-header .admin-eyebrow,
+  .admin-dialog .admin-dialog-header > .admin-dialog-close {
+    display: none;
+  }
+
+  .admin-dialog .admin-dialog-seal {
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 6px;
+    background: #8a3a2c;
+    box-shadow: none;
+    font-size: 1.1rem;
   }
 
   .admin-dialog .admin-dialog-title {
-    font-size: 1.05rem;
-    letter-spacing: 0.02em;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0;
     text-transform: none;
   }
 
   .admin-dialog .admin-dialog-header p:last-child {
-    margin-top: 0.2rem;
-    font-family: var(--font-hud-mono), ui-monospace, monospace;
-    font-size: 0.7rem;
+    margin-top: 0.15rem;
+    font-size: 0.8rem;
   }
 
-  .admin-dialog .admin-dialog-seal {
-    width: 2.2rem;
-    height: 2.2rem;
-    border-radius: 8px;
-    font-size: 1.05rem;
-  }
-
-  .admin-dialog .admin-dialog-close {
-    border-radius: 8px;
-  }
-
-  .admin-dialog .admin-dialog-body {
+  .admin-dialog .admin-dialog-body,
+  .admin-dialog.admin-dialog-drawer .admin-dialog-body {
     min-height: 0;
     flex: 1;
     max-height: none;
     overflow-y: auto;
   }
 
-  .admin-dialog:not(.admin-dialog-drawer) {
-    max-height: min(88dvh, 820px);
+  .admin-dialog .admin-dialog-actions {
+    border-top: 1px solid #d9c9a5;
+    background: #f1e7cf;
   }
 
   .admin-dialog .admin-primary-button,
   .admin-dialog .admin-secondary-button {
     clip-path: none;
-    border-radius: 8px;
-    letter-spacing: 0.05em;
+    border-radius: 6px;
+    letter-spacing: 0.04em;
   }
 
   .admin-dialog input,
   .admin-dialog select,
   .admin-dialog textarea {
-    border-radius: 8px !important;
-  }
-
-  .admin-dialog .admin-dialog-actions {
-    background: #f3ead4;
-    border-top: 1px solid #d9c9a5;
+    border-radius: 6px !important;
   }
 }
