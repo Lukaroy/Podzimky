@@ -1127,3 +1127,136 @@
     border-radius: 6px !important;
   }
 }
+
+/* ===== Příkazová paleta (Ctrl+K) ===== */
+.ops-search { display: none; }
+
+.os-palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 16vh;
+  background: rgba(14, 26, 20, 0.5);
+  backdrop-filter: blur(3px);
+}
+
+.os-palette {
+  width: min(560px, calc(100vw - 2rem));
+  overflow: hidden;
+  border: 1px solid #b9a578;
+  border-radius: 12px;
+  background: #fbf6ea;
+  color: #23301f;
+  box-shadow: 0 30px 80px rgba(8, 16, 12, 0.55);
+  font-family: var(--font-hud-display), system-ui, sans-serif;
+  animation: os-window-open 150ms ease-out;
+}
+
+.os-palette input {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid #d9c9a5;
+  background: transparent;
+  padding: 1rem 1.2rem;
+  color: #23301f;
+  font: inherit;
+  font-size: 1.05rem;
+  outline: none;
+}
+
+.os-palette ul {
+  max-height: 46vh;
+  margin: 0;
+  padding: 0.4rem;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.os-palette li button {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  padding: 0.6rem 0.8rem;
+  color: #23301f;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.os-palette li button.is-active {
+  background: #263b32;
+  color: #fff3d8;
+}
+
+.os-palette li small {
+  color: #7a6c52;
+  font-family: var(--font-hud-mono), ui-monospace, monospace;
+  font-size: 0.66rem;
+}
+
+.os-palette li button.is-active small {
+  color: #c9d3c3;
+}
+
+.os-palette-empty {
+  padding: 0.8rem;
+  color: #7a6c52;
+  font-size: 0.85rem;
+}
+
+.os-palette footer {
+  display: flex;
+  gap: 1.2rem;
+  border-top: 1px solid #d9c9a5;
+  background: #f1e7cf;
+  padding: 0.5rem 1rem;
+  color: #6a5a3c;
+  font-family: var(--font-hud-mono), ui-monospace, monospace;
+  font-size: 0.64rem;
+}
+
+@media (min-width: 900px) {
+  .admin-console .ops-search {
+    position: fixed;
+    top: 6px;
+    right: 10.6rem;
+    z-index: 61;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 30px;
+    border: 1px solid rgba(229, 203, 144, 0.35);
+    border-radius: 8px;
+    background: rgba(229, 203, 144, 0.08);
+    padding: 0 0.6rem;
+    color: #c9d3c3;
+    font-family: var(--font-hud-mono), ui-monospace, monospace;
+    font-size: 0.68rem;
+    cursor: pointer;
+  }
+
+  .admin-console .ops-search:hover {
+    border-color: #e5cb90;
+    color: #fff3d8;
+  }
+
+  .admin-console .ops-search kbd {
+    border-radius: 4px;
+    background: rgba(229, 203, 144, 0.15);
+    padding: 1px 5px;
+    font: inherit;
+    font-size: 0.6rem;
+  }
+
+  .admin-console .ops-bar-right {
+    padding-right: 17.5rem;
+  }
+}

@@ -447,6 +447,50 @@ function ElapsedClock({ startedAt, stoppedAt, pausedMs = 0, className = "" }: { 
   return <span className={className}><Clock aria-hidden="true" size={13} /> {formatElapsedTime(startedAt, now, stoppedAt, pausedMs)}{stoppedAt ? " ⏸" : ""}</span>;
 }
 
+// Příkazová paleta: filtrovatelný seznam akcí ovládaný klávesnicí.
+function CommandPalette({ items, onClose }: { items: { id: string; label: string; hint: string; run: () => void }[]; onClose: () => void }) {
+  const [query, setQuery] = useState("");
+  const [cursor, setCursor] = useState(0);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => { inputRef.current?.focus(); }, []);
+  const normalize = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const filtered = items.filter((item) => normalize(`${item.label} ${item.hint}`).includes(normalize(query)));
+  const run = (item?: (typeof items)[number]) => {
+    if (!item) return;
+    onClose();
+    item.run();
+  };
+  return (
+    <div className="os-palette-backdrop" onMouseDown={onClose}>
+      <div className="os-palette" role="dialog" aria-label="Příkazová paleta" onMouseDown={(event) => event.stopPropagation()}>
+        <input
+          ref={inputRef}
+          value={query}
+          placeholder="Přejít na modul nebo spustit příkaz…"
+          onChange={(event) => { setQuery(event.target.value); setCursor(0); }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") onClose();
+            else if (event.key === "ArrowDown") { event.preventDefault(); setCursor((value) => Math.min(value + 1, filtered.length - 1)); }
+            else if (event.key === "ArrowUp") { event.preventDefault(); setCursor((value) => Math.max(value - 1, 0)); }
+            else if (event.key === "Enter") run(filtered[cursor]);
+          }}
+        />
+        <ul>
+          {filtered.length === 0 && <li className="os-palette-empty">Nic nenalezeno</li>}
+          {filtered.map((item, index) => (
+            <li key={item.id}>
+              <button type="button" className={index === cursor ? "is-active" : ""} onMouseEnter={() => setCursor(index)} onClick={() => run(item)}>
+                <span>{item.label}</span><small>{item.hint}</small>
+              </button>
+            </li>
+          ))}
+        </ul>
+        <footer><span>↑↓ vybrat</span><span>↵ otevřít</span><span>esc zavřít</span></footer>
+      </div>
+    </div>
+  );
+}
+
 // Systémové hodiny v horní liště; do prvního ticku nic nevykreslí.
 function WallClock({ className = "" }: { className?: string }) {
   const [now, setNow] = useState<Date | null>(null);
@@ -775,6 +819,18 @@ export default function Page() {
   });
   const [teamAmbushBusy, setTeamAmbushBusy] = useState(false);
   const [adminTab, setAdminTab] = useState<"teams" | "stations" | "submissions" | "media" | "flash" | "managers" | "live" | "support">("teams");
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    // Ctrl/⌘+K otevře příkazovou paletu jako Spotlight.
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const [isOwnerAdmin, setIsOwnerAdmin] = useState(false);
   const [ownerActionBusy, setOwnerActionBusy] = useState(false);
   const [emergencyDraft, setEmergencyDraft] = useState("");
@@ -3324,8 +3380,28 @@ export default function Page() {
               {gameState.events[0] && <p className="ops-bar-ticker">{gameState.events[0].message}</p>}
               <WallClock className="ops-bar-wall" />
             </div>
+            <button type="button" className="ops-search" onClick={() => setPaletteOpen(true)} aria-label="Hledat a spouštět příkazy">Hledat <kbd>Ctrl K</kbd></button>
             <button type="button" className="ops-fs" onClick={toggleFullscreen} title="Celá obrazovka" aria-label="Přepnout celou obrazovku">⛶</button>
           </div>
+
+          {paletteOpen && <CommandPalette
+            onClose={() => setPaletteOpen(false)}
+            items={[
+              { id: "teams", label: "Týmy", hint: "modul · vytvořit tým, QR kartičky", run: () => { setAdminTab("teams"); void loadTeamQrCards(); } },
+              { id: "stations", label: "Stanoviště", hint: "modul · úkoly a QR kódy", run: () => setAdminTab("stations") },
+              { id: "flash", label: "Přepady", hint: "modul · týmové výzvy", run: () => setAdminTab("flash") },
+              { id: "submissions", label: "Schvalování", hint: `modul · ke schválení: ${pendingSubmissions.length}`, run: () => setAdminTab("submissions") },
+              { id: "support", label: "Podpora", hint: "modul · chat s týmy", run: () => setAdminTab("support") },
+              ...(isOwnerAdmin ? [
+                { id: "media", label: "Galerie", hint: "modul · fotky a videa", run: () => setAdminTab("media") },
+                { id: "live", label: "Živý přehled", hint: "modul · postup týmů", run: () => setAdminTab("live") },
+                { id: "managers", label: "Správci", hint: "modul · správci stanovišť", run: () => { setAdminTab("managers"); void loadManagers(); } },
+                { id: "present", label: "Promítání", hint: "příkaz · spustit prezentaci médií", run: () => { setAdminTab("media"); setGalleryPage(0); if (mediaSubmissions.length > 0) setPresentationIndex(0); } },
+              ] : []),
+              { id: "fullscreen", label: "Celá obrazovka", hint: "příkaz · přepnout fullscreen", run: toggleFullscreen },
+              { id: "logout", label: "Odhlásit", hint: "příkaz · ukončit relaci", run: () => void handleLogout() },
+            ]}
+          />}
 
           {(saveError || isSavingGameState) && (
             <div role={saveError ? "alert" : "status"} className={classNames(
