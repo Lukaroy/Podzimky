@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
-import { Chakra_Petch, JetBrains_Mono } from "next/font/google";
+import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import "./admin-hud.css";
 
-const hudDisplay = Chakra_Petch({
+const hudDisplay = Space_Grotesk({
   subsets: ["latin", "latin-ext"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-hud-display",
   display: "swap",
 });
-const hudMono = JetBrains_Mono({
+const hudMono = IBM_Plex_Mono({
   subsets: ["latin", "latin-ext"],
+  weight: ["400", "500", "600"],
   variable: "--font-hud-mono",
   display: "swap",
 });

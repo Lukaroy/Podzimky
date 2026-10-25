@@ -414,6 +414,29 @@ function ElapsedClock({ startedAt, stoppedAt, pausedMs = 0, className = "" }: { 
   return <span className={className}><Clock aria-hidden="true" size={13} /> {formatElapsedTime(startedAt, now, stoppedAt, pausedMs)}{stoppedAt ? " ⏸" : ""}</span>;
 }
 
+// Systémové hodiny v horní liště; do prvního ticku nic nevykreslí.
+function WallClock({ className = "" }: { className?: string }) {
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    const tick = () => setNow(new Date());
+    tick();
+    const timer = window.setInterval(tick, 10_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  if (!now) return <span className={className} />;
+  return (
+    <span className={className}>
+      {now.toLocaleDateString("cs-CZ", { weekday: "short", day: "numeric", month: "numeric" })} {now.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })}
+    </span>
+  );
+}
+
+// Přepíná celou obrazovku, aby admin vypadal jako samostatný systém.
+function toggleFullscreen() {
+  if (document.fullscreenElement) void document.exitFullscreen();
+  else void document.documentElement.requestFullscreen?.().catch(() => undefined);
+}
+
 // Převede uložené odpovědi formuláře na čitelný text pro administraci.
 function formatEvidence(station: Station | undefined, evidence: string) {
   if (station?.type !== "form") return evidence;
@@ -3261,6 +3284,8 @@ export default function Page() {
               </button>
             </div>
             {gameState.events[0] && <p className="ops-bar-ticker">{gameState.events[0].message}</p>}
+            <WallClock className="ops-bar-wall" />
+            <button type="button" className="ops-fs" onClick={toggleFullscreen} title="Celá obrazovka" aria-label="Přepnout celou obrazovku">⛶</button>
           </div>
 
           {(saveError || isSavingGameState) && (

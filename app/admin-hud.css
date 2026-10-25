@@ -1,7 +1,7 @@
 /* HUD vrstva pro admin panel: jen typografie a rozložení. Barvy zůstávají původní z globals.css. */
 
 .admin-shell.admin-console {
-  --hud-display: var(--font-hud-display), "Chakra Petch", system-ui, sans-serif;
+  --hud-display: var(--font-hud-display), "Space Grotesk", system-ui, sans-serif;
   --hud-mono: var(--font-hud-mono), ui-monospace, "Cascadia Mono", monospace;
   --hud-corner: #c99a49;
   font-family: var(--hud-display);
@@ -520,5 +520,373 @@
 
   .ops-bar-clock {
     font-size: 1rem;
+  }
+}
+
+/* ===== Podzimky OS: plocha, horní lišta, okno modulu a dok (jen desktop) ===== */
+
+.ops-bar-wall,
+.ops-fs {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .admin-shell.admin-console {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    display: grid;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    margin: 0;
+    grid-template-columns: minmax(0, 1fr) 292px;
+    grid-template-rows: 42px minmax(0, 1fr) 96px;
+    grid-template-areas:
+      "bar bar"
+      "win side"
+      "dock dock";
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 18% 12%, rgba(178, 141, 78, 0.22), transparent 38%),
+      radial-gradient(circle at 88% 90%, rgba(47, 82, 62, 0.2), transparent 40%),
+      radial-gradient(rgba(77, 68, 50, 0.16) 1px, transparent 1.4px) 0 0 / 22px 22px,
+      #eadfc8;
+    cursor: default;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .admin-shell.admin-console input,
+  .admin-shell.admin-console textarea,
+  .admin-shell.admin-console [contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  .admin-shell.admin-console::before {
+    display: none;
+  }
+
+  /* Startovací obrazovka systému */
+  .admin-shell.admin-console::after {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: grid;
+    place-items: center;
+    background: #14231b;
+    color: #e5cb90;
+    content: "印\A PODZIMKY OS\A ▮▮▮▮▮▯▯  načítám moduly";
+    font-family: var(--hud-mono);
+    font-size: 0.8rem;
+    letter-spacing: 0.3em;
+    line-height: 2.4;
+    text-align: center;
+    white-space: pre;
+    pointer-events: none;
+    animation: os-boot 2.1s ease forwards;
+  }
+
+  @keyframes os-boot {
+    0%, 70% { opacity: 1; visibility: visible; }
+    100% { opacity: 0; visibility: hidden; }
+  }
+
+  .admin-console .admin-sidebar,
+  .admin-console .admin-main {
+    display: contents;
+  }
+
+  .admin-console .admin-sidebar-brand,
+  .admin-console .admin-sidebar-label {
+    display: none;
+  }
+
+  /* Horní lišta */
+  .admin-console .ops-bar {
+    position: relative;
+    grid-area: bar;
+    flex-wrap: nowrap;
+    margin: 0;
+    padding: 0 8.5rem 0 1rem;
+    border: 0;
+    border-bottom: 1px solid rgba(229, 203, 144, 0.3);
+    background: rgba(25, 42, 33, 0.97);
+    box-shadow: 0 2px 14px rgba(20, 30, 24, 0.3);
+    overflow: hidden;
+    text-transform: none;
+  }
+
+  .admin-console .ops-bar-id small,
+  .admin-console .ops-bar-stats i {
+    letter-spacing: 0.04em;
+  }
+
+  .admin-console .ops-bar-clock {
+    font-size: 0.95rem;
+  }
+
+  .admin-console .ops-bar-stats > span,
+  .admin-console .ops-bar-stats > button {
+    border-radius: 999px;
+    padding: 0.15rem 0.65rem;
+  }
+
+  .admin-console .ops-chip {
+    border-radius: 999px;
+  }
+
+  .admin-console .ops-bar-wall {
+    display: inline;
+    flex: 0 0 auto;
+    color: #e9dcc0;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+
+  .admin-console .ops-fs {
+    position: fixed;
+    top: 6px;
+    right: 6.2rem;
+    z-index: 61;
+    display: grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    border: 1px solid rgba(229, 203, 144, 0.35);
+    border-radius: 8px;
+    background: transparent;
+    color: #e5cb90;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+
+  .admin-console .ops-fs:hover {
+    background: rgba(229, 203, 144, 0.15);
+  }
+
+  .admin-console .admin-logout {
+    position: fixed;
+    top: 6px;
+    right: 0.7rem;
+    z-index: 61;
+    width: auto;
+    height: 30px;
+    margin: 0;
+    padding: 0 0.7rem;
+    border-radius: 8px;
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-transform: none;
+  }
+
+  /* Hlášky o ukládání jako plovoucí oznámení */
+  .admin-console .admin-main > div:not(.ops-bar):not(.admin-workspace) {
+    position: fixed;
+    bottom: 108px;
+    left: 50%;
+    z-index: 70;
+    min-width: 18rem;
+    margin: 0;
+    transform: translateX(-50%);
+    box-shadow: 0 10px 30px rgba(20, 30, 24, 0.25);
+  }
+
+  /* Okno modulu */
+  .admin-console .admin-workspace {
+    position: relative;
+    grid-area: win;
+    min-width: 0;
+    min-height: 0;
+    margin: 0.9rem 0 0.4rem 0.9rem;
+    padding: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: 1px solid #cdbb96;
+    border-radius: 12px;
+    background: #fbf6ea;
+    box-shadow: 0 1px 0 #fff inset, 0 18px 40px rgba(40, 32, 18, 0.22);
+    scrollbar-width: thin;
+    scrollbar-color: #c9b88f transparent;
+  }
+
+  .admin-console .admin-workspace > .admin-content {
+    padding: 0 1.3rem 1.4rem;
+  }
+
+  .admin-console .module-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    margin: 0 -1.3rem 1rem;
+    padding: 0.55rem 1.1rem;
+    border: 0;
+    border-bottom: 1px solid #d9c9a5;
+    border-radius: 0;
+    background: linear-gradient(#f3ead4, #eadfc3);
+    box-shadow: none;
+  }
+
+  .admin-console .module-toolbar::before {
+    flex: 0 0 auto;
+    width: 52px;
+    height: 12px;
+    background:
+      radial-gradient(circle at 6px 6px, #c8452f 5px, transparent 5.5px),
+      radial-gradient(circle at 26px 6px, #d9a43f 5px, transparent 5.5px),
+      radial-gradient(circle at 46px 6px, #5f9a6b 5px, transparent 5.5px);
+    content: "";
+  }
+
+  .admin-console .module-toolbar::after {
+    display: none;
+  }
+
+  .admin-console .module-toolbar-copy {
+    display: flex;
+    align-items: baseline;
+    gap: 0.9rem;
+    min-width: 0;
+  }
+
+  .admin-console .module-toolbar .admin-eyebrow {
+    display: none;
+  }
+
+  .admin-console .module-toolbar h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .admin-console .module-toolbar-hint {
+    margin: 0;
+    overflow: hidden;
+    font-family: var(--hud-mono);
+    font-size: 0.68rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .admin-console .module-toolbar-seal {
+    width: auto;
+    font-size: 1rem;
+    opacity: 0.6;
+  }
+
+  /* Boční widget: ovládání hry */
+  .admin-console .admin-sidebar-game {
+    grid-area: side;
+    min-height: 0;
+    margin: 0.9rem 0.9rem 0.4rem 0.9rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    border-radius: 12px;
+    box-shadow: 0 18px 40px rgba(20, 30, 24, 0.28);
+    scrollbar-width: none;
+  }
+
+  /* Dok */
+  .admin-console .admin-sidebar-nav {
+    position: relative;
+    z-index: 40;
+    grid-area: dock;
+    align-self: center;
+    justify-self: center;
+    display: flex;
+    flex-direction: row;
+    gap: 0.35rem;
+    width: auto;
+    max-width: calc(100% - 1.5rem);
+    margin: 0;
+    padding: 0.5rem 0.7rem;
+    overflow-x: auto;
+    border: 1px solid rgba(229, 203, 144, 0.35);
+    border-radius: 22px;
+    background: rgba(25, 42, 33, 0.94);
+    box-shadow: 0 14px 34px rgba(20, 30, 24, 0.4), 0 1px 0 rgba(255, 255, 255, 0.1) inset;
+    scrollbar-width: none;
+  }
+
+  .admin-console .admin-sidebar-nav button {
+    position: relative;
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    width: 68px;
+    min-height: 62px;
+    margin: 0;
+    padding: 0.4rem 0.2rem;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    background: transparent;
+    color: #d9cfb4;
+    transition: transform 0.18s cubic-bezier(0.3, 1.6, 0.5, 1), background 0.15s;
+  }
+
+  .admin-console .admin-sidebar-nav button:hover {
+    transform: translateY(-8px) scale(1.14);
+    background: rgba(229, 203, 144, 0.14);
+    color: #fff3d8;
+  }
+
+  .admin-console .admin-sidebar-nav button[aria-current="page"] {
+    border-color: rgba(229, 203, 144, 0.5);
+    background: rgba(229, 203, 144, 0.2);
+    color: #fff3d8;
+  }
+
+  .admin-console .admin-sidebar-nav button[aria-current="page"]::after {
+    position: absolute;
+    bottom: -7px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #e5cb90;
+    content: "";
+  }
+
+  .admin-console .admin-sidebar-nav button svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .admin-console .admin-sidebar-nav button > span:nth-child(2) {
+    font-family: var(--hud-mono);
+    font-size: 0.56rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .admin-console .admin-sidebar-nav .admin-sidebar-count {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: #c8452f;
+    color: #fff;
+    font-size: 0.58rem;
+    line-height: 16px;
+  }
+
+  .admin-console .admin-sidebar-nav .admin-sidebar-presentation {
+    margin-left: 0.5rem;
+    border-left: 1px solid rgba(229, 203, 144, 0.3);
+    border-radius: 0 14px 14px 0;
   }
 }
