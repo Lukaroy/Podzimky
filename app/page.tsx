@@ -3603,7 +3603,7 @@ export default function Page() {
                   </p>
                 )}
               </div>
-              <section className="mt-6 border-t border-[#e3d9c9] pt-5">
+              <section className="mt-6 rounded-2xl border border-[#e3d9c9] bg-[#fffaf1] p-5 sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h3 className="font-bold text-[#201c19]">Sklad QR kartiček</h3>
@@ -3647,7 +3647,7 @@ export default function Page() {
                     })}
                   </div>
                 ) : (
-                  <p className="mt-3 text-sm text-[#675d53]">Ve skladu nejsou žádné volné QR kartičky.</p>
+                  <p className="mt-4 rounded-xl border border-dashed border-[#d9d0c2] p-4 text-center text-sm text-[#675d53]">Ve skladu nejsou žádné volné QR kartičky.</p>
                 )}
               </section>
               {teamPageCount > 1 && (
