@@ -595,3 +595,398 @@
   background: rgba(231, 202, 131, 0.08);
   color: var(--hud-glow);
 }
+
+/* ===== Arc reactor paleta: černomodrá + svítivá tyrkysová, rumělka na akcích, zlato na pečetích ===== */
+
+.admin-shell.admin-console,
+.admin-dialog,
+.admin-dialog-backdrop {
+  --hud-bg: #050a12;
+  --hud-panel: #0a1524;
+  --hud-panel-2: #0f2036;
+  --hud-text: #dbeaf5;
+  --hud-muted: #7f97ad;
+  --hud-line: rgba(53, 224, 255, 0.22);
+  --hud-gold-soft: rgba(53, 224, 255, 0.45);
+  --hud-glow: #35e0ff;
+  --hud-glow-rgb: 53, 224, 255;
+  --hud-jade-glow: #3dffb0;
+  --hud-vermilion: #ff5a44;
+  --hud-seal: #e7ca83;
+}
+
+.admin-shell.admin-console {
+  background: var(--hud-bg);
+}
+
+.admin-shell.admin-console::before {
+  background-color: var(--hud-bg);
+  background-image:
+    linear-gradient(rgba(53, 224, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(53, 224, 255, 0.055) 1px, transparent 1px),
+    radial-gradient(ellipse at 80% 0%, rgba(53, 224, 255, 0.14), transparent 45%),
+    radial-gradient(ellipse at 0% 100%, rgba(255, 90, 68, 0.1), transparent 42%);
+  background-size: 40px 40px, 40px 40px, auto, auto;
+}
+
+/* Sidebar */
+.admin-console .admin-sidebar {
+  border-right: 1px solid var(--hud-line);
+  background:
+    linear-gradient(rgba(53, 224, 255, 0.04) 1px, transparent 1px) 0 0 / 100% 28px,
+    linear-gradient(180deg, #08111d 0%, #050a12 100%);
+}
+
+.admin-console .admin-sidebar::after {
+  background: linear-gradient(180deg, var(--hud-glow), rgba(53, 224, 255, 0.05));
+  box-shadow: 0 0 12px rgba(53, 224, 255, 0.6);
+}
+
+.admin-console .admin-sidebar-brand p,
+.admin-console .admin-sidebar-label,
+.admin-console .admin-sidebar-nav button svg {
+  color: var(--hud-glow);
+}
+
+.admin-console .admin-sidebar-nav button {
+  color: var(--hud-text);
+}
+
+.admin-console .admin-sidebar-nav button:hover:not([aria-current="page"]) {
+  border-color: var(--hud-line);
+  background: rgba(53, 224, 255, 0.07);
+}
+
+.admin-console .admin-sidebar-nav button[aria-current="page"] {
+  border-color: rgba(53, 224, 255, 0.55);
+  background: linear-gradient(90deg, rgba(53, 224, 255, 0.22), rgba(53, 224, 255, 0.02));
+  box-shadow: inset 3px 0 var(--hud-glow), 0 0 16px rgba(53, 224, 255, 0.15);
+}
+
+.admin-console .admin-sidebar-count {
+  border-color: var(--hud-line);
+  background: rgba(53, 224, 255, 0.1);
+  color: var(--hud-glow);
+}
+
+.admin-console .admin-sidebar-game {
+  border-color: var(--hud-line);
+  background:
+    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 12px 1px no-repeat,
+    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 1px 12px no-repeat,
+    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 12px 1px no-repeat,
+    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 1px 12px no-repeat,
+    rgba(53, 224, 255, 0.04);
+  background-origin: border-box;
+}
+
+.admin-console .admin-sidebar-clock {
+  color: var(--hud-glow);
+  text-shadow: 0 0 16px rgba(53, 224, 255, 0.6);
+}
+
+.admin-console .admin-sidebar-game-heading > span {
+  background: var(--hud-vermilion);
+}
+
+/* Hlavička modulu */
+.admin-console .module-toolbar {
+  border-color: var(--hud-line);
+  background:
+    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 22px 2px no-repeat,
+    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 2px 22px no-repeat,
+    linear-gradient(var(--hud-glow), var(--hud-glow)) top right / 22px 2px no-repeat,
+    linear-gradient(var(--hud-glow), var(--hud-glow)) top right / 2px 22px no-repeat,
+    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom left / 22px 2px no-repeat,
+    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom left / 2px 22px no-repeat,
+    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 22px 2px no-repeat,
+    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 2px 22px no-repeat,
+    linear-gradient(104deg, #08111d 2%, rgba(8, 17, 29, 0.96) 42%, rgba(8, 17, 29, 0.7));
+  background-origin: border-box;
+}
+
+.admin-console .module-toolbar-art::before {
+  background:
+    linear-gradient(90deg, #08111d 0%, rgba(8, 17, 29, 0.8) 20%, rgba(8, 17, 29, 0.1) 75%),
+    linear-gradient(0deg, rgba(5, 10, 18, 0.4), transparent 50%);
+}
+
+.admin-console .module-toolbar-image {
+  opacity: 0.5;
+  filter: saturate(0.4) hue-rotate(150deg) contrast(1.1);
+}
+
+.admin-console .module-toolbar h2 {
+  color: #fff;
+  text-shadow: 0 0 22px rgba(53, 224, 255, 0.45);
+}
+
+.admin-console .module-toolbar .admin-eyebrow {
+  color: var(--hud-glow);
+}
+
+.admin-console .module-toolbar .admin-eyebrow::before {
+  background: var(--hud-glow);
+}
+
+.admin-console .module-toolbar-hint {
+  color: var(--hud-muted);
+}
+
+.admin-console .module-toolbar-seal {
+  border-color: var(--hud-seal);
+  background: rgba(255, 90, 68, 0.78);
+  color: #fff3d8;
+}
+
+.admin-console .admin-toolbar-status {
+  border-color: var(--hud-line);
+  background: rgba(5, 10, 18, 0.8);
+  color: var(--hud-text);
+}
+
+.admin-console .admin-toolbar-status > span {
+  background: var(--hud-vermilion);
+}
+
+.admin-console .admin-toolbar-status-running > span {
+  background: var(--hud-jade-glow);
+  box-shadow: 0 0 10px var(--hud-jade-glow);
+}
+
+/* Panely, karty, metriky */
+.admin-console .admin-content section,
+.admin-console .admin-content > section,
+.admin-console .admin-content > div > section {
+  border-color: var(--hud-gold-soft);
+  background:
+    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 16px 2px no-repeat,
+    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 2px 16px no-repeat,
+    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 16px 2px no-repeat,
+    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 2px 16px no-repeat,
+    linear-gradient(180deg, var(--hud-panel-2), var(--hud-panel));
+  background-origin: border-box;
+}
+
+.admin-console .admin-content section h2,
+.admin-console .admin-content section h3 {
+  color: var(--hud-glow);
+  text-shadow: 0 0 12px rgba(53, 224, 255, 0.35);
+}
+
+.admin-console .admin-metric {
+  border-color: var(--hud-line);
+  border-left: 3px solid var(--hud-glow);
+  background: linear-gradient(90deg, rgba(53, 224, 255, 0.12), var(--hud-panel) 70%);
+}
+
+.admin-console .admin-metric strong,
+.admin-console .admin-metric b {
+  color: var(--hud-glow);
+  text-shadow: 0 0 14px rgba(53, 224, 255, 0.55);
+}
+
+.admin-console .admin-metric-icon {
+  background: rgba(53, 224, 255, 0.1);
+  color: var(--hud-glow);
+}
+
+.admin-console .admin-team-card,
+.admin-console .admin-media-card {
+  border-color: var(--hud-line);
+  border-top: 2px solid var(--hud-glow);
+  background: linear-gradient(180deg, var(--hud-panel-2), var(--hud-panel));
+}
+
+.admin-console .admin-team-card:hover,
+.admin-console .admin-media-card:hover {
+  box-shadow: 0 0 20px rgba(53, 224, 255, 0.18);
+}
+
+.admin-console .team-detail-time {
+  color: var(--hud-glow);
+  text-shadow: 0 0 10px rgba(53, 224, 255, 0.4);
+}
+
+.admin-console .team-status-dot {
+  background: var(--hud-jade-glow);
+  box-shadow: 0 0 8px var(--hud-jade-glow);
+}
+
+:is(.admin-console .admin-content, .admin-dialog) [class*="bg-white"],
+:is(.admin-console .admin-content, .admin-dialog) [class*="bg-[#f"],
+:is(.admin-console .admin-content, .admin-dialog) [class*="bg-[#e"] {
+  background-color: rgba(53, 224, 255, 0.06);
+}
+
+/* Tlačítka */
+.admin-console .admin-primary-button,
+.admin-dialog .admin-primary-button {
+  background: linear-gradient(135deg, #ff5a44, #c23422);
+  color: #fff;
+  box-shadow: 0 0 18px rgba(255, 90, 68, 0.4);
+}
+
+.admin-console .admin-secondary-button,
+.admin-dialog .admin-secondary-button {
+  border: 1px solid var(--hud-glow);
+  background: rgba(53, 224, 255, 0.08);
+  color: var(--hud-glow);
+}
+
+.admin-console .admin-secondary-button:hover,
+.admin-dialog .admin-secondary-button:hover {
+  background: rgba(53, 224, 255, 0.18);
+  box-shadow: 0 0 14px rgba(53, 224, 255, 0.35);
+}
+
+/* Formuláře */
+:is(.admin-console .admin-content, .admin-dialog) input,
+:is(.admin-console .admin-content, .admin-dialog) select,
+:is(.admin-console .admin-content, .admin-dialog) textarea {
+  border: 1px solid var(--hud-gold-soft);
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--hud-text);
+}
+
+:is(.admin-console .admin-content, .admin-dialog) input:focus,
+:is(.admin-console .admin-content, .admin-dialog) select:focus,
+:is(.admin-console .admin-content, .admin-dialog) textarea:focus {
+  border-color: var(--hud-glow);
+  box-shadow: 0 0 0 1px var(--hud-glow), 0 0 14px rgba(53, 224, 255, 0.35);
+}
+
+:is(.admin-console .admin-content, .admin-dialog) option {
+  background: #0a1524;
+  color: #dbeaf5;
+}
+
+.admin-console .admin-content input:focus-visible,
+.admin-console .admin-content textarea:focus-visible,
+.admin-console .admin-content select:focus-visible,
+.admin-console .admin-content button:focus-visible,
+.admin-dialog button:focus-visible {
+  outline: 2px solid var(--hud-glow);
+  outline-offset: 2px;
+}
+
+/* ===== Dialogy a vysouvací panely ===== */
+
+.admin-dialog-backdrop {
+  background: rgba(2, 5, 10, 0.8);
+  backdrop-filter: blur(4px);
+}
+
+.admin-dialog {
+  border: 1px solid var(--hud-gold-soft);
+  border-radius: 0;
+  background:
+    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 20px 2px no-repeat,
+    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 2px 20px no-repeat,
+    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 20px 2px no-repeat,
+    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 2px 20px no-repeat,
+    linear-gradient(180deg, #0f2036, #08111d);
+  background-origin: border-box;
+  box-shadow: 0 0 40px rgba(53, 224, 255, 0.14), 0 24px 60px rgba(0, 0, 0, 0.7);
+  color: var(--hud-text);
+}
+
+.admin-dialog.admin-dialog-drawer {
+  border-radius: 0;
+  border-width: 0 0 0 1px;
+  box-shadow: -10px 0 50px rgba(53, 224, 255, 0.12), -24px 0 60px rgba(0, 0, 0, 0.6);
+}
+
+.admin-dialog .admin-dialog-header {
+  border-bottom: 1px solid var(--hud-line);
+  background: linear-gradient(110deg, rgba(53, 224, 255, 0.1), transparent 70%);
+}
+
+.admin-dialog .admin-dialog-header p,
+.admin-dialog .admin-dialog-header p:last-child {
+  color: var(--hud-muted);
+  font-size: 0.8rem;
+}
+
+.admin-dialog .admin-dialog-header .admin-eyebrow {
+  color: var(--hud-glow);
+}
+
+.admin-dialog .admin-dialog-title {
+  color: #fff;
+  text-shadow: 0 0 16px rgba(53, 224, 255, 0.4);
+}
+
+.admin-dialog .admin-dialog-seal {
+  border-color: var(--hud-seal);
+  border-radius: 0;
+  background: rgba(255, 90, 68, 0.8);
+  color: #fff3d8;
+  box-shadow: none;
+}
+
+.admin-dialog .admin-dialog-close {
+  border: 1px solid var(--hud-line);
+  background: transparent;
+  color: var(--hud-text);
+}
+
+.admin-dialog .admin-dialog-close:hover {
+  border-color: var(--hud-glow);
+  color: var(--hud-glow);
+}
+
+.admin-dialog .admin-dialog-body {
+  color: var(--hud-text);
+}
+
+.admin-dialog .admin-dialog-actions {
+  border-top: 1px solid var(--hud-line);
+  background: #08111d;
+}
+
+.admin-dialog .admin-field-label {
+  color: var(--hud-muted);
+}
+
+.admin-dialog .admin-stepper button {
+  border-color: var(--hud-line);
+  border-radius: 0;
+  background: rgba(53, 224, 255, 0.04);
+  color: var(--hud-muted);
+}
+
+.admin-dialog .admin-stepper button[aria-current="step"] {
+  border-color: var(--hud-glow);
+  background: rgba(53, 224, 255, 0.14);
+  color: var(--hud-glow);
+}
+
+.admin-dialog .admin-stepper button span {
+  border-radius: 0;
+  background: rgba(53, 224, 255, 0.1);
+  color: inherit;
+}
+
+.admin-dialog .admin-stepper button[aria-current="step"] span {
+  background: var(--hud-glow);
+  color: #04101a;
+}
+
+.admin-dialog .station-qr-preview {
+  border-color: var(--hud-line);
+  border-left: 3px solid var(--hud-glow);
+  border-radius: 0;
+  background: rgba(53, 224, 255, 0.05);
+}
+
+.admin-dialog .admin-flash-team-picker {
+  border-color: var(--hud-line);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.admin-dialog h2,
+.admin-dialog h3,
+.admin-dialog h4 {
+  color: var(--hud-text);
+}
