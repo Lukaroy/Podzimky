@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getSession, getSessionToken, verifyRequestOrigin } from "@/lib/auth";
 import { getPrisma } from "@/lib/db";
 import { readGameState } from "@/lib/game-store";
+import { decryptQrToken, encryptQrToken } from "@/lib/qr-card-crypto";
 
 async function requireAdmin(request: Request) {
   const user = await getSession(getSessionToken(request));
@@ -16,6 +17,19 @@ async function requireAdmin(request: Request) {
 export async function GET(request: Request) {
   const auth = await requireAdmin(request);
   if (auth.error) return auth.error;
+
+  const id = new URL(request.url).searchParams.get("id");
+  if (id) {
+    const card = await getPrisma().teamQrCard.findUnique({ where: { id }, select: { tokenCipher: true } });
+    if (!card?.tokenCipher) {
+      return NextResponse.json({ error: "QR kartičku nelze znovu zobrazit." }, { status: 404 });
+    }
+    try {
+      return NextResponse.json({ token: decryptQrToken(card.tokenCipher) }, { headers: { "Cache-Control": "no-store" } });
+    } catch {
+      return NextResponse.json({ error: "QR kartičku se nepodařilo dešifrovat." }, { status: 500 });
+    }
+  }
 
   const cards = await getPrisma().teamQrCard.findMany({
     orderBy: { createdAt: "asc" },
@@ -42,6 +56,7 @@ export async function POST(request: Request) {
     data: {
       id: randomUUID(),
       tokenHash: createHash("sha256").update(token).digest("hex"),
+      tokenCipher: encryptQrToken(token),
     },
     select: { id: true, teamId: true, createdAt: true },
   });

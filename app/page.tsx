@@ -492,6 +492,51 @@ function downloadQrSvg(value: string, fileName: string) {
   return true;
 }
 
+// Načte QR kartičky ze serveru (pokud ještě není známa) a nabídne její stažení.
+function TeamCardQr({ cardId, fileName, size, label }: { cardId: string; fileName: string; size: number; label: string }) {
+  const [value, setValue] = useState("");
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/admin/team-qr-cards?id=${encodeURIComponent(cardId)}`, { cache: "no-store" })
+      .then(async (response) => {
+        const result = await response.json() as { token?: string };
+        if (!response.ok || !result.token) throw new Error();
+        if (!cancelled) setValue(createTeamLoginUrl(result.token));
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cardId]);
+
+  if (!value) {
+    return (
+      <div
+        className="flex items-center justify-center rounded-lg bg-[#f5efe8] p-2 text-center text-xs font-semibold text-[#675d53]"
+        style={{ width: size, height: size }}
+      >
+        {failed ? "QR nelze zobrazit" : "Načítám…"}
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <QRCodeSVG value={value} size={size} level="Q" marginSize={3} title={label} data-qr-uid={value} />
+      <button
+        type="button"
+        onClick={() => downloadQrSvg(value, fileName)}
+        className="inline-flex items-center gap-1.5 rounded-lg bg-[#312d27] px-3 py-2 text-xs font-bold text-white"
+      >
+        <Download size={14} /> Stáhnout QR
+      </button>
+    </div>
+  );
+}
+
 // Vytvoří herní událost s ID a časem pro živý přehled.
 function createEvent(message: string, tone: GameEvent["tone"] = "info", teamId?: string): GameEvent {
   return {
@@ -581,7 +626,6 @@ export default function Page() {
   const [isCreatingTeam, setIsCreatingTeam] = useState(false);
   const [createdTeamQr, setCreatedTeamQr] = useState<{ teamId: string; name: string; value: string } | null>(null);
   const [teamQrCards, setTeamQrCards] = useState<TeamQrCard[]>([]);
-  const [teamQrCardSecrets, setTeamQrCardSecrets] = useState<Record<string, string>>({});
   const [isCreatingTeamQrCard, setIsCreatingTeamQrCard] = useState(false);
   const [isStationDialogOpen, setIsStationDialogOpen] = useState(false);
   const [editingStationId, setEditingStationId] = useState<string | null>(null);
@@ -1684,14 +1728,6 @@ export default function Page() {
       setTeamPage(Math.floor((savedState.teams.length - 1) / managementPageSize));
       setTeamFormAdmin({ name: "", password: "", qrCardId: "" });
 
-      const qrResponse = await fetch(`/api/team/${encodeURIComponent(newTeamId)}/qr-login`, { method: "POST" });
-      const qrResult = await qrResponse.json() as { token?: string; error?: string };
-      if (!qrResponse.ok || !qrResult.token) {
-        throw new Error(`Tým byl vytvořen, ale QR kód se nepodařilo vytvořit. ${qrResult.error ?? ""}`.trim());
-      }
-      const value = createTeamLoginUrl(qrResult.token);
-      setGeneratedTeamQr({ teamId: newTeamId, value });
-      setCreatedTeamQr({ teamId: newTeamId, name: cleanedName.toUpperCase(), value });
       if (qrCardId) {
         const assignResponse = await fetch("/api/admin/team-qr-cards", {
           method: "PATCH",
@@ -1705,7 +1741,18 @@ export default function Page() {
         setTeamQrCards((cards) => cards.map((card) =>
           card.id === qrCardId ? { ...card, teamId: newTeamId } : card,
         ));
+        setIsTeamDialogOpen(false);
+        return;
       }
+
+      const qrResponse = await fetch(`/api/team/${encodeURIComponent(newTeamId)}/qr-login`, { method: "POST" });
+      const qrResult = await qrResponse.json() as { token?: string; error?: string };
+      if (!qrResponse.ok || !qrResult.token) {
+        throw new Error(`Tým byl vytvořen, ale QR kód se nepodařilo vytvořit. ${qrResult.error ?? ""}`.trim());
+      }
+      const value = createTeamLoginUrl(qrResult.token);
+      setGeneratedTeamQr({ teamId: newTeamId, value });
+      setCreatedTeamQr({ teamId: newTeamId, name: cleanedName.toUpperCase(), value });
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Tým se nepodařilo vytvořit.");
     } finally {
@@ -1765,12 +1812,7 @@ export default function Page() {
         throw new Error(result.error ?? "QR kartičku se nepodařilo vytvořit.");
       }
       const card = result.card;
-      const token = result.token;
       setTeamQrCards((cards) => [...cards, card]);
-      setTeamQrCardSecrets((secrets) => ({
-        ...secrets,
-        [card.id]: createTeamLoginUrl(token),
-      }));
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "QR kartičku se nepodařilo vytvořit.");
     } finally {
@@ -1786,11 +1828,6 @@ export default function Page() {
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "QR kartičku se nepodařilo odebrat.");
       setTeamQrCards((cards) => cards.filter((card) => card.id !== cardId));
-      setTeamQrCardSecrets((secrets) => {
-        const next = { ...secrets };
-        delete next[cardId];
-        return next;
-      });
     } catch (removeError) {
       setError(removeError instanceof Error ? removeError.message : "QR kartičku se nepodařilo odebrat.");
     }
@@ -3488,7 +3525,26 @@ export default function Page() {
                       <p className="mt-3 text-xs text-[#675d53]">
                         {teamPending > 0 ? `${teamPending} úkol čeká na schválení` : team.flashMissionId ? "Má aktivní přepad" : "Bez čekajících úkolů"}
                       </p>
-                      {generatedTeamQr?.teamId === team.id && (
+                      {(() => {
+                        const teamCard = teamQrCards.find((card) => card.teamId === team.id);
+                        if (teamCard) {
+                          return (
+                            <div className="mt-3 flex items-start gap-3 rounded-lg border border-[#e5d9c7] bg-white p-3">
+                              <TeamCardQr
+                                cardId={teamCard.id}
+                                size={112}
+                                label={`Přihlašovací QR kód týmu ${team.name}`}
+                                fileName={`tymova-karticka-${team.id}.svg`}
+                              />
+                              <p className="max-w-48 text-xs leading-relaxed text-[#675d53]">
+                                Přihlašovací QR kartička týmu. Uchovávejte ji bezpečně.
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+                      {!teamQrCards.some((card) => card.teamId === team.id) && generatedTeamQr?.teamId === team.id && (
                         <div className="mt-3 flex items-center gap-3 rounded-lg border border-[#e5d9c7] bg-white p-3">
                           <QRCodeSVG
                             value={generatedTeamQr.value}
@@ -3530,10 +3586,9 @@ export default function Page() {
               <section className="mt-6 border-t border-[#e3d9c9] pt-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h3 className="font-bold text-[#201c19]">QR kartičky pro týmy</h3>
+                    <h3 className="font-bold text-[#201c19]">Sklad QR kartiček</h3>
                     <p className="mt-1 max-w-2xl text-sm text-[#675d53]">
-                      Vytvořte a vytiskněte neutrální kartičky před akcí. Při založení týmu pak jednu přiřaďte; QR se nemění.
-                      QR tajný kód se zobrazí jen při vytvoření, proto si kartičku hned stáhněte.
+                      Volné kartičky k vytištění před akcí. Po přiřazení týmu zmizí odsud a najdete je v jeho podrobnostech.
                     </p>
                   </div>
                   <button
@@ -3546,62 +3601,34 @@ export default function Page() {
                   </button>
                 </div>
                 {error && <p role="alert" className="mt-3 rounded-xl bg-[#fce7e6] p-3 text-sm font-semibold text-[#8b2d2d]">{error}</p>}
-                {teamQrCards.length > 0 ? (
-                  <div className="mt-3 grid gap-2 md:grid-cols-2">
-                    {teamQrCards.map((card) => {
-                      const team = gameState.teams.find((item) => item.id === card.teamId);
-                      const value = teamQrCardSecrets[card.id];
+                {teamQrCards.some((card) => card.teamId === null) ? (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {teamQrCards.filter((card) => card.teamId === null).map((card) => {
                       const label = `Kartička ${card.id.slice(0, 8).toUpperCase()}`;
                       return (
-                        <article key={card.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-[#e3d9c9] bg-white p-3">
-                          {value ? (
-                            <QRCodeSVG
-                              value={value}
-                              size={96}
-                              level="Q"
-                              marginSize={3}
-                              title={`Přihlašovací QR ${label}`}
-                              data-qr-uid={value}
-                            />
-                          ) : (
-                            <div className="flex h-24 w-24 items-center justify-center rounded-lg bg-[#f5efe8] text-center text-xs font-semibold text-[#675d53]">
-                              QR se po vytvoření znovu nezobrazí
-                            </div>
-                          )}
+                        <article key={card.id} className="flex items-start gap-3 rounded-xl border border-[#e3d9c9] bg-white p-3">
+                          <TeamCardQr
+                            cardId={card.id}
+                            size={88}
+                            label={`Přihlašovací QR ${label}`}
+                            fileName={`tymova-karticka-${card.id.slice(0, 8)}.svg`}
+                          />
                           <div className="min-w-0 flex-1">
-                            <p className="font-bold text-[#201c19]">{label}</p>
-                            <p className="text-sm text-[#675d53]">
-                              {team ? `Přiřazeno týmu ${team.name}` : "Zatím nepřiřazeno"}
-                            </p>
-                            {value && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (!downloadQrSvg(value, `tymova-karticka-${card.id.slice(0, 8)}.svg`)) {
-                                    setError("QR kartičku se nepodařilo připravit ke stažení.");
-                                  }
-                                }}
-                                className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[#312d27] px-3 py-2 text-xs font-bold text-white"
-                              >
-                                <Download size={14} /> Stáhnout QR
-                              </button>
-                            )}
-                            {!team && (
-                              <button
-                                type="button"
-                                onClick={() => void handleRemoveTeamQrCard(card.id)}
-                                className="ml-2 mt-2 inline-flex items-center gap-1 rounded-lg border border-[#d8c6a2] px-3 py-2 text-xs font-bold text-[#6a2b19]"
-                              >
-                                <Trash2 size={13} /> Odebrat
-                              </button>
-                            )}
+                            <p className="text-sm font-bold text-[#201c19]">{label}</p>
+                            <button
+                              type="button"
+                              onClick={() => void handleRemoveTeamQrCard(card.id)}
+                              className="mt-2 inline-flex items-center gap-1 rounded-lg border border-[#d8c6a2] px-2.5 py-1.5 text-xs font-bold text-[#6a2b19]"
+                            >
+                              <Trash2 size={13} /> Odebrat
+                            </button>
                           </div>
                         </article>
                       );
                     })}
                   </div>
                 ) : (
-                  <p className="mt-3 text-sm text-[#675d53]">Zatím nemáte žádné připravené QR kartičky.</p>
+                  <p className="mt-3 text-sm text-[#675d53]">Ve skladu nejsou žádné volné QR kartičky.</p>
                 )}
               </section>
               {teamPageCount > 1 && (
