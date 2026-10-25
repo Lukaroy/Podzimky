@@ -335,3 +335,263 @@
   font-family: var(--font-hud-mono), ui-monospace, monospace;
   font-size: 0.72rem;
 }
+
+/* ===== Tmavý HUD (Stark): tmavé povrchy, zlatá/nefritová záře, svítící čísla ===== */
+
+.admin-shell.admin-console {
+  --hud-bg: #070d0b;
+  --hud-panel: #0d1815;
+  --hud-panel-2: #121f1b;
+  --hud-text: #e6dcc3;
+  --hud-muted: #92a396;
+  --hud-line: rgba(231, 202, 131, 0.2);
+  --hud-gold-soft: rgba(231, 202, 131, 0.42);
+  --hud-glow: #e7ca83;
+  --hud-jade-glow: #5fe0b4;
+  background: var(--hud-bg);
+  color: var(--hud-text);
+}
+
+.admin-shell.admin-console::before {
+  background-color: var(--hud-bg);
+  background-image:
+    linear-gradient(rgba(231, 202, 131, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(231, 202, 131, 0.05) 1px, transparent 1px),
+    radial-gradient(ellipse at 78% 0%, rgba(95, 224, 180, 0.12), transparent 42%),
+    radial-gradient(ellipse at 0% 100%, rgba(178, 64, 47, 0.14), transparent 40%);
+  background-size: 40px 40px, 40px 40px, auto, auto;
+}
+
+.admin-console .admin-main {
+  color: var(--hud-text);
+}
+
+/* Povrchy a text v obsahu a v dialozích (včetně utility tříd z page.tsx) */
+.admin-console .admin-content section,
+.admin-console .admin-content > section,
+.admin-console .admin-content > div > section {
+  border-color: var(--hud-gold-soft);
+  background:
+    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 16px 2px no-repeat,
+    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 2px 16px no-repeat,
+    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 16px 2px no-repeat,
+    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 2px 16px no-repeat,
+    linear-gradient(180deg, var(--hud-panel-2), var(--hud-panel));
+  background-origin: border-box;
+  color: var(--hud-text);
+}
+
+.admin-console .admin-content section h2,
+.admin-console .admin-content section h3 {
+  color: var(--hud-glow);
+  text-shadow: 0 0 12px rgba(231, 202, 131, 0.3);
+}
+
+.admin-console .admin-content,
+.admin-dialog {
+  --hud-text: #e6dcc3;
+  --hud-muted: #92a396;
+  color: var(--hud-text);
+}
+
+:is(.admin-console .admin-content, .admin-dialog) [class*="text-[#"] {
+  color: var(--hud-text);
+}
+
+:is(.admin-console .admin-content, .admin-dialog) [class*="text-[#6"],
+:is(.admin-console .admin-content, .admin-dialog) [class*="text-[#7"] {
+  color: var(--hud-muted);
+}
+
+:is(.admin-console .admin-content, .admin-dialog) [class*="text-[#6a2b19]"],
+:is(.admin-console .admin-content, .admin-dialog) [class*="text-[#8b2d2d]"] {
+  color: #ff9d8a;
+}
+
+:is(.admin-console .admin-content, .admin-dialog) [class*="bg-white"],
+:is(.admin-console .admin-content, .admin-dialog) [class*="bg-[#f"],
+:is(.admin-console .admin-content, .admin-dialog) [class*="bg-[#e"] {
+  background-color: rgba(231, 202, 131, 0.06);
+}
+
+:is(.admin-console .admin-content, .admin-dialog) [class*="bg-[#fce7e6]"] {
+  background-color: rgba(178, 64, 47, 0.22);
+}
+
+:is(.admin-console .admin-content, .admin-dialog) [class*="border-[#"],
+:is(.admin-console .admin-content, .admin-dialog) [class*="border-dashed"] {
+  border-color: var(--hud-line);
+}
+
+/* Metriky: svítící čísla */
+.admin-console .admin-metric {
+  border-color: var(--hud-line);
+  border-left: 3px solid var(--hud-glow);
+  background: linear-gradient(90deg, rgba(231, 202, 131, 0.1), var(--hud-panel) 70%);
+  color: var(--hud-text);
+}
+
+.admin-console .admin-metric strong,
+.admin-console .admin-metric b {
+  color: var(--hud-glow);
+  text-shadow: 0 0 14px rgba(231, 202, 131, 0.45);
+}
+
+.admin-console .admin-metric span,
+.admin-console .admin-metric p {
+  color: var(--hud-muted);
+}
+
+.admin-console .admin-metric-icon {
+  background: rgba(231, 202, 131, 0.1);
+  color: var(--hud-glow);
+}
+
+/* Karty */
+.admin-console .admin-team-card,
+.admin-console .admin-media-card {
+  border-color: var(--hud-line);
+  border-top: 2px solid var(--hud-glow);
+  background: linear-gradient(180deg, var(--hud-panel-2), var(--hud-panel));
+  color: var(--hud-text);
+}
+
+.admin-console .admin-team-card h3 {
+  color: var(--hud-text);
+  text-shadow: none;
+}
+
+.admin-console .admin-team-card p,
+.admin-console .admin-team-details summary,
+.admin-console .admin-team-details summary span {
+  color: var(--hud-muted);
+}
+
+.admin-console .team-status-dot {
+  background: var(--hud-jade-glow);
+  box-shadow: 0 0 8px var(--hud-jade-glow);
+}
+
+.admin-console .team-detail-time {
+  color: var(--hud-glow);
+  text-shadow: 0 0 10px rgba(231, 202, 131, 0.35);
+}
+
+/* Tlačítka */
+.admin-console .admin-primary-button {
+  background: linear-gradient(135deg, #c24a38, #8f2f25);
+  color: #fff3d8;
+  box-shadow: 0 0 18px rgba(194, 74, 56, 0.4);
+}
+
+.admin-console .admin-secondary-button {
+  border: 1px solid var(--hud-glow);
+  background: rgba(231, 202, 131, 0.08);
+  color: var(--hud-glow);
+}
+
+.admin-console .admin-secondary-button:hover {
+  background: rgba(231, 202, 131, 0.18);
+  box-shadow: 0 0 14px rgba(231, 202, 131, 0.3);
+}
+
+.admin-console .admin-danger-button {
+  border-color: rgba(255, 157, 138, 0.5);
+  background: rgba(178, 64, 47, 0.18);
+  color: #ff9d8a;
+}
+
+/* Formuláře */
+:is(.admin-console .admin-content, .admin-dialog) input,
+:is(.admin-console .admin-content, .admin-dialog) select,
+:is(.admin-console .admin-content, .admin-dialog) textarea {
+  border: 1px solid var(--hud-gold-soft);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--hud-text);
+}
+
+:is(.admin-console .admin-content, .admin-dialog) input::placeholder,
+:is(.admin-console .admin-content, .admin-dialog) textarea::placeholder {
+  color: rgba(146, 163, 150, 0.7);
+}
+
+:is(.admin-console .admin-content, .admin-dialog) input:focus,
+:is(.admin-console .admin-content, .admin-dialog) select:focus,
+:is(.admin-console .admin-content, .admin-dialog) textarea:focus {
+  border-color: var(--hud-glow);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--hud-glow), 0 0 14px rgba(231, 202, 131, 0.3);
+}
+
+:is(.admin-console .admin-content, .admin-dialog) option {
+  background: #0d1815;
+  color: #e6dcc3;
+}
+
+.admin-console .admin-field-label,
+.admin-dialog .admin-field-label {
+  color: var(--hud-muted);
+}
+
+.admin-console .admin-pagination,
+.admin-console .admin-pagination span {
+  color: var(--hud-muted);
+}
+
+.admin-console .admin-pagination button {
+  border-color: var(--hud-line);
+  background: rgba(231, 202, 131, 0.06);
+  color: var(--hud-text);
+}
+
+/* Dialogy (Radix portál mimo .admin-shell) */
+.admin-dialog-backdrop {
+  background: rgba(2, 6, 5, 0.78);
+  backdrop-filter: blur(3px);
+}
+
+.admin-dialog {
+  --hud-glow: #e7ca83;
+  --hud-gold-soft: rgba(231, 202, 131, 0.42);
+  --hud-line: rgba(231, 202, 131, 0.2);
+  border: 1px solid var(--hud-gold-soft);
+  background: linear-gradient(180deg, #121f1b, #0a1210);
+  color: #e6dcc3;
+  box-shadow: 0 0 40px rgba(231, 202, 131, 0.12), 0 24px 60px rgba(0, 0, 0, 0.6);
+  font-family: var(--font-hud-display), system-ui, sans-serif;
+}
+
+.admin-dialog-header {
+  border-bottom: 1px solid var(--hud-line);
+  background: transparent;
+}
+
+.admin-dialog-title {
+  color: var(--hud-glow);
+  text-shadow: 0 0 12px rgba(231, 202, 131, 0.3);
+}
+
+.admin-dialog-header p,
+.admin-dialog-header [id*="description"] {
+  color: #92a396;
+}
+
+.admin-dialog-close {
+  border-radius: 0;
+  color: #e6dcc3;
+}
+
+.admin-dialog-seal {
+  border-radius: 0;
+}
+
+.admin-dialog .admin-primary-button {
+  background: linear-gradient(135deg, #c24a38, #8f2f25);
+  color: #fff3d8;
+}
+
+.admin-dialog .admin-secondary-button {
+  border: 1px solid var(--hud-glow);
+  background: rgba(231, 202, 131, 0.08);
+  color: var(--hud-glow);
+}
