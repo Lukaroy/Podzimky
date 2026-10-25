@@ -83,7 +83,7 @@ Administrátor se přihlašuje Firebase e-mailem a heslem. Tým se přihlašuje 
 2. Úložiště používejte jako soukromé pro neveřejné fotografie a videa.
 3. Zpřístupněte projektu proměnnou `BLOB_READ_WRITE_TOKEN`. Pokud ji Vercel po připojení úložiště nenastaví automaticky, zkopírujte read/write token do nastavení prostředí projektu.
 
-Prohlížeč nahrává média přímo do Blobu. Server před vydáním upload tokenu ověřuje přihlášení týmu a při odevzdání kontroluje cestu, typ a velikost do 30 MB. Přehrání probíhá přes API aplikace s kontrolou přístupu; do herních dat se ukládá jen cesta k souboru.
+Prohlížeč nahrává média přímo do Blobu. Server před vydáním upload tokenu ověřuje přihlášení týmu a při odevzdání kontroluje cestu, typ a velikost do 100 MB. Přehrání probíhá přes API aplikace s kontrolou přístupu; do herních dat se ukládá jen cesta k souboru.
 
 ## Proměnné prostředí
 
@@ -192,7 +192,7 @@ npm run build
 | Tým se nepřihlásí přes Firebase | Ověřte Firebase Admin service account, `FIREBASE_ADMIN_PROJECT_ID` a že tým existuje v herním stavu. |
 | Firebase účet se nemůže přihlásit jako administrátor | Ověřte e-mail/heslo provider a shodu Firebase UID s `FIREBASE_ADMIN_UID`. |
 | QR skener nevidí kameru | Aplikace požádá o přístup ke kameře po přihlášení týmu. Povolte webu přístup v dialogu prohlížeče. Skener používá zadní kameru přímo v aplikaci. Pokud byl přístup zamítnut, změňte oprávnění kamery v nastavení webu; skenování vyžaduje HTTPS nebo `localhost`. |
-| Nahrávání souboru selže | Ověřte Blob store, `BLOB_READ_WRITE_TOKEN`, oprávnění prostředí a povolený typ souboru do 30 MB. |
+| Nahrávání souboru selže | Ověřte Blob store, `BLOB_READ_WRITE_TOKEN`, oprávnění prostředí a povolený typ souboru do 100 MB. |
 | Chyba Firebase private key | Zkontrolujte kompletní JSON service accountu a nové řádky `\n` v `FIREBASE_ADMIN_PRIVATE_KEY`. |
 
 Herní stav zálohujte v Neonu; média zálohujte nebo retenčně spravujte v Blob store. Odstranění Blob store nebo ztráta jeho tokenu přeruší přehrávání uložených médií.

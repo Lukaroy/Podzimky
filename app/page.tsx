@@ -314,18 +314,18 @@ function isStoredMediaUrl(url: string | undefined): url is string {
   return Boolean(url && /^\/api\/media\/team-[A-Za-z0-9_-]{1,128}\/[0-9a-f-]{36}\.(jpg|png|webp|gif|avif|mp4|webm|mov)$/i.test(url));
 }
 
-// Zmenší velké fotky před nahráním, aby nezabíraly místo v bezplatném úložišti (~300 kB místo několika MB).
+// Zmenší velké fotky před nahráním, aby nezabíraly místo v bezplatném úložišti (Full HD+ kvalita pro projektor, ~1 MB místo několika MB).
 async function shrinkImage(file: File): Promise<File> {
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) return file;
   try {
     const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+    const scale = Math.min(1, 2560 / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(bitmap.width * scale);
     canvas.height = Math.round(bitmap.height * scale);
     canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     bitmap.close();
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.8));
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
     if (!blob || blob.size >= file.size) return file;
     return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
   } catch {
@@ -348,8 +348,8 @@ async function uploadTeamMedia(originalFile: File, teamId: string) {
   };
   const extension = extensions[file.type];
   if (!extension) throw new Error("Nepodporovaný formát souboru.");
-  if (file.size === 0 || file.size > 30 * 1024 * 1024) {
-    throw new Error("Soubor musí mít velikost do 30 MB. Natočte kratší video.");
+  if (file.size === 0 || file.size > 100 * 1024 * 1024) {
+    throw new Error("Soubor musí mít velikost do 100 MB. Natočte video ve Full HD (1080p) nebo kratší.");
   }
   const pathname = `team-${teamId}/${crypto.randomUUID()}.${extension}`;
   const multipart = file.size > 4.5 * 1024 * 1024;
@@ -1545,8 +1545,8 @@ export default function Page() {
       setError("Použijte fotografii JPG, PNG, WebP, GIF nebo AVIF, případně video MP4, WebM či MOV.");
       return;
     }
-    if (file.size === 0 || file.size > 30 * 1024 * 1024) {
-      setError("Soubor musí mít velikost do 30 MB.");
+    if (file.size === 0 || file.size > 100 * 1024 * 1024) {
+      setError("Soubor musí mít velikost do 100 MB.");
       return;
     }
     const preview = URL.createObjectURL(file);
@@ -2099,8 +2099,8 @@ export default function Page() {
       setError("Použijte fotografii JPG, PNG, WebP, GIF nebo AVIF, případně video MP4, WebM či MOV.");
       return;
     }
-    if (file.size === 0 || file.size > 30 * 1024 * 1024) {
-      setError("Soubor musí mít velikost do 30 MB.");
+    if (file.size === 0 || file.size > 100 * 1024 * 1024) {
+      setError("Soubor musí mít velikost do 100 MB.");
       return;
     }
 
@@ -2958,7 +2958,7 @@ export default function Page() {
                                   className="max-h-56 w-full rounded-lg object-contain"
                                 />
                               )}
-                              {mediaFiles[station.id] && <p className="text-xs text-[#6f5a49]">{mediaFiles[station.id].name} · do 30 MB</p>}
+                              {mediaFiles[station.id] && <p className="text-xs text-[#6f5a49]">{mediaFiles[station.id].name} · do 100 MB</p>}
                             </div>
                           )}
 
@@ -2978,7 +2978,7 @@ export default function Page() {
                                   className="max-h-56 w-full rounded-lg bg-black"
                                 />
                               )}
-                              {mediaFiles[station.id] && <p className="text-xs text-[#6f5a49]">{mediaFiles[station.id].name} · do 30 MB</p>}
+                              {mediaFiles[station.id] && <p className="text-xs text-[#6f5a49]">{mediaFiles[station.id].name} · do 100 MB</p>}
                             </div>
                           )}
 

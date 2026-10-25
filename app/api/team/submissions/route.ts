@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       const blob = await head(pathname);
       if (
         blob.size === 0 ||
-        blob.size > 30 * 1024 * 1024 ||
+        blob.size > 100 * 1024 * 1024 ||
         blob.contentType !== MEDIA_TYPES[extension]
       ) {
         return NextResponse.json({ error: "Nahraný soubor neodpovídá povolenému formátu nebo velikosti." }, { status: 400 });
