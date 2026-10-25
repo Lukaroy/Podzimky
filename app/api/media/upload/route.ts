@@ -50,7 +50,7 @@ export async function POST(request: Request) {
         }
         return {
           allowedContentTypes: MEDIA_TYPES,
-          maximumSizeInBytes: 50 * 1024 * 1024,
+          maximumSizeInBytes: 30 * 1024 * 1024,
           addRandomSuffix: false,
         };
       },

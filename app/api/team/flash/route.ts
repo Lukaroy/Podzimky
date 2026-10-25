@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     const extension = pathname.split(".").at(-1)?.toLowerCase() ?? "";
     try {
       const blob = await head(pathname);
-      if (blob.size === 0 || blob.size > 50 * 1024 * 1024 || blob.contentType !== MEDIA_TYPES[extension]) {
+      if (blob.size === 0 || blob.size > 30 * 1024 * 1024 || blob.contentType !== MEDIA_TYPES[extension]) {
         return NextResponse.json({ error: "Nahraný soubor neodpovídá povolenému formátu nebo velikosti." }, { status: 400 });
       }
     } catch (error) {
