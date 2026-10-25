@@ -513,7 +513,7 @@ function downloadQrSvg(value: string, fileName: string) {
 }
 
 // Načte QR kartičky ze serveru (pokud ještě není známa) a nabídne její stažení.
-function TeamCardQr({ cardId, fileName, size, label }: { cardId: string; fileName: string; size: number; label: string }) {
+function TeamCardQr({ cardId, fileName, size, label, centered = false }: { cardId: string; fileName: string; size: number; label: string; centered?: boolean }) {
   const [value, setValue] = useState("");
   const [failed, setFailed] = useState(false);
 
@@ -544,7 +544,7 @@ function TeamCardQr({ cardId, fileName, size, label }: { cardId: string; fileNam
     );
   }
   return (
-    <div className="flex flex-col items-start gap-2">
+    <div className={`flex flex-col gap-2 ${centered ? "items-center" : "items-start"}`}>
       <QRCodeSVG value={value} size={size} level="Q" marginSize={3} title={label} data-qr-uid={value} />
       <button
         type="button"
@@ -3622,27 +3622,26 @@ export default function Page() {
                 </div>
                 {error && <p role="alert" className="mt-3 rounded-xl bg-[#fce7e6] p-3 text-sm font-semibold text-[#8b2d2d]">{error}</p>}
                 {teamQrCards.some((card) => card.teamId === null) ? (
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                     {teamQrCards.filter((card) => card.teamId === null).map((card) => {
                       const label = `Kartička ${card.id.slice(0, 8).toUpperCase()}`;
                       return (
-                        <article key={card.id} className="flex items-start gap-3 rounded-xl border border-[#e3d9c9] bg-white p-3">
+                        <article key={card.id} className="flex flex-col items-center gap-3 rounded-xl border border-[#e3d9c9] bg-white p-4">
                           <TeamCardQr
+                            centered
                             cardId={card.id}
-                            size={88}
+                            size={120}
                             label={`Přihlašovací QR ${label}`}
                             fileName={`tymova-karticka-${card.id.slice(0, 8)}.svg`}
                           />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-bold text-[#201c19]">{label}</p>
-                            <button
-                              type="button"
-                              onClick={() => void handleRemoveTeamQrCard(card.id)}
-                              className="mt-2 inline-flex items-center gap-1 rounded-lg border border-[#d8c6a2] px-2.5 py-1.5 text-xs font-bold text-[#6a2b19]"
-                            >
-                              <Trash2 size={13} /> Odebrat
-                            </button>
-                          </div>
+                          <p className="text-sm font-bold tracking-wide text-[#201c19]">{label}</p>
+                          <button
+                            type="button"
+                            onClick={() => void handleRemoveTeamQrCard(card.id)}
+                            className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-[#d8c6a2] px-2.5 py-1.5 text-xs font-bold text-[#6a2b19]"
+                          >
+                            <Trash2 size={13} /> Odebrat
+                          </button>
                         </article>
                       );
                     })}
