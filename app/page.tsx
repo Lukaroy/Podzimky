@@ -3158,44 +3158,46 @@ export default function Page() {
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                 <button
-                  onClick={() => {
-                    setScanMessage("Spouštím zadní kameru…");
-                    setScannerOpen(true);
-                  }}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#a4332b] px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-[#85271f] sm:px-4 sm:text-sm"
-                >
-                  <ScanLine size={16} />
-                  <span>Skenovat QR</span>
-                </button>
-                <button
+                  type="button"
                   onClick={() => void handleLogout()}
                   aria-label="Odhlásit se"
-                  className="inline-flex items-center gap-2 rounded-xl border border-[#e4e7eb] bg-white px-3 py-2.5 text-xs font-semibold text-[#596273] transition hover:bg-[#f6f7f9] sm:text-sm"
+                  className="player-logout"
                 >
                   <LogOut size={16} /><span className="hidden sm:inline">Odhlásit</span>
                 </button>
                 </div>
               </div>
               <div
-                className="player-progress mt-4 border-t border-white/15 pt-3"
-                role="progressbar"
+                className="player-progress mt-4 pt-3"
+                role="group"
                 aria-label="Postup výpravy"
-                aria-valuemin={0}
-                aria-valuemax={gameState.stations.length}
-                aria-valuenow={completedStationsCount}
               >
-                <div className="mb-2 flex items-center justify-between text-xs">
-                  <span className="text-[#6f7783]">Postup výpravy</span>
-                  <span className="font-semibold text-[#a4332b]">{completedStationsCount} / {gameState.stations.length}</span>
+                <div className="player-progress-head">
+                  <span>Lampiony trasy</span>
+                  <b>{completedStationsCount} / {gameState.stations.length}</b>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-[#eceef1]">
-                  <div
-                    className="h-full rounded-full bg-[#a4332b] transition-all"
-                    style={{ width: `${Math.min((completedStationsCount / Math.max(gameState.stations.length, 1)) * 100, 100)}%` }}
-                  />
-                </div>
-              </div>
-            </header>
+                <ol className="player-trail">
+                  {gameState.stations.map((station) => {
+                    const isDone = activeTeam.completedStations.includes(station.id);
+                    const isNow = station.order === nextOrder;
+                    const state = isDone ? "done" : isNow ? "now" : "locked";
+                    return (
+                      <li key={station.id}>
+                        <button
+                          type="button"
+                          data-state={state}
+                          data-selected={selectedStationId === station.id ? "true" : undefined}
+                          disabled={state === "locked"}
+                          onClick={() => setSelectedStationId(station.id)}
+                          aria-label={`Stanoviště ${station.order}: ${state === "done" ? "hotovo" : state === "now" ? "aktuální" : "zamčeno"}`}
+                        >
+                          <span aria-hidden="true">{isDone ? "✓" : station.order}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>            </header>
 
             {!hasFinishedGame && (
               <section className="player-next-step" aria-label="Další krok výpravy">
@@ -3257,16 +3259,15 @@ export default function Page() {
             )}
 
             {gameState.gameStartedAt && !gameState.gameStoppedAt && !gameState.gameClosedAt && (
-                <section className="mb-4 rounded-2xl border border-[#e7d8c0] bg-[#fffdfa] p-4 shadow-[0_8px_24px_rgba(29,25,20,0.06)] sm:p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#8e5d1d]">Týmový přepad</p>
-                      <h2 className="mt-1 text-lg font-bold text-[#241d1a]">Zadejte soupeři výzvu</h2>
-                      <p className="mt-1 text-sm text-[#675d53]">
-                        Využito {activeTeam.flashMissionsUsed ?? 0} ze 3 přepadů. Důkaz se uloží do galerie bez schvalování.
-                      </p>
-                    </div>
-                  </div>
+                <details className="player-ambush">
+                  <summary>
+                    <span aria-hidden="true"><Zap size={18} /></span>
+                    <span className="player-ambush-copy">
+                      <b>Týmový přepad</b>
+                      <small>Využito {activeTeam.flashMissionsUsed ?? 0} ze 3 · zadej soupeři výzvu</small>
+                    </span>
+                  </summary>
+                  <p className="player-ambush-note">Důkaz se uloží do galerie bez schvalování.</p>
                   {(activeTeam.flashMissionsUsed ?? 0) >= 3 ? (
                     <p className="mt-4 rounded-xl bg-[#f5efe8] p-3 text-sm text-[#675d53]">
                       Všechny 3 přepady tohoto týmu už byly využity.
@@ -3340,8 +3341,22 @@ export default function Page() {
                       Teď není dostupný žádný soupeř bez aktivního přepadu.
                     </p>
                   )}
-                </section>
+                </details>
               )}
+
+            {gameState.gameStartedAt && !hasFinishedGame && !currentTeamPendingSubmission && (
+              <button
+                type="button"
+                className="player-fab"
+                onClick={() => {
+                  setScanMessage("Spouštím zadní kameru…");
+                  setScannerOpen(true);
+                }}
+              >
+                <ScanLine size={22} aria-hidden="true" />
+                <span>Skenovat QR</span>
+              </button>
+            )}
 
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
               <section className="player-route order-2 rounded-2xl border border-[#e7d8c0] bg-[#fffdfa] p-3 shadow-[0_8px_24px_rgba(29,25,20,0.06)] lg:order-1">
