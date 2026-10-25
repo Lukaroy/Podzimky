@@ -19,15 +19,17 @@ export async function POST(request: Request) {
   if (!user || user.role !== "admin") {
     return NextResponse.json({ error: "Přihlaste se jako administrátor." }, { status: 401 });
   }
-  if (user.managerId) {
-    return NextResponse.json({ error: "Tuto akci může provést pouze hlavní administrátor." }, { status: 403 });
-  }
 
   let body: Partial<OwnerAction>;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Neplatný příkaz." }, { status: 400 });
+  }
+  // Správce smí jen vyhlásit nebo zrušit nouzovou zprávu.
+  const isEmergencyAction = body.action === "emergency-message" || body.action === "clear-emergency-message";
+  if (user.managerId && !isEmergencyAction) {
+    return NextResponse.json({ error: "Tuto akci může provést pouze hlavní administrátor." }, { status: 403 });
   }
 
   if (
@@ -54,7 +56,7 @@ export async function POST(request: Request) {
           ...current,
           emergencyMessage: { message, createdAt: now },
           events: [
-            { id: randomUUID(), message: "Hlavní admin odeslal nouzovou zprávu všem týmům.", tone: "warning" as const, createdAt: now },
+            { id: randomUUID(), message: `${user.managerId ? "Správce" : "Hlavní admin"} odeslal nouzovou zprávu všem týmům.`, tone: "warning" as const, createdAt: now },
             ...current.events,
           ].slice(0, 12),
         };

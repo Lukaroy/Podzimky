@@ -31,13 +31,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Požadavek je příliš velký." }, { status: 413 });
   }
 
-  let payload: GameState;
+  let clientPayload: GameState;
   try {
-    payload = normalizeGameState(await request.json() as Partial<GameState>);
+    clientPayload = normalizeGameState(await request.json() as Partial<GameState>);
   } catch {
     return NextResponse.json({ error: "Neplatná data hry." }, { status: 400 });
   }
-  if (!Array.isArray(payload.stations) || !Array.isArray(payload.teams)) {
+  if (!Array.isArray(clientPayload.stations) || !Array.isArray(clientPayload.teams)) {
     return NextResponse.json({ error: "Neplatná data hry." }, { status: 400 });
   }
 
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   const existingTeamIds = new Set(currentState.teams.map((team) => team.id));
   const incomingNames = new Set(currentState.teams.map((team) => team.name.trim().toLowerCase()));
   // Nové týmy musí mít jedinečné jméno a dostatečně dlouhé heslo.
-  for (const team of payload.teams) {
+  for (const team of clientPayload.teams) {
     if (existingTeamIds.has(team.id)) continue;
     const normalizedName = team.name.trim().toLowerCase();
     if (!normalizedName || normalizedName.length > 80 || incomingNames.has(normalizedName)) {
@@ -68,6 +68,18 @@ export async function POST(request: Request) {
 
   const nextState = await updateGameState((current) => {
     if (current.gameClosedAt) return current;
+    // Správce může měnit jen přepady a události; týmy, stanoviště a odevzdání zůstávají podle serveru.
+    const payload: GameState = user.managerId
+      ? {
+          ...current,
+          flashMissions: clientPayload.flashMissions,
+          events: clientPayload.events,
+          teams: current.teams.map((team) => ({
+            ...team,
+            flashMissionId: clientPayload.teams.find((item) => item.id === team.id)?.flashMissionId ?? team.flashMissionId,
+          })),
+        }
+      : clientPayload;
     // Klientský snapshot slučujeme se serverem, aby refresh ani stará karta nevrátily čas či postup.
     const submittedTeams = new Map(payload.teams.map((team) => [team.id, team]));
     const isOutdatedGameState = payload.gameStartedAt !== current.gameStartedAt;

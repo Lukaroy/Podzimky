@@ -59,6 +59,13 @@ const WALLPAPERS = [
   { id: "bamboo", label: "Bambus" },
   { id: "night", label: "Noční tuš" },
   { id: "cinnabar", label: "Cinobr" },
+  { id: "sakura", label: "Sakura" },
+  { id: "sunrise", label: "Východ slunce" },
+  { id: "seigaiha", label: "Vlny" },
+  { id: "forest", label: "Hluboký les" },
+  { id: "plum", label: "Švestkový soumrak" },
+  { id: "sumi", label: "Sumi tuš" },
+  { id: "gold", label: "Zlatý lak" },
 ] as const;
 type Wallpaper = (typeof WALLPAPERS)[number]["id"];
 
@@ -580,6 +587,278 @@ function OsWindow({ id, title, z, active, slot, minimized, onFocus, onClose, onM
         <span className="os-win-name">podzimky://{id}</span>
       </div>
       <div className="os-win-body">{children}</div>
+    </div>
+  );
+}
+
+type FlashFormState = {
+  title: string;
+  description: string;
+  type: StationType;
+  targets: string;
+  targetTeamIds: string[];
+  requiresApproval: boolean;
+};
+
+// Mobilní konzole správce: přehled týmů, nouzová zpráva, přepady a podpora.
+function ManagerConsole({
+  gameState, wallpaper, setWallpaper, onLogout, emergencyDraft, setEmergencyDraft, emergencyBusy, onEmergency,
+  flashForm, setFlashForm, onLaunchFlash, error, clearError, saving, saveError,
+}: {
+  gameState: GameState;
+  wallpaper: Wallpaper;
+  setWallpaper: (next: Wallpaper) => void;
+  onLogout: () => void;
+  emergencyDraft: string;
+  setEmergencyDraft: (value: string) => void;
+  emergencyBusy: boolean;
+  onEmergency: (action: { action: "emergency-message"; message: string } | { action: "clear-emergency-message" }) => void;
+  flashForm: FlashFormState;
+  setFlashForm: (updater: (current: FlashFormState) => FlashFormState) => void;
+  onLaunchFlash: () => boolean;
+  error: string;
+  clearError: () => void;
+  saving: boolean;
+  saveError: string;
+}) {
+  const [tab, setTab] = useState<"teams" | "alert" | "flash" | "support">("teams");
+  const [wallOpen, setWallOpen] = useState(false);
+  const [flashOpen, setFlashOpen] = useState(false);
+  const stations = [...gameState.stations].sort((first, second) => first.order - second.order);
+  const activeMissions = gameState.flashMissions.filter((mission) => !mission.archivedAt);
+  const closed = Boolean(gameState.gameClosedAt);
+  const status = gameState.gameClosedAt ? "Hra uzavřena" : gameState.gameStoppedAt ? "Pozastaveno" : gameState.gameStartedAt ? "Výprava běží" : "Čeká na start";
+
+  const tabs = [
+    { id: "teams" as const, label: "Týmy", icon: <Users size={20} aria-hidden="true" /> },
+    { id: "alert" as const, label: "Nouzovka", icon: <AlertTriangle size={20} aria-hidden="true" /> },
+    { id: "flash" as const, label: "Přepady", icon: <Zap size={20} aria-hidden="true" /> },
+    { id: "support" as const, label: "Podpora", icon: <MessageCircle size={20} aria-hidden="true" /> },
+  ];
+
+  return (
+    <div className="mgr-app" data-wall={wallpaper}>
+      <header className="mgr-top">
+        <div className="mgr-brand">
+          <span aria-hidden="true">印</span>
+          <div>
+            <b>Správce</b>
+            <small>{status}</small>
+          </div>
+        </div>
+        <ElapsedClock startedAt={gameState.gameStartedAt} stoppedAt={gameState.gameStoppedAt} pausedMs={gameState.gamePausedMs} className="mgr-clock" />
+        <button type="button" className="mgr-icon-btn" onClick={() => setWallOpen(true)} aria-label="Změnit tapetu">
+          <span className="mgr-wall-dot" aria-hidden="true" />
+        </button>
+        <button type="button" className="mgr-icon-btn" onClick={onLogout} aria-label="Odhlásit se"><LogOut size={18} aria-hidden="true" /></button>
+      </header>
+
+      {gameState.emergencyMessage && tab !== "alert" && (
+        <button type="button" className="mgr-banner" onClick={() => setTab("alert")}>
+          <AlertTriangle size={16} aria-hidden="true" /> Aktivní nouzová zpráva
+        </button>
+      )}
+      {(saveError || saving) && (
+        <p role={saveError ? "alert" : "status"} className={classNames("mgr-save", saveError && "is-error")}>{saveError || "Ukládám změny…"}</p>
+      )}
+
+      <main className="mgr-main">
+        {tab === "teams" && (
+          <section className="mgr-list" aria-label="Stav týmů">
+            <div className="mgr-summary">
+              <span><b>{gameState.teams.length}</b> týmů</span>
+              <span><b>{stations.length}</b> stanovišť</span>
+              <span><b>{activeMissions.length}</b> přepadů</span>
+            </div>
+            {gameState.teams.length === 0 && <p className="mgr-empty">Zatím nejsou vytvořené žádné týmy.</p>}
+            {gameState.teams.map((team) => {
+              const done = team.completedStations.length;
+              const next = stations.find((station) => !team.completedStations.includes(station.id));
+              const scanned = next ? team.scannedStationIds.includes(next.id) : false;
+              const pending = gameState.submissions.filter((item) => item.teamId === team.id && item.status === "pending" && !item.archivedAt).length;
+              const mission = team.flashMissionId ? gameState.flashMissions.find((item) => item.id === team.flashMissionId) : undefined;
+              const percent = stations.length ? Math.round((done / stations.length) * 100) : 0;
+              return (
+                <article key={team.id} className="mgr-card">
+                  <div className="mgr-card-head">
+                    <h3>{team.name}</h3>
+                    <b>{done}/{stations.length}</b>
+                  </div>
+                  <div className="mgr-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-label={`Postup týmu ${team.name}`}>
+                    <i style={{ width: `${percent}%` }} />
+                  </div>
+                  <p className="mgr-where">
+                    <MapPin size={14} aria-hidden="true" />
+                    {next ? <>Míří na: <b>{next.title}</b>{scanned ? " · QR naskenován" : ""}</> : stations.length ? "Trasu dokončil" : "Žádná stanoviště"}
+                  </p>
+                  <div className="mgr-tags">
+                    {mission && <span className="is-flash"><Zap size={12} aria-hidden="true" /> Přepad: {mission.title}</span>}
+                    {pending > 0 && <span className="is-wait"><Clock size={12} aria-hidden="true" /> Čeká na schválení: {pending}</span>}
+                    {!mission && pending === 0 && <span>V pořádku</span>}
+                  </div>
+                </article>
+              );
+            })}
+          </section>
+        )}
+
+        {tab === "alert" && (
+          <section className="mgr-panel" aria-label="Nouzová zpráva">
+            <h2>Nouzová zpráva</h2>
+            <p>Zobrazí se všem týmům na celé obrazovce. Použij jen při opravdové potřebě.</p>
+            {gameState.emergencyMessage && (
+              <div className="mgr-active">
+                <b>Právě aktivní</b>
+                <p>{gameState.emergencyMessage.message}</p>
+                <button type="button" disabled={emergencyBusy || closed} onClick={() => onEmergency({ action: "clear-emergency-message" })}>
+                  Zrušit zprávu
+                </button>
+              </div>
+            )}
+            <label htmlFor="mgr-emergency">Text zprávy</label>
+            <textarea
+              id="mgr-emergency"
+              rows={5}
+              maxLength={500}
+              value={emergencyDraft}
+              onChange={(event) => setEmergencyDraft(event.target.value)}
+              placeholder="Například: Sraz všech týmů u hlavní brány do 15 minut."
+            />
+            <div className="mgr-count">{emergencyDraft.length}/500</div>
+            {error && <p role="alert" className="mgr-error">{error}</p>}
+            <button
+              type="button"
+              className="mgr-primary is-danger"
+              disabled={closed || emergencyBusy || !emergencyDraft.trim()}
+              onClick={() => onEmergency({ action: "emergency-message", message: emergencyDraft })}
+            >
+              <AlertTriangle size={18} aria-hidden="true" /> Odeslat všem týmům
+            </button>
+          </section>
+        )}
+
+        {tab === "flash" && (
+          <section className="mgr-list" aria-label="Přepady">
+            <button type="button" className="mgr-primary" disabled={gameState.teams.length === 0 || closed} onClick={() => { clearError(); setFlashOpen(true); }}>
+              <Plus size={18} aria-hidden="true" /> Nový přepad
+            </button>
+            {activeMissions.length === 0 && <p className="mgr-empty">Žádný přepad právě neběží.</p>}
+            {activeMissions.map((mission) => (
+              <article key={mission.id} className="mgr-card">
+                <div className="mgr-card-head">
+                  <h3>{mission.title}</h3>
+                  <span className="mgr-pill">{mission.requiresApproval ? "Ke schválení" : "Automaticky"}</span>
+                </div>
+                <p className="mgr-desc">{mission.description}</p>
+                <p className="mgr-where">
+                  <Users size={14} aria-hidden="true" />
+                  {mission.targetTeamIds.map((id) => gameState.teams.find((team) => team.id === id)?.name).filter(Boolean).join(", ") || "—"}
+                </p>
+              </article>
+            ))}
+          </section>
+        )}
+
+        {tab === "support" && <div className="mgr-support"><SupportChat role="admin" /></div>}
+      </main>
+
+      <nav className="mgr-tabs" aria-label="Sekce správce">
+        {tabs.map((item) => (
+          <button key={item.id} type="button" aria-current={tab === item.id ? "page" : undefined} onClick={() => { clearError(); setTab(item.id); }}>
+            {item.icon}
+            <span>{item.label}</span>
+            {item.id === "alert" && gameState.emergencyMessage && <i aria-hidden="true" />}
+            {item.id === "flash" && activeMissions.length > 0 && <em>{activeMissions.length}</em>}
+          </button>
+        ))}
+      </nav>
+
+      {flashOpen && (
+        <div className="mgr-sheet-backdrop" onClick={() => setFlashOpen(false)}>
+          <form
+            className="mgr-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Nový přepad"
+            onClick={(event) => event.stopPropagation()}
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (onLaunchFlash()) setFlashOpen(false);
+            }}
+          >
+            <div className="mgr-sheet-grip" aria-hidden="true" />
+            <h2>Nový přepad</h2>
+            <label>
+              Název
+              <input value={flashForm.title} maxLength={100} onChange={(event) => setFlashForm((current) => ({ ...current, title: event.target.value }))} placeholder="Například: Tajná zpráva" />
+            </label>
+            <label>
+              Zadání
+              <textarea rows={4} maxLength={2000} value={flashForm.description} onChange={(event) => setFlashForm((current) => ({ ...current, description: event.target.value }))} placeholder="Co mají týmy udělat a co odevzdat?" />
+            </label>
+            <div className="mgr-seg" role="group" aria-label="Způsob odevzdání">
+              {(["text", "photo"] as const).map((type) => (
+                <button key={type} type="button" aria-pressed={flashForm.type === type} onClick={() => setFlashForm((current) => ({ ...current, type }))}>
+                  {type === "text" ? "Text" : "Fotka"}
+                </button>
+              ))}
+            </div>
+            <div className="mgr-seg" role="group" aria-label="Komu">
+              {([["all", "Všem týmům"], ["specific", "Vybraným"]] as const).map(([value, label]) => (
+                <button key={value} type="button" aria-pressed={flashForm.targets === value} onClick={() => setFlashForm((current) => ({ ...current, targets: value }))}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {flashForm.targets === "specific" && (
+              <div className="mgr-chips" role="group" aria-label="Vyber týmy">
+                {gameState.teams.map((team) => {
+                  const on = flashForm.targetTeamIds.includes(team.id);
+                  return (
+                    <button
+                      key={team.id}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => setFlashForm((current) => ({
+                        ...current,
+                        targetTeamIds: on ? current.targetTeamIds.filter((id) => id !== team.id) : [...current.targetTeamIds, team.id],
+                      }))}
+                    >
+                      {on && <Check size={14} aria-hidden="true" />} {team.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <label className="mgr-check">
+              <input type="checkbox" checked={flashForm.requiresApproval} onChange={(event) => setFlashForm((current) => ({ ...current, requiresApproval: event.target.checked }))} />
+              <span>Odpověď musí schválit pořadatel</span>
+            </label>
+            {error && <p role="alert" className="mgr-error">{error}</p>}
+            <div className="mgr-sheet-actions">
+              <button type="button" onClick={() => setFlashOpen(false)}>Zavřít</button>
+              <button type="submit" className="mgr-primary"><Zap size={17} aria-hidden="true" /> Odeslat</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {wallOpen && (
+        <div className="mgr-sheet-backdrop" onClick={() => setWallOpen(false)}>
+          <div className="mgr-sheet" role="dialog" aria-modal="true" aria-label="Tapeta" onClick={(event) => event.stopPropagation()}>
+            <div className="mgr-sheet-grip" aria-hidden="true" />
+            <h2>Tapeta</h2>
+            <div className="mgr-walls">
+              {WALLPAPERS.map((item) => (
+                <button key={item.id} type="button" data-wall-pick={item.id} aria-pressed={wallpaper === item.id} onClick={() => { setWallpaper(item.id); setWallOpen(false); }}>
+                  <i data-swatch={item.id} aria-hidden="true" />
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1690,7 +1969,8 @@ export default function Page() {
       | { action: "intervene"; teamId: string; stationId: string; completed: boolean }
       | { action: "close-game" },
   ) => {
-    if (!isOwnerAdmin || ownerActionBusy) return;
+    const isEmergencyAction = action.action === "emergency-message" || action.action === "clear-emergency-message";
+    if ((!isOwnerAdmin && !isEmergencyAction) || ownerActionBusy) return;
     if (action.action === "close-game" && !window.confirm(
       "Uzavřít hru a vyhlásit výsledky? Týmy už potom nebudou moci pokračovat a výsledky nepůjde změnit.",
     )) return;
@@ -2232,7 +2512,7 @@ export default function Page() {
     const description = flashMissionForm.description.trim();
     if (!title || !description) {
       setError("Vyplňte název i konkrétní zadání přepadového úkolu.");
-      return;
+      return false;
     }
     const selectedTeams =
       flashMissionForm.targets === "all"
@@ -2240,14 +2520,14 @@ export default function Page() {
         : flashMissionForm.targetTeamIds;
     if (selectedTeams.length === 0) {
       setError("Vyberte alespoň jeden tým pro přepadový úkol.");
-      return;
+      return false;
     }
     const alreadyBusyTeams = gameState.teams.filter(
       (team) => selectedTeams.includes(team.id) && team.flashMissionId,
     );
     if (alreadyBusyTeams.length > 0) {
       setError(`Nejprve vyřešte aktivní přepad u týmů: ${alreadyBusyTeams.map((team) => team.name).join(", ")}.`);
-      return;
+      return false;
     }
 
     const mission: FlashMission = {
@@ -2288,6 +2568,7 @@ export default function Page() {
     });
     setIsFlashDialogOpen(false);
     setError("");
+    return true;
   };
 
   // Odešle text či médium k právě aktivnímu týmovému přepadovému úkolu.
@@ -3412,7 +3693,27 @@ export default function Page() {
         <SupportChat role="team" teamId={teamId} />
       )}
 
-      {screen === "admin-panel" && (
+      {screen === "admin-panel" && !isOwnerAdmin && (
+        <ManagerConsole
+          gameState={gameState}
+          wallpaper={wallpaper}
+          setWallpaper={setWallpaper}
+          onLogout={() => void handleLogout()}
+          emergencyDraft={emergencyDraft}
+          setEmergencyDraft={setEmergencyDraft}
+          emergencyBusy={ownerActionBusy}
+          onEmergency={(action) => void handleOwnerAction(action)}
+          flashForm={flashMissionForm}
+          setFlashForm={setFlashMissionForm}
+          onLaunchFlash={launchFlashMission}
+          error={error}
+          clearError={() => setError("")}
+          saving={isSavingGameState}
+          saveError={saveError}
+        />
+      )}
+
+      {screen === "admin-panel" && isOwnerAdmin && (
         <div className="admin-shell admin-console mx-auto max-w-screen-2xl" data-wall={wallpaper}>
           <aside className="admin-sidebar">
             <div className="admin-sidebar-brand">
@@ -3627,7 +3928,7 @@ export default function Page() {
                 <div
                   className="os-menu"
                   role="menu"
-                  style={{ left: Math.min(deskMenu.x, window.innerWidth - 220), top: Math.min(deskMenu.y, window.innerHeight - 260) }}
+                  style={{ left: Math.min(deskMenu.x, window.innerWidth - 220), top: Math.max(8, Math.min(deskMenu.y, window.innerHeight - 470)) }}
                   onMouseDown={(event) => event.stopPropagation()}
                 >
                   <p>Změnit plochu</p>

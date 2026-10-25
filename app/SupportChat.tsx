@@ -141,9 +141,9 @@ export function SupportChat({
         )}
       </header>
 
-      <div className="flex min-h-0 flex-1">
+      <div className={`flex min-h-0 flex-1 ${role === "admin" ? "flex-col sm:flex-row" : ""}`}>
         {role === "admin" && (
-          <nav aria-label="Konverzace týmů" className="w-40 shrink-0 overflow-y-auto border-r border-[#eee5d6] sm:w-52">
+          <nav aria-label="Konverzace týmů" className="max-h-36 w-full shrink-0 overflow-y-auto border-b border-[#eee5d6] sm:max-h-none sm:w-52 sm:border-b-0 sm:border-r">
             {conversations.map((conversation) => (
               <button
                 key={conversation.id}
