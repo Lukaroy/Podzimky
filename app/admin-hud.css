@@ -1547,3 +1547,353 @@
     content: "";
   }
 }
+
+/* ===== Plochy, widget času, nový dok, zavírání do ikony ===== */
+.os-menu-backdrop { display: none; }
+
+@media (min-width: 900px) {
+  /* Plocha přes celou šířku, widget plave nad ní pod okny */
+  .admin-shell.admin-console {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 42px minmax(0, 1fr) 88px;
+    grid-template-areas:
+      "bar"
+      "win"
+      "dock";
+    --os-ink: #3d3322;
+  }
+
+  .admin-console .admin-workspace {
+    margin: 0;
+  }
+
+  .admin-shell.admin-console[data-wall="mist"] {
+    --os-ink: #2d3b30;
+    background:
+      radial-gradient(circle at 80% 22%, #c8452f 0 44px, transparent 45px),
+      radial-gradient(ellipse 60% 38% at 22% 104%, #7f988a 0 62%, transparent 63%),
+      radial-gradient(ellipse 70% 48% at 72% 108%, #5a7766 0 62%, transparent 63%),
+      radial-gradient(ellipse 52% 26% at 46% 112%, #3b5545 0 62%, transparent 63%),
+      linear-gradient(#ece5d2, #cfd8c9);
+  }
+
+  .admin-shell.admin-console[data-wall="bamboo"] {
+    --os-ink: #25361f;
+    background:
+      repeating-linear-gradient(90deg, rgba(60, 92, 64, 0.2) 0 3px, transparent 3px 58px),
+      repeating-linear-gradient(90deg, rgba(60, 92, 64, 0.1) 0 1px, transparent 1px 19px),
+      linear-gradient(#e2ead4, #c1d2b0);
+  }
+
+  .admin-shell.admin-console[data-wall="night"] {
+    --os-ink: #e9dcc0;
+    background:
+      radial-gradient(circle at 22% 12%, rgba(229, 203, 144, 0.14), transparent 40%),
+      radial-gradient(rgba(229, 203, 144, 0.16) 1px, transparent 1.5px) 0 0 / 28px 28px,
+      linear-gradient(160deg, #17281f, #0e1813);
+  }
+
+  .admin-shell.admin-console[data-wall="cinnabar"] {
+    --os-ink: #f6e6c4;
+    background:
+      radial-gradient(circle at 82% 88%, rgba(229, 203, 144, 0.28), transparent 42%),
+      radial-gradient(rgba(229, 203, 144, 0.12) 1px, transparent 1.5px) 0 0 / 24px 24px,
+      linear-gradient(150deg, #8f3023, #5a1b15);
+  }
+
+  .admin-console .os-desktop-icons button,
+  .admin-console .os-desktop-hint {
+    color: var(--os-ink);
+  }
+
+  .admin-console .os-desktop-hint {
+    opacity: 0.6;
+  }
+
+  /* Widget času: kompaktní karta v rohu plochy */
+  .admin-console .admin-sidebar-game {
+    position: relative;
+    z-index: 2;
+    grid-area: win;
+    align-self: start;
+    justify-self: end;
+    display: grid;
+    width: 232px;
+    height: auto;
+    min-height: 0;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.45rem;
+    margin: 14px 16px 0 0;
+    padding: 0.85rem 0.9rem 0.9rem;
+    overflow: visible;
+    border: 1px solid rgba(229, 203, 144, 0.3);
+    border-radius: 16px;
+    background: rgba(23, 38, 30, 0.9);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 12px 30px rgba(10, 18, 14, 0.35);
+  }
+
+  .admin-console .admin-sidebar-game > * {
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+
+  .admin-console .admin-sidebar-game-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .admin-console .admin-sidebar-game-heading > span,
+  .admin-console .admin-sidebar-game-heading p,
+  .admin-console .admin-sidebar-summary,
+  .admin-console .admin-sidebar-event {
+    display: none;
+  }
+
+  .admin-console .admin-sidebar-game-heading h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    color: #c9d3c3;
+    font-family: var(--hud-mono);
+    font-size: 0.64rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .admin-console .admin-sidebar-game-heading h2::before {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #e0a93d;
+    box-shadow: 0 0 8px rgba(224, 169, 61, 0.7);
+    content: "";
+  }
+
+  .admin-console .admin-sidebar-clock {
+    display: block;
+    color: #f5d68e;
+    font-size: 2.1rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    line-height: 1.1;
+    text-align: left;
+  }
+
+  .admin-console .admin-sidebar-clock svg {
+    display: none;
+  }
+
+  .admin-console .admin-sidebar-game-note {
+    color: #9fb09c;
+    font-family: var(--hud-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+  }
+
+  .admin-console .admin-sidebar-start,
+  .admin-console .admin-sidebar-restart {
+    min-height: 34px;
+    grid-column: auto;
+    padding: 0 0.5rem;
+    border-radius: 9px;
+    clip-path: none;
+    font-size: 0.64rem;
+    letter-spacing: 0.06em;
+  }
+
+  .admin-console .admin-sidebar-start {
+    grid-column: 1 / -1;
+  }
+
+  /* Nový dok: skleněná lišta s dlaždicemi jako ikony na ploše */
+  .admin-console .admin-sidebar-nav {
+    gap: 0.55rem;
+    padding: 0.5rem 0.75rem;
+    overflow: visible;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    border-radius: 24px;
+    background: rgba(246, 239, 222, 0.62);
+    backdrop-filter: blur(16px) saturate(1.3);
+    box-shadow: 0 10px 30px rgba(12, 20, 16, 0.3), 0 1px 0 rgba(255, 255, 255, 0.7) inset;
+  }
+
+  .admin-console .admin-sidebar-nav button {
+    width: 54px;
+    min-height: 54px;
+    height: 54px;
+    padding: 0;
+    border: 1px solid #b9a578;
+    border-radius: 15px;
+    background: linear-gradient(#fbf6ea, #eadfc3);
+    color: #263b32;
+    box-shadow: 0 3px 8px rgba(40, 32, 18, 0.22);
+  }
+
+  .admin-console .admin-sidebar-nav button:hover {
+    background: linear-gradient(#fffaf0, #f0e5c9);
+    color: #263b32;
+  }
+
+  .admin-console .admin-sidebar-nav button[aria-current="page"] {
+    border-color: #1a2a22;
+    background: linear-gradient(#2e473b, #1e3128);
+    color: #f5d68e;
+  }
+
+  .admin-console .admin-sidebar-nav button[aria-current="page"]::after,
+  .admin-console .admin-sidebar-nav button[data-open="true"]:not([aria-current="page"])::after {
+    bottom: -10px;
+    background: #3d3322;
+  }
+
+  .admin-console .admin-sidebar-nav button svg {
+    width: 24px;
+    height: 24px;
+    color: inherit;
+  }
+
+  /* Popisek jako bublina nad ikonou */
+  .admin-console .admin-sidebar-nav button > span:nth-child(2) {
+    position: absolute;
+    bottom: calc(100% + 12px);
+    left: 50%;
+    z-index: 5;
+    padding: 0.25rem 0.6rem;
+    border-radius: 7px;
+    background: #1f3329;
+    color: #fff3d8;
+    font-size: 0.64rem;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translate(-50%, 4px);
+    transition: opacity 0.12s, transform 0.12s;
+    pointer-events: none;
+  }
+
+  .admin-console .admin-sidebar-nav button:hover > span:nth-child(2) {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+
+  .admin-console .admin-sidebar-nav .admin-sidebar-presentation {
+    margin-left: 0.6rem;
+    border-radius: 15px;
+    border-left: 1px solid #b9a578;
+    background: linear-gradient(#b64c36, #8a3a2c);
+    color: #fff3d8;
+  }
+
+  .admin-console .admin-sidebar-nav .admin-sidebar-presentation:hover {
+    background: linear-gradient(#c75a43, #9a4234);
+    color: #fff;
+  }
+
+  .admin-console .admin-sidebar-nav .admin-sidebar-count.is-alert {
+    top: -6px;
+    right: -6px;
+  }
+
+  /* Okno táhnuté za okraj a zavírání do ikony */
+  .os-win.is-leaving {
+    opacity: 0.55;
+    outline: 2px dashed #c8452f;
+    outline-offset: -3px;
+  }
+
+  .os-win.is-closing {
+    pointer-events: none;
+    animation: os-win-out 300ms cubic-bezier(0.55, 0, 0.9, 0.5) forwards;
+  }
+
+  @keyframes os-win-out {
+    to {
+      opacity: 0.15;
+      transform: translate(var(--fly-x), var(--fly-y)) scale(0.05);
+      border-radius: 60px;
+    }
+  }
+
+  /* Kontextové menu plochy */
+  .os-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 250;
+    display: block;
+  }
+
+  .os-menu {
+    position: fixed;
+    width: 208px;
+    padding: 0.35rem;
+    border: 1px solid #b9a578;
+    border-radius: 12px;
+    background: rgba(251, 246, 234, 0.96);
+    box-shadow: 0 18px 44px rgba(10, 18, 14, 0.4);
+    backdrop-filter: blur(10px);
+    color: #23301f;
+    font-family: var(--hud-display);
+    animation: os-win-in 120ms ease-out;
+  }
+
+  .os-menu p {
+    margin: 0;
+    padding: 0.35rem 0.6rem 0.4rem;
+    color: #7a6c52;
+    font-family: var(--hud-mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .os-menu button {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.6rem;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    padding: 0.45rem 0.6rem;
+    color: inherit;
+    font: inherit;
+    font-size: 0.85rem;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .os-menu button:hover {
+    background: #263b32;
+    color: #fff3d8;
+  }
+
+  .os-menu b {
+    margin-left: auto;
+    font-size: 0.8rem;
+  }
+
+  .os-menu i {
+    width: 26px;
+    height: 18px;
+    flex: 0 0 auto;
+    border: 1px solid rgba(0, 0, 0, 0.25);
+    border-radius: 4px;
+  }
+
+  .os-menu i[data-swatch="parchment"] { background: #eadfc8; }
+  .os-menu i[data-swatch="mist"] { background: linear-gradient(#ece5d2 50%, #5a7766 50%); }
+  .os-menu i[data-swatch="bamboo"] { background: repeating-linear-gradient(90deg, #a9c19a 0 3px, #dfe8d0 3px 7px); }
+  .os-menu i[data-swatch="night"] { background: #14231b; }
+  .os-menu i[data-swatch="cinnabar"] { background: #8f3023; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .os-win,
+  .os-win.is-closing {
+    animation-duration: 1ms;
+  }
+}

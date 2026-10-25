@@ -52,6 +52,29 @@ type Screen = "team-login" | "admin-login" | "team-dashboard" | "admin-panel";
 type AuthVisualMode = "sunset" | "interior" | "lanterns";
 type AdminTab = "teams" | "stations" | "submissions" | "media" | "flash" | "managers" | "live" | "support";
 
+const WALLPAPERS = [
+  { id: "parchment", label: "Pergamen" },
+  { id: "mist", label: "Mlžné hory" },
+  { id: "bamboo", label: "Bambus" },
+  { id: "night", label: "Noční tuš" },
+  { id: "cinnabar", label: "Cinobr" },
+] as const;
+type Wallpaper = (typeof WALLPAPERS)[number]["id"];
+
+// Pozadí plochy se pamatuje v prohlížeči; změna se oznamuje vlastní událostí.
+function subscribeWallpaper(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener("podzimky-wallpaper", callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("podzimky-wallpaper", callback);
+  };
+}
+function readWallpaper(): Wallpaper {
+  const saved = window.localStorage.getItem("podzimky-wallpaper");
+  return WALLPAPERS.find((item) => item.id === saved)?.id ?? "parchment";
+}
+
 const ADMIN_TAB_TITLES: Record<AdminTab, string> = {
   teams: "Týmy",
   stations: "Stanoviště",
@@ -472,6 +495,10 @@ function OsWindow({ id, title, z, active, slot, minimized, onFocus, onClose, onM
   onFocus: () => void; onClose: () => void; onMinimize: () => void; children: ReactNode;
 }) {
   const [maxed, setMaxed] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [fly, setFly] = useState<{ x: number; y: number } | null>(null);
+  const leavingRef = useRef(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const [geo, setGeo] = useState(() => {
     const areaW = typeof window === "undefined" ? 1000 : Math.max(window.innerWidth - 330, 520);
     const areaH = typeof window === "undefined" ? 640 : Math.max(window.innerHeight - 170, 380);
@@ -485,40 +512,69 @@ function OsWindow({ id, title, z, active, slot, minimized, onFocus, onClose, onM
   });
   const drag = useRef<{ px: number; py: number; x: number; y: number } | null>(null);
 
+  // Okno se "vsákne" do své ikony v doku a teprve potom se zavře nebo minimalizuje.
+  const animateOut = (done: () => void) => {
+    const element = rootRef.current;
+    const target = document.querySelector<HTMLElement>(`[data-dock-tab="${id}"]`);
+    if (!element || !target || fly) { done(); return; }
+    const from = element.getBoundingClientRect();
+    const to = target.getBoundingClientRect();
+    setFly({ x: to.left + to.width / 2 - (from.left + from.width / 2), y: to.top + to.height / 2 - (from.top + from.height / 2) });
+    window.setTimeout(() => {
+      done();
+      setFly(null);
+      target.animate?.([{ transform: "scale(1)" }, { transform: "scale(1.3)" }, { transform: "scale(1)" }], { duration: 280 });
+    }, 300);
+  };
+
   const startDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement).closest("button") || maxed) return;
+    if ((event.target as HTMLElement).closest("button") || maxed || fly) return;
     drag.current = { px: event.clientX, py: event.clientY, x: geo.x, y: geo.y };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
   const moveDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     const start = drag.current;
-    if (!start) return;
-    const area = event.currentTarget.closest(".os-win")?.parentElement;
-    const maxX = (area?.clientWidth ?? 1000) - 90;
-    const maxY = (area?.clientHeight ?? 600) - 34;
-    setGeo((current) => ({
-      ...current,
-      x: Math.min(Math.max(start.x + event.clientX - start.px, 90 - current.w), maxX),
-      y: Math.min(Math.max(start.y + event.clientY - start.py, 0), maxY),
-    }));
+    const element = rootRef.current;
+    const area = element?.parentElement;
+    if (!start || !element || !area) return;
+    const width = element.offsetWidth;
+    const height = element.offsetHeight;
+    const x = Math.min(Math.max(start.x + event.clientX - start.px, 24 - width), area.clientWidth - 24);
+    const y = Math.min(Math.max(start.y + event.clientY - start.py, 0), area.clientHeight - 34);
+    setGeo((current) => ({ ...current, x, y }));
+    const visibleW = Math.min(x + width, area.clientWidth) - Math.max(x, 0);
+    const visibleH = Math.min(y + height, area.clientHeight) - y;
+    const isLeaving = visibleW <= width / 2 || visibleH <= height / 2;
+    leavingRef.current = isLeaving;
+    setLeaving(isLeaving);
+  };
+  // Pustíš-li okno, když z něj zbývá jen polovina nebo méně, zavře se do doku.
+  const endDrag = () => {
+    drag.current = null;
+    if (leavingRef.current) {
+      leavingRef.current = false;
+      setLeaving(false);
+      animateOut(onClose);
+    }
   };
 
   return (
     <div
-      className={classNames("os-win", active && "is-active", maxed && "is-max", minimized && "is-min")}
-      style={{ "--win-x": `${geo.x}px`, "--win-y": `${geo.y}px`, "--win-w": `${geo.w}px`, "--win-h": `${geo.h}px`, "--win-z": z } as CSSProperties}
+      ref={rootRef}
+      className={classNames("os-win", active && "is-active", maxed && "is-max", minimized && "is-min", leaving && "is-leaving", fly && "is-closing")}
+      style={{ "--win-x": `${geo.x}px`, "--win-y": `${geo.y}px`, "--win-w": `${geo.w}px`, "--win-h": `${geo.h}px`, "--win-z": z, "--fly-x": `${fly?.x ?? 0}px`, "--fly-y": `${fly?.y ?? 0}px` } as CSSProperties}
       onPointerDown={onFocus}
     >
       <div
         className="os-win-bar"
         onPointerDown={startDrag}
         onPointerMove={moveDrag}
-        onPointerUp={() => { drag.current = null; }}
-        onPointerCancel={() => { drag.current = null; }}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
         onDoubleClick={() => setMaxed((value) => !value)}
       >
-        <button type="button" className="os-dot os-dot-close" aria-label={`Zavřít ${title}`} onClick={onClose} />
-        <button type="button" className="os-dot os-dot-min" aria-label={`Minimalizovat ${title}`} onClick={onMinimize} />
+        <button type="button" className="os-dot os-dot-close" aria-label={`Zavřít ${title}`} onClick={() => animateOut(onClose)} />
+        <button type="button" className="os-dot os-dot-min" aria-label={`Minimalizovat ${title}`} onClick={() => animateOut(onMinimize)} />
         <button type="button" className="os-dot os-dot-max" aria-label={`Maximalizovat ${title}`} onClick={() => setMaxed((value) => !value)} />
         <span className="os-win-name">podzimky://{id}</span>
       </div>
@@ -941,6 +997,12 @@ export default function Page() {
     onMinimize: () => minimizeTab(tab),
   });
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const wallpaper = useSyncExternalStore(subscribeWallpaper, readWallpaper, () => "parchment" as Wallpaper);
+  const [deskMenu, setDeskMenu] = useState<{ x: number; y: number } | null>(null);
+  const setWallpaper = (next: Wallpaper) => {
+    window.localStorage.setItem("podzimky-wallpaper", next);
+    window.dispatchEvent(new Event("podzimky-wallpaper"));
+  };
   useEffect(() => {
     // Ctrl/⌘+K otevře příkazovou paletu jako Spotlight.
     const onKey = (event: KeyboardEvent) => {
@@ -3344,7 +3406,7 @@ export default function Page() {
       )}
 
       {screen === "admin-panel" && (
-        <div className="admin-shell admin-console mx-auto max-w-screen-2xl">
+        <div className="admin-shell admin-console mx-auto max-w-screen-2xl" data-wall={wallpaper}>
           <aside className="admin-sidebar">
             <div className="admin-sidebar-brand">
               <div aria-hidden="true" className="admin-brand-mark">印</div>
@@ -3370,6 +3432,7 @@ export default function Page() {
                   type="button"
                   aria-current={adminTab === item.tab && isTabOpen(item.tab) ? "page" : undefined}
                   data-open={isDesktop && openTabs.includes(item.tab) ? "true" : undefined}
+                  data-dock-tab={item.tab}
                   onClick={() => {
                     setError("");
                     if (isDesktop && adminTab === item.tab && openTabs.includes(item.tab) && !minTabs.includes(item.tab)) {
@@ -3524,6 +3587,7 @@ export default function Page() {
                 { id: "managers", label: "Správci", hint: "modul · správci stanovišť", run: () => { setAdminTab("managers"); void loadManagers(); } },
                 { id: "present", label: "Promítání", hint: "příkaz · spustit prezentaci médií", run: () => { setAdminTab("media"); setGalleryPage(0); if (mediaSubmissions.length > 0) setPresentationIndex(0); } },
               ] : []),
+              ...WALLPAPERS.map((item) => ({ id: `wall-${item.id}`, label: `Plocha: ${item.label}`, hint: "příkaz · změnit pozadí plochy", run: () => setWallpaper(item.id) })),
               { id: "fullscreen", label: "Celá obrazovka", hint: "příkaz · přepnout fullscreen", run: toggleFullscreen },
               { id: "logout", label: "Odhlásit", hint: "příkaz · ukončit relaci", run: () => void handleLogout() },
             ]}
@@ -3543,7 +3607,39 @@ export default function Page() {
             </div>
           )}
 
-          <div className="admin-workspace admin-workspace-module">
+          <div
+            className="admin-workspace admin-workspace-module"
+            onContextMenu={(event) => {
+              if (!isDesktop || (event.target as HTMLElement).closest(".os-win")) return;
+              event.preventDefault();
+              setDeskMenu({ x: event.clientX, y: event.clientY });
+            }}
+          >
+            {deskMenu && (
+              <div className="os-menu-backdrop" onMouseDown={() => setDeskMenu(null)} onContextMenu={(event) => { event.preventDefault(); setDeskMenu(null); }}>
+                <div
+                  className="os-menu"
+                  role="menu"
+                  style={{ left: Math.min(deskMenu.x, window.innerWidth - 220), top: Math.min(deskMenu.y, window.innerHeight - 260) }}
+                  onMouseDown={(event) => event.stopPropagation()}
+                >
+                  <p>Změnit plochu</p>
+                  {WALLPAPERS.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={wallpaper === item.id}
+                      onClick={() => { setWallpaper(item.id); setDeskMenu(null); }}
+                    >
+                      <i data-swatch={item.id} aria-hidden="true" />
+                      {item.label}
+                      {wallpaper === item.id && <b aria-hidden="true">✓</b>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {isDesktop && (
               <div className="os-desktop-icons" aria-label="Zástupci na ploše">
                 {([
@@ -3572,7 +3668,7 @@ export default function Page() {
               </div>
             )}
             {isDesktop && openTabs.every((tab) => minTabs.includes(tab)) && (
-              <p className="os-desktop-hint"><span aria-hidden="true">印</span>Otevři modul z doku nebo zmáčkni Ctrl+K</p>
+              <p className="os-desktop-hint"><span aria-hidden="true">印</span>Otevři modul z doku nebo zmáčkni Ctrl+K · pravý klik změní plochu</p>
             )}
             <div className="admin-content min-w-0 space-y-4">
               <header className="module-toolbar">
