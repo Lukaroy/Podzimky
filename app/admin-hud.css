@@ -1,0 +1,337 @@
+/* HUD vrstva pro admin panel: technická typografie a layout, motiv zůstává čínský (rumělka, zlato, nefrit). */
+
+.admin-shell.admin-console {
+  --hud-display: var(--font-hud-display), "Chakra Petch", system-ui, sans-serif;
+  --hud-mono: var(--font-hud-mono), ui-monospace, "Cascadia Mono", monospace;
+  --hud-gold: #b8914d;
+  --hud-gold-soft: rgba(184, 145, 77, 0.38);
+  --hud-line: rgba(88, 74, 48, 0.2);
+  --hud-jade: #2c4a3d;
+  --hud-vermilion: #b2402f;
+  font-family: var(--hud-display);
+  background: #efe9da;
+}
+
+.admin-shell.admin-console button,
+.admin-shell.admin-console input,
+.admin-shell.admin-console select,
+.admin-shell.admin-console textarea {
+  font-family: inherit;
+}
+
+/* Jemná technická mřížka na pozadí obsahu */
+.admin-shell.admin-console::before {
+  background-color: #efe9da;
+  background-image:
+    linear-gradient(rgba(88, 74, 48, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(88, 74, 48, 0.055) 1px, transparent 1px),
+    radial-gradient(ellipse at 80% 0%, rgba(184, 145, 77, 0.14), transparent 40%);
+  background-size: 32px 32px, 32px 32px, auto;
+}
+
+/* Typografie */
+.admin-shell.admin-console h1,
+.admin-shell.admin-console h2,
+.admin-shell.admin-console h3 {
+  font-family: var(--hud-display);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.admin-shell.admin-console .admin-eyebrow,
+.admin-shell.admin-console .admin-sidebar-label,
+.admin-shell.admin-console .admin-nav-label {
+  font-family: var(--hud-mono);
+  font-size: 0.64rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* Sidebar */
+.admin-console .admin-sidebar {
+  border-right: 1px solid rgba(184, 145, 77, 0.35);
+  background:
+    linear-gradient(rgba(216, 189, 124, 0.045) 1px, transparent 1px) 0 0 / 100% 28px,
+    linear-gradient(180deg, #1f3329 0%, #172620 100%);
+  box-shadow: none;
+}
+
+.admin-console .admin-sidebar::after {
+  width: 1px;
+  background: linear-gradient(180deg, #d8bd7c, rgba(216, 189, 124, 0.1));
+}
+
+.admin-console .admin-sidebar-brand h1 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-console .admin-sidebar-brand p {
+  font-family: var(--hud-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.22em;
+}
+
+.admin-console .admin-sidebar-brand .admin-brand-mark {
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+  box-shadow: none;
+}
+
+.admin-console .admin-sidebar-nav button {
+  position: relative;
+  min-height: 44px;
+  border-radius: 0;
+  border: 1px solid transparent;
+  counter-increment: hud-nav;
+}
+
+.admin-console .admin-sidebar-nav {
+  counter-reset: hud-nav;
+}
+
+.admin-console .admin-sidebar-nav button > span:nth-child(2) {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.admin-console .admin-sidebar-nav button:hover:not([aria-current="page"]) {
+  border-color: rgba(216, 189, 124, 0.28);
+  background: rgba(216, 189, 124, 0.07);
+}
+
+.admin-console .admin-sidebar-nav button[aria-current="page"] {
+  border-color: rgba(216, 189, 124, 0.5);
+  background: linear-gradient(90deg, rgba(178, 64, 47, 0.55), rgba(178, 64, 47, 0.08));
+  box-shadow: inset 3px 0 #e7ca83;
+}
+
+.admin-console .admin-sidebar-count {
+  border-radius: 0;
+  font-family: var(--hud-mono);
+  font-size: 0.7rem;
+}
+
+.admin-console .admin-sidebar-game {
+  border-radius: 0;
+  border-color: rgba(216, 189, 124, 0.4);
+  background:
+    linear-gradient(#e7ca83, #e7ca83) top left / 12px 1px no-repeat,
+    linear-gradient(#e7ca83, #e7ca83) top left / 1px 12px no-repeat,
+    linear-gradient(#e7ca83, #e7ca83) bottom right / 12px 1px no-repeat,
+    linear-gradient(#e7ca83, #e7ca83) bottom right / 1px 12px no-repeat,
+    rgba(10, 20, 15, 0.35);
+  background-origin: border-box;
+}
+
+.admin-console .admin-sidebar-clock,
+.admin-console .admin-team-clock,
+.admin-console .team-detail-time {
+  font-family: var(--hud-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.admin-console .admin-sidebar-clock {
+  font-size: 1.55rem;
+  font-weight: 500;
+  text-shadow: 0 0 14px rgba(245, 214, 142, 0.35);
+}
+
+.admin-console .admin-sidebar-start,
+.admin-console .admin-sidebar-restart,
+.admin-console .admin-sidebar .admin-logout {
+  border-radius: 0;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Hlavička modulu: nižší, s rohovými značkami */
+.admin-console .module-toolbar {
+  min-height: 128px;
+  border-radius: 0;
+  border: 1px solid rgba(216, 189, 124, 0.45);
+  background:
+    linear-gradient(#e7ca83, #e7ca83) top left / 22px 2px no-repeat,
+    linear-gradient(#e7ca83, #e7ca83) top left / 2px 22px no-repeat,
+    linear-gradient(#e7ca83, #e7ca83) top right / 22px 2px no-repeat,
+    linear-gradient(#e7ca83, #e7ca83) top right / 2px 22px no-repeat,
+    linear-gradient(#e7ca83, #e7ca83) bottom left / 22px 2px no-repeat,
+    linear-gradient(#e7ca83, #e7ca83) bottom left / 2px 22px no-repeat,
+    linear-gradient(#e7ca83, #e7ca83) bottom right / 22px 2px no-repeat,
+    linear-gradient(#e7ca83, #e7ca83) bottom right / 2px 22px no-repeat,
+    linear-gradient(104deg, #1f3329 2%, rgba(31, 51, 41, 0.97) 40%, rgba(31, 51, 41, 0.75));
+  background-origin: border-box;
+  box-shadow: none;
+  padding: 1.25rem 1.5rem;
+}
+
+.admin-console .module-toolbar::before {
+  display: none;
+}
+
+.admin-console .module-toolbar h2 {
+  font-size: clamp(1.7rem, 3vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.admin-console .module-toolbar .admin-eyebrow {
+  color: #e7ca83;
+}
+
+.admin-console .module-toolbar-hint {
+  font-size: 0.8rem;
+}
+
+.admin-console .module-toolbar-seal {
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  transform: translateY(-50%);
+  outline: none;
+  box-shadow: none;
+}
+
+.admin-console .module-toolbar-art-caption,
+.admin-console .admin-toolbar-status {
+  font-family: var(--hud-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.admin-console .admin-toolbar-status {
+  border-radius: 0;
+}
+
+/* Panely obsahu: tenká linka a rohové značky u hlavních sekcí */
+.admin-console .admin-content section {
+  border: 1px solid var(--hud-line);
+  border-radius: 0;
+  background: linear-gradient(180deg, #fffdf6, #f9f3e4);
+  box-shadow: none;
+}
+
+.admin-console .admin-content > section,
+.admin-console .admin-content > div > section {
+  position: relative;
+  border-color: var(--hud-gold-soft);
+  background:
+    linear-gradient(var(--hud-gold), var(--hud-gold)) top left / 16px 2px no-repeat,
+    linear-gradient(var(--hud-gold), var(--hud-gold)) top left / 2px 16px no-repeat,
+    linear-gradient(var(--hud-gold), var(--hud-gold)) top right / 16px 2px no-repeat,
+    linear-gradient(var(--hud-gold), var(--hud-gold)) top right / 2px 16px no-repeat,
+    linear-gradient(var(--hud-gold), var(--hud-gold)) bottom left / 16px 2px no-repeat,
+    linear-gradient(var(--hud-gold), var(--hud-gold)) bottom left / 2px 16px no-repeat,
+    linear-gradient(var(--hud-gold), var(--hud-gold)) bottom right / 16px 2px no-repeat,
+    linear-gradient(var(--hud-gold), var(--hud-gold)) bottom right / 2px 16px no-repeat,
+    linear-gradient(180deg, #fffdf6, #f9f3e4);
+  background-origin: border-box;
+}
+
+.admin-console .admin-content section h2,
+.admin-console .admin-content section h3 {
+  color: var(--hud-jade);
+  font-size: 0.95rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Metriky: číselné údaje v monospace */
+.admin-console .admin-metric {
+  border-radius: 0;
+  border: 1px solid var(--hud-line);
+  border-left: 3px solid var(--hud-vermilion);
+  background: #fffdf6;
+  box-shadow: none;
+}
+
+.admin-console .admin-metric strong,
+.admin-console .admin-metric b {
+  font-family: var(--hud-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.admin-console .admin-metric-icon {
+  border-radius: 0;
+}
+
+/* Týmové a ostatní karty */
+.admin-console .admin-team-card,
+.admin-console .admin-media-card {
+  border-radius: 0;
+  border: 1px solid var(--hud-line);
+  border-top: 2px solid var(--hud-gold);
+  box-shadow: none;
+}
+
+.admin-console .admin-team-card h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-console .admin-team-details summary {
+  font-family: var(--hud-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Tlačítka: seříznuté rohy, velká písmena */
+.admin-console .admin-primary-button,
+.admin-console .admin-secondary-button,
+.admin-console .admin-add-team,
+.admin-console .admin-danger-button {
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-console .admin-secondary-button {
+  border: 1px solid var(--hud-gold);
+}
+
+/* Formuláře */
+.admin-console .admin-field-label {
+  font-family: var(--hud-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.admin-console input,
+.admin-console select,
+.admin-console textarea {
+  border-radius: 0 !important;
+}
+
+/* Dialogy */
+.admin-console .admin-dialog,
+.admin-dialog {
+  border-radius: 0;
+}
+
+.admin-dialog-title {
+  font-family: var(--font-hud-display), system-ui, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-pagination {
+  font-family: var(--font-hud-mono), ui-monospace, monospace;
+  font-size: 0.72rem;
+}
