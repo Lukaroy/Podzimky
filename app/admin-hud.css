@@ -1,15 +1,10 @@
-/* HUD vrstva pro admin panel: technická typografie a layout, motiv zůstává čínský (rumělka, zlato, nefrit). */
+/* HUD vrstva pro admin panel: jen typografie a rozložení. Barvy zůstávají původní z globals.css. */
 
 .admin-shell.admin-console {
   --hud-display: var(--font-hud-display), "Chakra Petch", system-ui, sans-serif;
   --hud-mono: var(--font-hud-mono), ui-monospace, "Cascadia Mono", monospace;
-  --hud-gold: #b8914d;
-  --hud-gold-soft: rgba(184, 145, 77, 0.38);
-  --hud-line: rgba(88, 74, 48, 0.2);
-  --hud-jade: #2c4a3d;
-  --hud-vermilion: #b2402f;
+  --hud-corner: #c99a49;
   font-family: var(--hud-display);
-  background: #efe9da;
 }
 
 .admin-shell.admin-console button,
@@ -21,11 +16,10 @@
 
 /* Jemná technická mřížka na pozadí obsahu */
 .admin-shell.admin-console::before {
-  background-color: #efe9da;
   background-image:
-    linear-gradient(rgba(88, 74, 48, 0.055) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(88, 74, 48, 0.055) 1px, transparent 1px),
-    radial-gradient(ellipse at 80% 0%, rgba(184, 145, 77, 0.14), transparent 40%);
+    linear-gradient(rgba(77, 68, 50, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(77, 68, 50, 0.05) 1px, transparent 1px),
+    radial-gradient(ellipse at 72% 18%, rgba(178, 141, 78, 0.13), transparent 32%);
   background-size: 32px 32px, 32px 32px, auto;
 }
 
@@ -49,19 +43,6 @@
 }
 
 /* Sidebar */
-.admin-console .admin-sidebar {
-  border-right: 1px solid rgba(184, 145, 77, 0.35);
-  background:
-    linear-gradient(rgba(216, 189, 124, 0.045) 1px, transparent 1px) 0 0 / 100% 28px,
-    linear-gradient(180deg, #1f3329 0%, #172620 100%);
-  box-shadow: none;
-}
-
-.admin-console .admin-sidebar::after {
-  width: 1px;
-  background: linear-gradient(180deg, #d8bd7c, rgba(216, 189, 124, 0.1));
-}
-
 .admin-console .admin-sidebar-brand h1 {
   font-size: 1.15rem;
   font-weight: 700;
@@ -78,19 +59,11 @@
 .admin-console .admin-sidebar-brand .admin-brand-mark {
   border-radius: 0;
   clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
-  box-shadow: none;
 }
 
 .admin-console .admin-sidebar-nav button {
-  position: relative;
   min-height: 44px;
   border-radius: 0;
-  border: 1px solid transparent;
-  counter-increment: hud-nav;
-}
-
-.admin-console .admin-sidebar-nav {
-  counter-reset: hud-nav;
 }
 
 .admin-console .admin-sidebar-nav button > span:nth-child(2) {
@@ -98,17 +71,6 @@
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-}
-
-.admin-console .admin-sidebar-nav button:hover:not([aria-current="page"]) {
-  border-color: rgba(216, 189, 124, 0.28);
-  background: rgba(216, 189, 124, 0.07);
-}
-
-.admin-console .admin-sidebar-nav button[aria-current="page"] {
-  border-color: rgba(216, 189, 124, 0.5);
-  background: linear-gradient(90deg, rgba(178, 64, 47, 0.55), rgba(178, 64, 47, 0.08));
-  box-shadow: inset 3px 0 #e7ca83;
 }
 
 .admin-console .admin-sidebar-count {
@@ -119,14 +81,6 @@
 
 .admin-console .admin-sidebar-game {
   border-radius: 0;
-  border-color: rgba(216, 189, 124, 0.4);
-  background:
-    linear-gradient(#e7ca83, #e7ca83) top left / 12px 1px no-repeat,
-    linear-gradient(#e7ca83, #e7ca83) top left / 1px 12px no-repeat,
-    linear-gradient(#e7ca83, #e7ca83) bottom right / 12px 1px no-repeat,
-    linear-gradient(#e7ca83, #e7ca83) bottom right / 1px 12px no-repeat,
-    rgba(10, 20, 15, 0.35);
-  background-origin: border-box;
 }
 
 .admin-console .admin-sidebar-clock,
@@ -140,7 +94,6 @@
 .admin-console .admin-sidebar-clock {
   font-size: 1.55rem;
   font-weight: 500;
-  text-shadow: 0 0 14px rgba(245, 214, 142, 0.35);
 }
 
 .admin-console .admin-sidebar-start,
@@ -156,20 +109,19 @@
 .admin-console .module-toolbar {
   min-height: 128px;
   border-radius: 0;
-  border: 1px solid rgba(216, 189, 124, 0.45);
-  background:
-    linear-gradient(#e7ca83, #e7ca83) top left / 22px 2px no-repeat,
-    linear-gradient(#e7ca83, #e7ca83) top left / 2px 22px no-repeat,
-    linear-gradient(#e7ca83, #e7ca83) top right / 22px 2px no-repeat,
-    linear-gradient(#e7ca83, #e7ca83) top right / 2px 22px no-repeat,
-    linear-gradient(#e7ca83, #e7ca83) bottom left / 22px 2px no-repeat,
-    linear-gradient(#e7ca83, #e7ca83) bottom left / 2px 22px no-repeat,
-    linear-gradient(#e7ca83, #e7ca83) bottom right / 22px 2px no-repeat,
-    linear-gradient(#e7ca83, #e7ca83) bottom right / 2px 22px no-repeat,
-    linear-gradient(104deg, #1f3329 2%, rgba(31, 51, 41, 0.97) 40%, rgba(31, 51, 41, 0.75));
-  background-origin: border-box;
-  box-shadow: none;
   padding: 1.25rem 1.5rem;
+  background:
+    linear-gradient(#e5cb90, #e5cb90) top left / 22px 2px no-repeat,
+    linear-gradient(#e5cb90, #e5cb90) top left / 2px 22px no-repeat,
+    linear-gradient(#e5cb90, #e5cb90) top right / 22px 2px no-repeat,
+    linear-gradient(#e5cb90, #e5cb90) top right / 2px 22px no-repeat,
+    linear-gradient(#e5cb90, #e5cb90) bottom left / 22px 2px no-repeat,
+    linear-gradient(#e5cb90, #e5cb90) bottom left / 2px 22px no-repeat,
+    linear-gradient(#e5cb90, #e5cb90) bottom right / 22px 2px no-repeat,
+    linear-gradient(#e5cb90, #e5cb90) bottom right / 2px 22px no-repeat,
+    linear-gradient(104deg, #263b32 2%, rgba(38, 59, 50, 0.98) 34%, rgba(38, 59, 50, 0.72) 67%, rgba(35, 46, 38, 0.8)),
+    #263b32;
+  background-origin: border-box;
 }
 
 .admin-console .module-toolbar::before {
@@ -182,10 +134,6 @@
   letter-spacing: 0.06em;
   line-height: 1.05;
   text-transform: uppercase;
-}
-
-.admin-console .module-toolbar .admin-eyebrow {
-  color: #e7ca83;
 }
 
 .admin-console .module-toolbar-hint {
@@ -211,34 +159,29 @@
   border-radius: 0;
 }
 
-/* Panely obsahu: tenká linka a rohové značky u hlavních sekcí */
+/* Panely obsahu: hranaté, rohové značky u hlavních sekcí */
 .admin-console .admin-content section {
-  border: 1px solid var(--hud-line);
   border-radius: 0;
-  background: linear-gradient(180deg, #fffdf6, #f9f3e4);
   box-shadow: none;
 }
 
 .admin-console .admin-content > section,
 .admin-console .admin-content > div > section {
-  position: relative;
-  border-color: var(--hud-gold-soft);
   background:
-    linear-gradient(var(--hud-gold), var(--hud-gold)) top left / 16px 2px no-repeat,
-    linear-gradient(var(--hud-gold), var(--hud-gold)) top left / 2px 16px no-repeat,
-    linear-gradient(var(--hud-gold), var(--hud-gold)) top right / 16px 2px no-repeat,
-    linear-gradient(var(--hud-gold), var(--hud-gold)) top right / 2px 16px no-repeat,
-    linear-gradient(var(--hud-gold), var(--hud-gold)) bottom left / 16px 2px no-repeat,
-    linear-gradient(var(--hud-gold), var(--hud-gold)) bottom left / 2px 16px no-repeat,
-    linear-gradient(var(--hud-gold), var(--hud-gold)) bottom right / 16px 2px no-repeat,
-    linear-gradient(var(--hud-gold), var(--hud-gold)) bottom right / 2px 16px no-repeat,
-    linear-gradient(180deg, #fffdf6, #f9f3e4);
+    linear-gradient(var(--hud-corner), var(--hud-corner)) top left / 16px 2px no-repeat,
+    linear-gradient(var(--hud-corner), var(--hud-corner)) top left / 2px 16px no-repeat,
+    linear-gradient(var(--hud-corner), var(--hud-corner)) top right / 16px 2px no-repeat,
+    linear-gradient(var(--hud-corner), var(--hud-corner)) top right / 2px 16px no-repeat,
+    linear-gradient(var(--hud-corner), var(--hud-corner)) bottom left / 16px 2px no-repeat,
+    linear-gradient(var(--hud-corner), var(--hud-corner)) bottom left / 2px 16px no-repeat,
+    linear-gradient(var(--hud-corner), var(--hud-corner)) bottom right / 16px 2px no-repeat,
+    linear-gradient(var(--hud-corner), var(--hud-corner)) bottom right / 2px 16px no-repeat,
+    linear-gradient(135deg, rgba(255, 254, 249, 0.97), rgba(250, 246, 236, 0.97));
   background-origin: border-box;
 }
 
 .admin-console .admin-content section h2,
 .admin-console .admin-content section h3 {
-  color: var(--hud-jade);
   font-size: 0.95rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -247,9 +190,6 @@
 /* Metriky: číselné údaje v monospace */
 .admin-console .admin-metric {
   border-radius: 0;
-  border: 1px solid var(--hud-line);
-  border-left: 3px solid var(--hud-vermilion);
-  background: #fffdf6;
   box-shadow: none;
 }
 
@@ -264,12 +204,10 @@
   border-radius: 0;
 }
 
-/* Týmové a ostatní karty */
+/* Karty */
 .admin-console .admin-team-card,
 .admin-console .admin-media-card {
   border-radius: 0;
-  border: 1px solid var(--hud-line);
-  border-top: 2px solid var(--hud-gold);
   box-shadow: none;
 }
 
@@ -291,7 +229,9 @@
 .admin-console .admin-primary-button,
 .admin-console .admin-secondary-button,
 .admin-console .admin-add-team,
-.admin-console .admin-danger-button {
+.admin-console .admin-danger-button,
+.admin-dialog .admin-primary-button,
+.admin-dialog .admin-secondary-button {
   border-radius: 0;
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
   font-weight: 700;
@@ -299,13 +239,10 @@
   text-transform: uppercase;
 }
 
-.admin-console .admin-secondary-button {
-  border: 1px solid var(--hud-gold);
-}
-
 /* Formuláře */
-.admin-console .admin-field-label {
-  font-family: var(--hud-mono);
+.admin-console .admin-field-label,
+.admin-dialog .admin-field-label {
+  font-family: var(--font-hud-mono), ui-monospace, monospace;
   font-size: 0.68rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -313,13 +250,22 @@
 
 .admin-console input,
 .admin-console select,
-.admin-console textarea {
+.admin-console textarea,
+.admin-dialog input,
+.admin-dialog select,
+.admin-dialog textarea {
   border-radius: 0 !important;
 }
 
-/* Dialogy */
-.admin-console .admin-dialog,
-.admin-dialog {
+/* Dialogy a vysouvací panely */
+.admin-dialog,
+.admin-dialog.admin-dialog-drawer {
+  border-radius: 0;
+  font-family: var(--font-hud-display), system-ui, sans-serif;
+}
+
+.admin-dialog .admin-dialog-seal,
+.admin-dialog .admin-dialog-close {
   border-radius: 0;
 }
 
@@ -331,662 +277,13 @@
   text-transform: uppercase;
 }
 
+.admin-dialog .admin-stepper button,
+.admin-dialog .admin-stepper button span,
+.admin-dialog .station-qr-preview {
+  border-radius: 0;
+}
+
 .admin-pagination {
   font-family: var(--font-hud-mono), ui-monospace, monospace;
   font-size: 0.72rem;
-}
-
-/* ===== Tmavý HUD (Stark): tmavé povrchy, zlatá/nefritová záře, svítící čísla ===== */
-
-.admin-shell.admin-console {
-  --hud-bg: #070d0b;
-  --hud-panel: #0d1815;
-  --hud-panel-2: #121f1b;
-  --hud-text: #e6dcc3;
-  --hud-muted: #92a396;
-  --hud-line: rgba(231, 202, 131, 0.2);
-  --hud-gold-soft: rgba(231, 202, 131, 0.42);
-  --hud-glow: #e7ca83;
-  --hud-jade-glow: #5fe0b4;
-  background: var(--hud-bg);
-  color: var(--hud-text);
-}
-
-.admin-shell.admin-console::before {
-  background-color: var(--hud-bg);
-  background-image:
-    linear-gradient(rgba(231, 202, 131, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(231, 202, 131, 0.05) 1px, transparent 1px),
-    radial-gradient(ellipse at 78% 0%, rgba(95, 224, 180, 0.12), transparent 42%),
-    radial-gradient(ellipse at 0% 100%, rgba(178, 64, 47, 0.14), transparent 40%);
-  background-size: 40px 40px, 40px 40px, auto, auto;
-}
-
-.admin-console .admin-main {
-  color: var(--hud-text);
-}
-
-/* Povrchy a text v obsahu a v dialozích (včetně utility tříd z page.tsx) */
-.admin-console .admin-content section,
-.admin-console .admin-content > section,
-.admin-console .admin-content > div > section {
-  border-color: var(--hud-gold-soft);
-  background:
-    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 16px 2px no-repeat,
-    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 2px 16px no-repeat,
-    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 16px 2px no-repeat,
-    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 2px 16px no-repeat,
-    linear-gradient(180deg, var(--hud-panel-2), var(--hud-panel));
-  background-origin: border-box;
-  color: var(--hud-text);
-}
-
-.admin-console .admin-content section h2,
-.admin-console .admin-content section h3 {
-  color: var(--hud-glow);
-  text-shadow: 0 0 12px rgba(231, 202, 131, 0.3);
-}
-
-.admin-console .admin-content,
-.admin-dialog {
-  --hud-text: #e6dcc3;
-  --hud-muted: #92a396;
-  color: var(--hud-text);
-}
-
-:is(.admin-console .admin-content, .admin-dialog) [class*="text-[#"] {
-  color: var(--hud-text);
-}
-
-:is(.admin-console .admin-content, .admin-dialog) [class*="text-[#6"],
-:is(.admin-console .admin-content, .admin-dialog) [class*="text-[#7"] {
-  color: var(--hud-muted);
-}
-
-:is(.admin-console .admin-content, .admin-dialog) [class*="text-[#6a2b19]"],
-:is(.admin-console .admin-content, .admin-dialog) [class*="text-[#8b2d2d]"] {
-  color: #ff9d8a;
-}
-
-:is(.admin-console .admin-content, .admin-dialog) [class*="bg-white"],
-:is(.admin-console .admin-content, .admin-dialog) [class*="bg-[#f"],
-:is(.admin-console .admin-content, .admin-dialog) [class*="bg-[#e"] {
-  background-color: rgba(231, 202, 131, 0.06);
-}
-
-:is(.admin-console .admin-content, .admin-dialog) [class*="bg-[#fce7e6]"] {
-  background-color: rgba(178, 64, 47, 0.22);
-}
-
-:is(.admin-console .admin-content, .admin-dialog) [class*="border-[#"],
-:is(.admin-console .admin-content, .admin-dialog) [class*="border-dashed"] {
-  border-color: var(--hud-line);
-}
-
-/* Metriky: svítící čísla */
-.admin-console .admin-metric {
-  border-color: var(--hud-line);
-  border-left: 3px solid var(--hud-glow);
-  background: linear-gradient(90deg, rgba(231, 202, 131, 0.1), var(--hud-panel) 70%);
-  color: var(--hud-text);
-}
-
-.admin-console .admin-metric strong,
-.admin-console .admin-metric b {
-  color: var(--hud-glow);
-  text-shadow: 0 0 14px rgba(231, 202, 131, 0.45);
-}
-
-.admin-console .admin-metric span,
-.admin-console .admin-metric p {
-  color: var(--hud-muted);
-}
-
-.admin-console .admin-metric-icon {
-  background: rgba(231, 202, 131, 0.1);
-  color: var(--hud-glow);
-}
-
-/* Karty */
-.admin-console .admin-team-card,
-.admin-console .admin-media-card {
-  border-color: var(--hud-line);
-  border-top: 2px solid var(--hud-glow);
-  background: linear-gradient(180deg, var(--hud-panel-2), var(--hud-panel));
-  color: var(--hud-text);
-}
-
-.admin-console .admin-team-card h3 {
-  color: var(--hud-text);
-  text-shadow: none;
-}
-
-.admin-console .admin-team-card p,
-.admin-console .admin-team-details summary,
-.admin-console .admin-team-details summary span {
-  color: var(--hud-muted);
-}
-
-.admin-console .team-status-dot {
-  background: var(--hud-jade-glow);
-  box-shadow: 0 0 8px var(--hud-jade-glow);
-}
-
-.admin-console .team-detail-time {
-  color: var(--hud-glow);
-  text-shadow: 0 0 10px rgba(231, 202, 131, 0.35);
-}
-
-/* Tlačítka */
-.admin-console .admin-primary-button {
-  background: linear-gradient(135deg, #c24a38, #8f2f25);
-  color: #fff3d8;
-  box-shadow: 0 0 18px rgba(194, 74, 56, 0.4);
-}
-
-.admin-console .admin-secondary-button {
-  border: 1px solid var(--hud-glow);
-  background: rgba(231, 202, 131, 0.08);
-  color: var(--hud-glow);
-}
-
-.admin-console .admin-secondary-button:hover {
-  background: rgba(231, 202, 131, 0.18);
-  box-shadow: 0 0 14px rgba(231, 202, 131, 0.3);
-}
-
-.admin-console .admin-danger-button {
-  border-color: rgba(255, 157, 138, 0.5);
-  background: rgba(178, 64, 47, 0.18);
-  color: #ff9d8a;
-}
-
-/* Formuláře */
-:is(.admin-console .admin-content, .admin-dialog) input,
-:is(.admin-console .admin-content, .admin-dialog) select,
-:is(.admin-console .admin-content, .admin-dialog) textarea {
-  border: 1px solid var(--hud-gold-soft);
-  background: rgba(0, 0, 0, 0.35);
-  color: var(--hud-text);
-}
-
-:is(.admin-console .admin-content, .admin-dialog) input::placeholder,
-:is(.admin-console .admin-content, .admin-dialog) textarea::placeholder {
-  color: rgba(146, 163, 150, 0.7);
-}
-
-:is(.admin-console .admin-content, .admin-dialog) input:focus,
-:is(.admin-console .admin-content, .admin-dialog) select:focus,
-:is(.admin-console .admin-content, .admin-dialog) textarea:focus {
-  border-color: var(--hud-glow);
-  outline: none;
-  box-shadow: 0 0 0 1px var(--hud-glow), 0 0 14px rgba(231, 202, 131, 0.3);
-}
-
-:is(.admin-console .admin-content, .admin-dialog) option {
-  background: #0d1815;
-  color: #e6dcc3;
-}
-
-.admin-console .admin-field-label,
-.admin-dialog .admin-field-label {
-  color: var(--hud-muted);
-}
-
-.admin-console .admin-pagination,
-.admin-console .admin-pagination span {
-  color: var(--hud-muted);
-}
-
-.admin-console .admin-pagination button {
-  border-color: var(--hud-line);
-  background: rgba(231, 202, 131, 0.06);
-  color: var(--hud-text);
-}
-
-/* Dialogy (Radix portál mimo .admin-shell) */
-.admin-dialog-backdrop {
-  background: rgba(2, 6, 5, 0.78);
-  backdrop-filter: blur(3px);
-}
-
-.admin-dialog {
-  --hud-glow: #e7ca83;
-  --hud-gold-soft: rgba(231, 202, 131, 0.42);
-  --hud-line: rgba(231, 202, 131, 0.2);
-  border: 1px solid var(--hud-gold-soft);
-  background: linear-gradient(180deg, #121f1b, #0a1210);
-  color: #e6dcc3;
-  box-shadow: 0 0 40px rgba(231, 202, 131, 0.12), 0 24px 60px rgba(0, 0, 0, 0.6);
-  font-family: var(--font-hud-display), system-ui, sans-serif;
-}
-
-.admin-dialog-header {
-  border-bottom: 1px solid var(--hud-line);
-  background: transparent;
-}
-
-.admin-dialog-title {
-  color: var(--hud-glow);
-  text-shadow: 0 0 12px rgba(231, 202, 131, 0.3);
-}
-
-.admin-dialog-header p,
-.admin-dialog-header [id*="description"] {
-  color: #92a396;
-}
-
-.admin-dialog-close {
-  border-radius: 0;
-  color: #e6dcc3;
-}
-
-.admin-dialog-seal {
-  border-radius: 0;
-}
-
-.admin-dialog .admin-primary-button {
-  background: linear-gradient(135deg, #c24a38, #8f2f25);
-  color: #fff3d8;
-}
-
-.admin-dialog .admin-secondary-button {
-  border: 1px solid var(--hud-glow);
-  background: rgba(231, 202, 131, 0.08);
-  color: var(--hud-glow);
-}
-
-/* ===== Arc reactor paleta: černomodrá + svítivá tyrkysová, rumělka na akcích, zlato na pečetích ===== */
-
-.admin-shell.admin-console,
-.admin-dialog,
-.admin-dialog-backdrop {
-  --hud-bg: #050a12;
-  --hud-panel: #0a1524;
-  --hud-panel-2: #0f2036;
-  --hud-text: #dbeaf5;
-  --hud-muted: #7f97ad;
-  --hud-line: rgba(53, 224, 255, 0.22);
-  --hud-gold-soft: rgba(53, 224, 255, 0.45);
-  --hud-glow: #35e0ff;
-  --hud-glow-rgb: 53, 224, 255;
-  --hud-jade-glow: #3dffb0;
-  --hud-vermilion: #ff5a44;
-  --hud-seal: #e7ca83;
-}
-
-.admin-shell.admin-console {
-  background: var(--hud-bg);
-}
-
-.admin-shell.admin-console::before {
-  background-color: var(--hud-bg);
-  background-image:
-    linear-gradient(rgba(53, 224, 255, 0.055) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(53, 224, 255, 0.055) 1px, transparent 1px),
-    radial-gradient(ellipse at 80% 0%, rgba(53, 224, 255, 0.14), transparent 45%),
-    radial-gradient(ellipse at 0% 100%, rgba(255, 90, 68, 0.1), transparent 42%);
-  background-size: 40px 40px, 40px 40px, auto, auto;
-}
-
-/* Sidebar */
-.admin-console .admin-sidebar {
-  border-right: 1px solid var(--hud-line);
-  background:
-    linear-gradient(rgba(53, 224, 255, 0.04) 1px, transparent 1px) 0 0 / 100% 28px,
-    linear-gradient(180deg, #08111d 0%, #050a12 100%);
-}
-
-.admin-console .admin-sidebar::after {
-  background: linear-gradient(180deg, var(--hud-glow), rgba(53, 224, 255, 0.05));
-  box-shadow: 0 0 12px rgba(53, 224, 255, 0.6);
-}
-
-.admin-console .admin-sidebar-brand p,
-.admin-console .admin-sidebar-label,
-.admin-console .admin-sidebar-nav button svg {
-  color: var(--hud-glow);
-}
-
-.admin-console .admin-sidebar-nav button {
-  color: var(--hud-text);
-}
-
-.admin-console .admin-sidebar-nav button:hover:not([aria-current="page"]) {
-  border-color: var(--hud-line);
-  background: rgba(53, 224, 255, 0.07);
-}
-
-.admin-console .admin-sidebar-nav button[aria-current="page"] {
-  border-color: rgba(53, 224, 255, 0.55);
-  background: linear-gradient(90deg, rgba(53, 224, 255, 0.22), rgba(53, 224, 255, 0.02));
-  box-shadow: inset 3px 0 var(--hud-glow), 0 0 16px rgba(53, 224, 255, 0.15);
-}
-
-.admin-console .admin-sidebar-count {
-  border-color: var(--hud-line);
-  background: rgba(53, 224, 255, 0.1);
-  color: var(--hud-glow);
-}
-
-.admin-console .admin-sidebar-game {
-  border-color: var(--hud-line);
-  background:
-    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 12px 1px no-repeat,
-    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 1px 12px no-repeat,
-    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 12px 1px no-repeat,
-    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 1px 12px no-repeat,
-    rgba(53, 224, 255, 0.04);
-  background-origin: border-box;
-}
-
-.admin-console .admin-sidebar-clock {
-  color: var(--hud-glow);
-  text-shadow: 0 0 16px rgba(53, 224, 255, 0.6);
-}
-
-.admin-console .admin-sidebar-game-heading > span {
-  background: var(--hud-vermilion);
-}
-
-/* Hlavička modulu */
-.admin-console .module-toolbar {
-  border-color: var(--hud-line);
-  background:
-    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 22px 2px no-repeat,
-    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 2px 22px no-repeat,
-    linear-gradient(var(--hud-glow), var(--hud-glow)) top right / 22px 2px no-repeat,
-    linear-gradient(var(--hud-glow), var(--hud-glow)) top right / 2px 22px no-repeat,
-    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom left / 22px 2px no-repeat,
-    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom left / 2px 22px no-repeat,
-    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 22px 2px no-repeat,
-    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 2px 22px no-repeat,
-    linear-gradient(104deg, #08111d 2%, rgba(8, 17, 29, 0.96) 42%, rgba(8, 17, 29, 0.7));
-  background-origin: border-box;
-}
-
-.admin-console .module-toolbar-art::before {
-  background:
-    linear-gradient(90deg, #08111d 0%, rgba(8, 17, 29, 0.8) 20%, rgba(8, 17, 29, 0.1) 75%),
-    linear-gradient(0deg, rgba(5, 10, 18, 0.4), transparent 50%);
-}
-
-.admin-console .module-toolbar-image {
-  opacity: 0.5;
-  filter: saturate(0.4) hue-rotate(150deg) contrast(1.1);
-}
-
-.admin-console .module-toolbar h2 {
-  color: #fff;
-  text-shadow: 0 0 22px rgba(53, 224, 255, 0.45);
-}
-
-.admin-console .module-toolbar .admin-eyebrow {
-  color: var(--hud-glow);
-}
-
-.admin-console .module-toolbar .admin-eyebrow::before {
-  background: var(--hud-glow);
-}
-
-.admin-console .module-toolbar-hint {
-  color: var(--hud-muted);
-}
-
-.admin-console .module-toolbar-seal {
-  border-color: var(--hud-seal);
-  background: rgba(255, 90, 68, 0.78);
-  color: #fff3d8;
-}
-
-.admin-console .admin-toolbar-status {
-  border-color: var(--hud-line);
-  background: rgba(5, 10, 18, 0.8);
-  color: var(--hud-text);
-}
-
-.admin-console .admin-toolbar-status > span {
-  background: var(--hud-vermilion);
-}
-
-.admin-console .admin-toolbar-status-running > span {
-  background: var(--hud-jade-glow);
-  box-shadow: 0 0 10px var(--hud-jade-glow);
-}
-
-/* Panely, karty, metriky */
-.admin-console .admin-content section,
-.admin-console .admin-content > section,
-.admin-console .admin-content > div > section {
-  border-color: var(--hud-gold-soft);
-  background:
-    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 16px 2px no-repeat,
-    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 2px 16px no-repeat,
-    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 16px 2px no-repeat,
-    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 2px 16px no-repeat,
-    linear-gradient(180deg, var(--hud-panel-2), var(--hud-panel));
-  background-origin: border-box;
-}
-
-.admin-console .admin-content section h2,
-.admin-console .admin-content section h3 {
-  color: var(--hud-glow);
-  text-shadow: 0 0 12px rgba(53, 224, 255, 0.35);
-}
-
-.admin-console .admin-metric {
-  border-color: var(--hud-line);
-  border-left: 3px solid var(--hud-glow);
-  background: linear-gradient(90deg, rgba(53, 224, 255, 0.12), var(--hud-panel) 70%);
-}
-
-.admin-console .admin-metric strong,
-.admin-console .admin-metric b {
-  color: var(--hud-glow);
-  text-shadow: 0 0 14px rgba(53, 224, 255, 0.55);
-}
-
-.admin-console .admin-metric-icon {
-  background: rgba(53, 224, 255, 0.1);
-  color: var(--hud-glow);
-}
-
-.admin-console .admin-team-card,
-.admin-console .admin-media-card {
-  border-color: var(--hud-line);
-  border-top: 2px solid var(--hud-glow);
-  background: linear-gradient(180deg, var(--hud-panel-2), var(--hud-panel));
-}
-
-.admin-console .admin-team-card:hover,
-.admin-console .admin-media-card:hover {
-  box-shadow: 0 0 20px rgba(53, 224, 255, 0.18);
-}
-
-.admin-console .team-detail-time {
-  color: var(--hud-glow);
-  text-shadow: 0 0 10px rgba(53, 224, 255, 0.4);
-}
-
-.admin-console .team-status-dot {
-  background: var(--hud-jade-glow);
-  box-shadow: 0 0 8px var(--hud-jade-glow);
-}
-
-:is(.admin-console .admin-content, .admin-dialog) [class*="bg-white"],
-:is(.admin-console .admin-content, .admin-dialog) [class*="bg-[#f"],
-:is(.admin-console .admin-content, .admin-dialog) [class*="bg-[#e"] {
-  background-color: rgba(53, 224, 255, 0.06);
-}
-
-/* Tlačítka */
-.admin-console .admin-primary-button,
-.admin-dialog .admin-primary-button {
-  background: linear-gradient(135deg, #ff5a44, #c23422);
-  color: #fff;
-  box-shadow: 0 0 18px rgba(255, 90, 68, 0.4);
-}
-
-.admin-console .admin-secondary-button,
-.admin-dialog .admin-secondary-button {
-  border: 1px solid var(--hud-glow);
-  background: rgba(53, 224, 255, 0.08);
-  color: var(--hud-glow);
-}
-
-.admin-console .admin-secondary-button:hover,
-.admin-dialog .admin-secondary-button:hover {
-  background: rgba(53, 224, 255, 0.18);
-  box-shadow: 0 0 14px rgba(53, 224, 255, 0.35);
-}
-
-/* Formuláře */
-:is(.admin-console .admin-content, .admin-dialog) input,
-:is(.admin-console .admin-content, .admin-dialog) select,
-:is(.admin-console .admin-content, .admin-dialog) textarea {
-  border: 1px solid var(--hud-gold-soft);
-  background: rgba(0, 0, 0, 0.4);
-  color: var(--hud-text);
-}
-
-:is(.admin-console .admin-content, .admin-dialog) input:focus,
-:is(.admin-console .admin-content, .admin-dialog) select:focus,
-:is(.admin-console .admin-content, .admin-dialog) textarea:focus {
-  border-color: var(--hud-glow);
-  box-shadow: 0 0 0 1px var(--hud-glow), 0 0 14px rgba(53, 224, 255, 0.35);
-}
-
-:is(.admin-console .admin-content, .admin-dialog) option {
-  background: #0a1524;
-  color: #dbeaf5;
-}
-
-.admin-console .admin-content input:focus-visible,
-.admin-console .admin-content textarea:focus-visible,
-.admin-console .admin-content select:focus-visible,
-.admin-console .admin-content button:focus-visible,
-.admin-dialog button:focus-visible {
-  outline: 2px solid var(--hud-glow);
-  outline-offset: 2px;
-}
-
-/* ===== Dialogy a vysouvací panely ===== */
-
-.admin-dialog-backdrop {
-  background: rgba(2, 5, 10, 0.8);
-  backdrop-filter: blur(4px);
-}
-
-.admin-dialog {
-  border: 1px solid var(--hud-gold-soft);
-  border-radius: 0;
-  background:
-    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 20px 2px no-repeat,
-    linear-gradient(var(--hud-glow), var(--hud-glow)) top left / 2px 20px no-repeat,
-    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 20px 2px no-repeat,
-    linear-gradient(var(--hud-glow), var(--hud-glow)) bottom right / 2px 20px no-repeat,
-    linear-gradient(180deg, #0f2036, #08111d);
-  background-origin: border-box;
-  box-shadow: 0 0 40px rgba(53, 224, 255, 0.14), 0 24px 60px rgba(0, 0, 0, 0.7);
-  color: var(--hud-text);
-}
-
-.admin-dialog.admin-dialog-drawer {
-  border-radius: 0;
-  border-width: 0 0 0 1px;
-  box-shadow: -10px 0 50px rgba(53, 224, 255, 0.12), -24px 0 60px rgba(0, 0, 0, 0.6);
-}
-
-.admin-dialog .admin-dialog-header {
-  border-bottom: 1px solid var(--hud-line);
-  background: linear-gradient(110deg, rgba(53, 224, 255, 0.1), transparent 70%);
-}
-
-.admin-dialog .admin-dialog-header p,
-.admin-dialog .admin-dialog-header p:last-child {
-  color: var(--hud-muted);
-  font-size: 0.8rem;
-}
-
-.admin-dialog .admin-dialog-header .admin-eyebrow {
-  color: var(--hud-glow);
-}
-
-.admin-dialog .admin-dialog-title {
-  color: #fff;
-  text-shadow: 0 0 16px rgba(53, 224, 255, 0.4);
-}
-
-.admin-dialog .admin-dialog-seal {
-  border-color: var(--hud-seal);
-  border-radius: 0;
-  background: rgba(255, 90, 68, 0.8);
-  color: #fff3d8;
-  box-shadow: none;
-}
-
-.admin-dialog .admin-dialog-close {
-  border: 1px solid var(--hud-line);
-  background: transparent;
-  color: var(--hud-text);
-}
-
-.admin-dialog .admin-dialog-close:hover {
-  border-color: var(--hud-glow);
-  color: var(--hud-glow);
-}
-
-.admin-dialog .admin-dialog-body {
-  color: var(--hud-text);
-}
-
-.admin-dialog .admin-dialog-actions {
-  border-top: 1px solid var(--hud-line);
-  background: #08111d;
-}
-
-.admin-dialog .admin-field-label {
-  color: var(--hud-muted);
-}
-
-.admin-dialog .admin-stepper button {
-  border-color: var(--hud-line);
-  border-radius: 0;
-  background: rgba(53, 224, 255, 0.04);
-  color: var(--hud-muted);
-}
-
-.admin-dialog .admin-stepper button[aria-current="step"] {
-  border-color: var(--hud-glow);
-  background: rgba(53, 224, 255, 0.14);
-  color: var(--hud-glow);
-}
-
-.admin-dialog .admin-stepper button span {
-  border-radius: 0;
-  background: rgba(53, 224, 255, 0.1);
-  color: inherit;
-}
-
-.admin-dialog .admin-stepper button[aria-current="step"] span {
-  background: var(--hud-glow);
-  color: #04101a;
-}
-
-.admin-dialog .station-qr-preview {
-  border-color: var(--hud-line);
-  border-left: 3px solid var(--hud-glow);
-  border-radius: 0;
-  background: rgba(53, 224, 255, 0.05);
-}
-
-.admin-dialog .admin-flash-team-picker {
-  border-color: var(--hud-line);
-  background: rgba(0, 0, 0, 0.25);
-}
-
-.admin-dialog h2,
-.admin-dialog h3,
-.admin-dialog h4 {
-  color: var(--hud-text);
 }
