@@ -674,6 +674,7 @@
     z-index: 61;
     width: auto;
     height: 30px;
+    min-height: 30px;
     margin: 0;
     padding: 0 0.7rem;
     border-radius: 8px;
@@ -748,6 +749,18 @@
     display: none;
   }
 
+  .admin-console .module-toolbar h2 {
+    color: #23301f;
+  }
+
+  .admin-console .module-toolbar-hint {
+    color: #5f5340;
+  }
+
+  .admin-console .module-toolbar-seal {
+    color: #8a3a2c;
+  }
+
   .admin-console .module-toolbar-copy {
     display: flex;
     align-items: baseline;
@@ -790,8 +803,23 @@
     overflow-x: hidden;
     overflow-y: auto;
     border-radius: 12px;
+    background:
+      radial-gradient(ellipse at 12% 0%, rgba(195, 155, 86, 0.22), transparent 45%),
+      linear-gradient(168deg, #263b32 0%, #1a2925 100%);
+    color: #f1e6c8;
     box-shadow: 0 18px 40px rgba(20, 30, 24, 0.28);
     scrollbar-width: none;
+  }
+
+  .admin-console .admin-sidebar-game-heading p,
+  .admin-console .admin-sidebar-game-note,
+  .admin-console .admin-sidebar-summary,
+  .admin-console .admin-sidebar-event {
+    color: #c9d3c3;
+  }
+
+  .admin-console .admin-sidebar-game-heading h2 {
+    color: #fff3d8;
   }
 
   /* Dok */
