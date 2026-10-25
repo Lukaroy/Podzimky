@@ -748,7 +748,7 @@
   }
 
   /* Hlášky o ukládání jako plovoucí oznámení */
-  .admin-console .admin-main > div:not(.ops-bar):not(.admin-workspace) {
+  .admin-console .admin-main > div:not(.ops-bar):not(.admin-workspace):not(.os-palette-backdrop) {
     position: fixed;
     bottom: 108px;
     left: 50%;
@@ -1297,5 +1297,253 @@
 
   .admin-console .ops-bar-right {
     padding-right: 12.5rem;
+  }
+}
+
+/* ===== Plovoucí okna modulů + zástupci na ploše ===== */
+.os-win-bar,
+.os-desktop-icons,
+.os-desktop-hint {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .admin-console .admin-workspace {
+    overflow: hidden;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .admin-console .admin-workspace > .admin-content {
+    position: static;
+    display: block;
+    padding: 0;
+  }
+
+  .admin-console .module-toolbar {
+    display: none;
+  }
+
+  .os-win {
+    position: absolute;
+    top: var(--win-y);
+    left: var(--win-x);
+    z-index: var(--win-z);
+    display: flex;
+    width: var(--win-w);
+    height: var(--win-h);
+    min-width: 360px;
+    min-height: 220px;
+    max-width: 100%;
+    max-height: 100%;
+    flex-direction: column;
+    margin: 0 !important;
+    overflow: hidden;
+    resize: both;
+    border: 1px solid #b9a578;
+    border-radius: 10px;
+    background: #fbf6ea;
+    box-shadow: 0 6px 18px rgba(30, 24, 12, 0.18);
+    animation: os-win-in 180ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  }
+
+  @keyframes os-win-in {
+    from { opacity: 0; scale: 0.95; }
+    to { opacity: 1; scale: 1; }
+  }
+
+  .os-win.is-active {
+    border-color: #8d7a4a;
+    box-shadow: 0 22px 55px rgba(20, 30, 24, 0.42), 0 2px 0 rgba(255, 255, 255, 0.5) inset;
+  }
+
+  .os-win.is-min {
+    display: none;
+  }
+
+  .os-win.is-max {
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    resize: none;
+    border-radius: 0;
+  }
+
+  .os-win-bar {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 12px;
+    border-bottom: 1px solid #cdbb96;
+    background: linear-gradient(#ece1c6, #e0d2ae);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .os-win-bar:active {
+    cursor: grabbing;
+  }
+
+  .os-win:not(.is-active) .os-win-bar {
+    background: #e9dfc6;
+  }
+
+  .os-win.is-active .os-win-bar {
+    background: linear-gradient(#f3ead4, #e8dab8);
+  }
+
+  .os-dot {
+    width: 12px;
+    height: 12px;
+    flex: 0 0 auto;
+    padding: 0;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    background: #c9bfa6;
+    cursor: pointer;
+  }
+
+  .os-win.is-active .os-dot-close { background: #d9573f; }
+  .os-win.is-active .os-dot-min { background: #e0a93d; }
+  .os-win.is-active .os-dot-max { background: #6ba877; }
+  .os-dot:hover { filter: brightness(1.12); box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08); }
+
+  .os-win-name {
+    flex: 1;
+    overflow: hidden;
+    padding-right: 52px;
+    color: #6a5a3c;
+    font-family: var(--hud-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .os-win-body {
+    min-height: 0;
+    flex: 1;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 1rem 1.2rem 1.4rem;
+    scrollbar-width: thin;
+    scrollbar-color: #c9b88f transparent;
+  }
+
+  .os-win-body > * + * {
+    margin-top: 1rem;
+  }
+
+  /* Zástupci na ploše */
+  .os-desktop-icons {
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    left: 6px;
+    z-index: 1;
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(auto-fill, 92px);
+    align-content: start;
+    gap: 4px;
+  }
+
+  .os-desktop-icons button {
+    display: flex;
+    width: 88px;
+    height: 88px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: #3d3322;
+    font-family: var(--hud-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .os-desktop-icons button:hover,
+  .os-desktop-icons button:focus-visible {
+    border-color: rgba(138, 106, 54, 0.4);
+    background: rgba(251, 246, 234, 0.55);
+    outline: none;
+  }
+
+  .os-icon-tile {
+    position: relative;
+    display: grid;
+    width: 46px;
+    height: 46px;
+    place-items: center;
+    border: 1px solid #b9a578;
+    border-radius: 12px;
+    background: linear-gradient(#fbf6ea, #eadfc3);
+    color: #263b32;
+    box-shadow: 0 3px 8px rgba(40, 32, 18, 0.18);
+  }
+
+  .os-icon-tile svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .os-icon-tile b {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: #c8452f;
+    color: #fff;
+    font-size: 0.6rem;
+    line-height: 18px;
+    text-align: center;
+  }
+
+  .os-desktop-hint {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    margin: 0;
+    color: rgba(61, 51, 34, 0.55);
+    font-family: var(--hud-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    pointer-events: none;
+  }
+
+  .os-desktop-hint span {
+    font-size: 4rem;
+    line-height: 1;
+    opacity: 0.35;
+  }
+
+  .admin-console .admin-sidebar-nav button[data-open="true"]:not([aria-current="page"])::after {
+    position: absolute;
+    bottom: -7px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgba(229, 203, 144, 0.6);
+    content: "";
   }
 }

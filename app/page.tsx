@@ -33,7 +33,7 @@ import {
   Zap,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { type PointerEvent as ReactPointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { getFirebaseAuth } from "@/lib/firebase-client";
 import { SupportChat } from "@/app/SupportChat";
@@ -50,6 +50,25 @@ type StationType =
 type SubmissionStatus = "pending" | "approved" | "rejected";
 type Screen = "team-login" | "admin-login" | "team-dashboard" | "admin-panel";
 type AuthVisualMode = "sunset" | "interior" | "lanterns";
+type AdminTab = "teams" | "stations" | "submissions" | "media" | "flash" | "managers" | "live" | "support";
+
+const ADMIN_TAB_TITLES: Record<AdminTab, string> = {
+  teams: "Týmy",
+  stations: "Stanoviště",
+  submissions: "Schvalování",
+  media: "Galerie",
+  flash: "Přepady",
+  managers: "Správci",
+  live: "Živý přehled",
+  support: "Podpora",
+};
+
+// Sleduje, zda je okno dost široké pro režim plochy s plovoucími okny.
+function subscribeDesktop(callback: () => void) {
+  const query = window.matchMedia("(min-width: 900px)");
+  query.addEventListener("change", callback);
+  return () => query.removeEventListener("change", callback);
+}
 
 type TeamQrCard = {
   id: string;
@@ -447,6 +466,67 @@ function ElapsedClock({ startedAt, stoppedAt, pausedMs = 0, className = "" }: { 
   return <span className={className}><Clock aria-hidden="true" size={13} /> {formatElapsedTime(startedAt, now, stoppedAt, pausedMs)}{stoppedAt ? " ⏸" : ""}</span>;
 }
 
+// Plovoucí okno modulu na ploše: přesouvá se za titulek, mění velikost a jde minimalizovat.
+function OsWindow({ id, title, z, active, slot, minimized, onFocus, onClose, onMinimize, children }: {
+  id: string; title: string; z: number; active: boolean; slot: number; minimized: boolean;
+  onFocus: () => void; onClose: () => void; onMinimize: () => void; children: ReactNode;
+}) {
+  const [maxed, setMaxed] = useState(false);
+  const [geo, setGeo] = useState(() => {
+    const areaW = typeof window === "undefined" ? 1000 : Math.max(window.innerWidth - 330, 520);
+    const areaH = typeof window === "undefined" ? 640 : Math.max(window.innerHeight - 170, 380);
+    const first = slot === 0;
+    return {
+      x: 110 + (slot % 5) * 40,
+      y: 12 + (slot % 5) * 34,
+      w: Math.min(first ? areaW - 130 : areaW * 0.7, 1200),
+      h: Math.min(first ? areaH - 24 : areaH * 0.8, 900),
+    };
+  });
+  const drag = useRef<{ px: number; py: number; x: number; y: number } | null>(null);
+
+  const startDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest("button") || maxed) return;
+    drag.current = { px: event.clientX, py: event.clientY, x: geo.x, y: geo.y };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const moveDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const start = drag.current;
+    if (!start) return;
+    const area = event.currentTarget.closest(".os-win")?.parentElement;
+    const maxX = (area?.clientWidth ?? 1000) - 90;
+    const maxY = (area?.clientHeight ?? 600) - 34;
+    setGeo((current) => ({
+      ...current,
+      x: Math.min(Math.max(start.x + event.clientX - start.px, 90 - current.w), maxX),
+      y: Math.min(Math.max(start.y + event.clientY - start.py, 0), maxY),
+    }));
+  };
+
+  return (
+    <div
+      className={classNames("os-win", active && "is-active", maxed && "is-max", minimized && "is-min")}
+      style={{ "--win-x": `${geo.x}px`, "--win-y": `${geo.y}px`, "--win-w": `${geo.w}px`, "--win-h": `${geo.h}px`, "--win-z": z } as CSSProperties}
+      onPointerDown={onFocus}
+    >
+      <div
+        className="os-win-bar"
+        onPointerDown={startDrag}
+        onPointerMove={moveDrag}
+        onPointerUp={() => { drag.current = null; }}
+        onPointerCancel={() => { drag.current = null; }}
+        onDoubleClick={() => setMaxed((value) => !value)}
+      >
+        <button type="button" className="os-dot os-dot-close" aria-label={`Zavřít ${title}`} onClick={onClose} />
+        <button type="button" className="os-dot os-dot-min" aria-label={`Minimalizovat ${title}`} onClick={onMinimize} />
+        <button type="button" className="os-dot os-dot-max" aria-label={`Maximalizovat ${title}`} onClick={() => setMaxed((value) => !value)} />
+        <span className="os-win-name">podzimky://{id}</span>
+      </div>
+      <div className="os-win-body">{children}</div>
+    </div>
+  );
+}
+
 // Příkazová paleta: filtrovatelný seznam akcí ovládaný klávesnicí.
 function CommandPalette({ items, onClose }: { items: { id: string; label: string; hint: string; run: () => void }[]; onClose: () => void }) {
   const [query, setQuery] = useState("");
@@ -818,7 +898,48 @@ export default function Page() {
     type: "photo" as "photo" | "video",
   });
   const [teamAmbushBusy, setTeamAmbushBusy] = useState(false);
-  const [adminTab, setAdminTab] = useState<"teams" | "stations" | "submissions" | "media" | "flash" | "managers" | "live" | "support">("teams");
+  const [adminTab, setAdminTabState] = useState<AdminTab>("teams");
+  const [openTabs, setOpenTabs] = useState<AdminTab[]>(["teams"]);
+  const [minTabs, setMinTabs] = useState<AdminTab[]>([]);
+  const isDesktop = useSyncExternalStore(
+    subscribeDesktop,
+    () => window.matchMedia("(min-width: 900px)").matches,
+    () => false,
+  );
+  // Zaostří okno modulu: otevře ho, vynese nahoru a vrátí z minimalizace.
+  const setAdminTab = useCallback((tab: AdminTab) => {
+    setAdminTabState(tab);
+    setOpenTabs((tabs) => [...tabs.filter((item) => item !== tab), tab]);
+    setMinTabs((tabs) => tabs.filter((item) => item !== tab));
+  }, []);
+  const closeTab = (tab: AdminTab) => {
+    const remaining = openTabs.filter((item) => item !== tab);
+    setOpenTabs(remaining);
+    setMinTabs((tabs) => tabs.filter((item) => item !== tab));
+    if (adminTab === tab) {
+      const next = [...remaining].reverse().find((item) => !minTabs.includes(item));
+      if (next) setAdminTabState(next);
+    }
+  };
+  const minimizeTab = (tab: AdminTab) => {
+    setMinTabs((tabs) => (tabs.includes(tab) ? tabs : [...tabs, tab]));
+    if (adminTab === tab) {
+      const next = [...openTabs].reverse().find((item) => item !== tab && !minTabs.includes(item));
+      if (next) setAdminTabState(next);
+    }
+  };
+  const isTabOpen = (tab: AdminTab) => (isDesktop ? openTabs.includes(tab) : adminTab === tab);
+  const winProps = (tab: AdminTab) => ({
+    id: tab,
+    title: ADMIN_TAB_TITLES[tab],
+    z: openTabs.indexOf(tab) + 10,
+    active: adminTab === tab,
+    slot: Math.max(0, openTabs.indexOf(tab)),
+    minimized: minTabs.includes(tab),
+    onFocus: () => { if (adminTab !== tab) setAdminTab(tab); },
+    onClose: () => closeTab(tab),
+    onMinimize: () => minimizeTab(tab),
+  });
   const [paletteOpen, setPaletteOpen] = useState(false);
   useEffect(() => {
     // Ctrl/⌘+K otevře příkazovou paletu jako Spotlight.
@@ -916,7 +1037,7 @@ export default function Page() {
     return () => {
       isMounted = false;
     };
-  }, [loadTeamQrCards]);
+  }, [loadTeamQrCards, setAdminTab]);
 
   useEffect(() => {
     if (
@@ -1208,7 +1329,7 @@ export default function Page() {
     setSelectedStationId(
       state.stations.find((station) => station.order === getNextOrder(team, state.stations))?.id ?? null,
     );
-  }, [loadTeamQrCards]);
+  }, [loadTeamQrCards, setAdminTab]);
 
   // Ověří přihlašovací údaje týmu a zahájí vytvoření serverové relace.
   const handleTeamLogin = async () => {
@@ -3247,9 +3368,14 @@ export default function Page() {
                 <button
                   key={item.tab}
                   type="button"
-                  aria-current={adminTab === item.tab ? "page" : undefined}
+                  aria-current={adminTab === item.tab && isTabOpen(item.tab) ? "page" : undefined}
+                  data-open={isDesktop && openTabs.includes(item.tab) ? "true" : undefined}
                   onClick={() => {
                     setError("");
+                    if (isDesktop && adminTab === item.tab && openTabs.includes(item.tab) && !minTabs.includes(item.tab)) {
+                      minimizeTab(item.tab);
+                      return;
+                    }
                     setAdminTab(item.tab);
                     if (item.tab === "managers") void loadManagers();
                     if (item.tab === "teams") void loadTeamQrCards();
@@ -3418,6 +3544,36 @@ export default function Page() {
           )}
 
           <div className="admin-workspace admin-workspace-module">
+            {isDesktop && (
+              <div className="os-desktop-icons" aria-label="Zástupci na ploše">
+                {([
+                  { tab: "teams" as const, icon: "teams" as const, count: gameState.teams.length },
+                  { tab: "stations" as const, icon: "stations" as const, count: gameState.stations.length },
+                  { tab: "flash" as const, icon: "flash" as const, count: gameState.flashMissions.filter((mission) => !mission.archivedAt).length },
+                  { tab: "submissions" as const, icon: "review" as const, count: pendingSubmissions.length },
+                  { tab: "support" as const, icon: "support" as const, count: 0 },
+                  ...(isOwnerAdmin ? [
+                    { tab: "media" as const, icon: "media" as const, count: mediaSubmissions.length },
+                    { tab: "live" as const, icon: "live" as const, count: gameState.teams.length },
+                  ] : []),
+                ]).map((item) => (
+                  <button
+                    key={item.tab}
+                    type="button"
+                    onClick={() => { setError(""); setAdminTab(item.tab); if (item.tab === "teams") void loadTeamQrCards(); }}
+                  >
+                    <span className="os-icon-tile">
+                      <AdminIcon name={item.icon} />
+                      {item.tab === "submissions" && item.count > 0 && <b>{item.count}</b>}
+                    </span>
+                    <span>{ADMIN_TAB_TITLES[item.tab]}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {isDesktop && openTabs.every((tab) => minTabs.includes(tab)) && (
+              <p className="os-desktop-hint"><span aria-hidden="true">印</span>Otevři modul z doku nebo zmáčkni Ctrl+K</p>
+            )}
             <div className="admin-content min-w-0 space-y-4">
               <header className="module-toolbar">
                 <div className="module-toolbar-copy">
@@ -3447,9 +3603,10 @@ export default function Page() {
                 </span>}
               </header>
 
-          {adminTab === "support" && <SupportChat role="admin" />}
+          {isTabOpen("support") && <OsWindow {...winProps("support")}><SupportChat role="admin" /></OsWindow>}
 
-          {adminTab === "live" && isOwnerAdmin && (
+          {isTabOpen("live") && isOwnerAdmin && (
+            <OsWindow {...winProps("live")}>
             <div className="space-y-4">
               <section className="rounded-2xl border border-[#e3d9c9] bg-[#fffdfa] p-5 shadow-[0_8px_22px_rgba(25,19,12,0.05)]">
                 <div className="mb-4">
@@ -3631,9 +3788,11 @@ export default function Page() {
               </section>
               {error && <p role="alert" className="rounded-xl bg-[#fce7e6] p-3 text-sm font-semibold text-[#8b2d2d]">{error}</p>}
             </div>
+            </OsWindow>
           )}
 
-          {adminTab === "teams" && (
+          {isTabOpen("teams") && (
+            <OsWindow {...winProps("teams")}>
             <>
             <section className="rounded-2xl border border-[#e3d9c9] bg-[#fffdfa] p-5 shadow-[0_8px_22px_rgba(25,19,12,0.05)]">
               <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
@@ -3905,9 +4064,11 @@ export default function Page() {
               </AdminDialog>
             )}
             </>
+            </OsWindow>
           )}
 
-          {adminTab === "stations" && (
+          {isTabOpen("stations") && (
+            <OsWindow {...winProps("stations")}>
             <>
             <section className="rounded-[24px] bg-[#fffdfa] p-3 shadow-[0_12px_30px_rgba(20,16,14,0.08)]">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3 px-1">
@@ -4379,9 +4540,11 @@ export default function Page() {
               </AdminDialog>
             )}
             </>
+            </OsWindow>
           )}
 
-          {adminTab === "submissions" && (
+          {isTabOpen("submissions") && (
+            <OsWindow {...winProps("submissions")}>
             <section className="rounded-[24px] bg-[#fffdfa] p-4 shadow-[0_12px_30px_rgba(20,16,14,0.08)]">
               <h2 className="mb-4 text-xl font-black text-[#201c19]">Schvalování</h2>
               {error && <p role="alert" className="mb-3 rounded-xl bg-[#fce7e6] px-3 py-2 text-sm text-[#8b2d2d]">{error}</p>}
@@ -4436,9 +4599,11 @@ export default function Page() {
                 )}
               </div>
             </section>
+            </OsWindow>
           )}
 
-          {adminTab === "media" && isOwnerAdmin && (
+          {isTabOpen("media") && isOwnerAdmin && (
+            <OsWindow {...winProps("media")}>
             <section className="rounded-[24px] bg-[#fffdfa] p-4 shadow-[0_12px_30px_rgba(20,16,14,0.08)]">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
@@ -4623,9 +4788,11 @@ export default function Page() {
                 );
               })()}
             </section>
+            </OsWindow>
           )}
 
-          {adminTab === "managers" && isOwnerAdmin && (
+          {isTabOpen("managers") && isOwnerAdmin && (
+            <OsWindow {...winProps("managers")}>
             <section className="rounded-[24px] bg-[#fffdfa] p-4 shadow-[0_12px_30px_rgba(20,16,14,0.08)]">
               <h2 className="text-xl font-black text-[#201c19]">Správci</h2>
               <p className="mt-1 text-sm text-[#675d53]">
@@ -4681,9 +4848,11 @@ export default function Page() {
                 ))}
               </div>
             </section>
+            </OsWindow>
           )}
 
-          {adminTab === "flash" && (
+          {isTabOpen("flash") && (
+            <OsWindow {...winProps("flash")}>
             <section className="rounded-[24px] bg-[#fffdfa] p-4 shadow-[0_12px_30px_rgba(20,16,14,0.08)]">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -4870,6 +5039,7 @@ export default function Page() {
                 </div>
               </details>
             </section>
+            </OsWindow>
           )}
             </div>
           </div>
