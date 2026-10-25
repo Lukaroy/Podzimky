@@ -1836,7 +1836,7 @@
     box-shadow: 0 18px 44px rgba(10, 18, 14, 0.4);
     backdrop-filter: blur(10px);
     color: #23301f;
-    font-family: var(--hud-display);
+    font-family: var(--font-hud-display), system-ui, sans-serif;
     animation: os-win-in 120ms ease-out;
   }
 
@@ -1844,7 +1844,7 @@
     margin: 0;
     padding: 0.35rem 0.6rem 0.4rem;
     color: #7a6c52;
-    font-family: var(--hud-mono);
+    font-family: var(--font-hud-mono), ui-monospace, monospace;
     font-size: 0.6rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -1895,5 +1895,46 @@
   .os-win,
   .os-win.is-closing {
     animation-duration: 1ms;
+  }
+}
+
+/* Widget času: tlačítka pod sebou, aby se nic neořezávalo */
+@media (min-width: 900px) {
+  .admin-console .admin-sidebar-game {
+    display: flex;
+    width: 244px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    box-sizing: border-box;
+  }
+
+  .admin-console .admin-sidebar-game-heading {
+    margin-bottom: 0.1rem;
+  }
+
+  .admin-console .admin-sidebar-clock {
+    display: block;
+    width: 100%;
+    margin: 0;
+    font-size: 2rem;
+    line-height: 1.1;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .admin-console .admin-sidebar-game-note {
+    margin: 0 0 0.25rem;
+  }
+
+  .admin-console .admin-sidebar-start,
+  .admin-console .admin-sidebar-restart {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    box-sizing: border-box;
+    white-space: nowrap;
   }
 }

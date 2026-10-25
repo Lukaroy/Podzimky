@@ -33,6 +33,7 @@ import {
   Zap,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { createPortal } from "react-dom";
 import { type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { getFirebaseAuth } from "@/lib/firebase-client";
@@ -955,7 +956,7 @@ export default function Page() {
   });
   const [teamAmbushBusy, setTeamAmbushBusy] = useState(false);
   const [adminTab, setAdminTabState] = useState<AdminTab>("teams");
-  const [openTabs, setOpenTabs] = useState<AdminTab[]>(["teams"]);
+  const [openTabs, setOpenTabs] = useState<AdminTab[]>([]);
   const [minTabs, setMinTabs] = useState<AdminTab[]>([]);
   const isDesktop = useSyncExternalStore(
     subscribeDesktop,
@@ -1070,7 +1071,9 @@ export default function Page() {
             const sessionUser = session.user;
             if (sessionUser.role === "admin") {
               setIsOwnerAdmin(!sessionUser.managerId);
-              setAdminTab("teams");
+              setAdminTabState("teams");
+      setOpenTabs([]);
+      setMinTabs([]);
               setScreen("admin-panel");
               void loadTeamQrCards();
             } else {
@@ -1099,7 +1102,7 @@ export default function Page() {
     return () => {
       isMounted = false;
     };
-  }, [loadTeamQrCards, setAdminTab]);
+  }, [loadTeamQrCards]);
 
   useEffect(() => {
     if (
@@ -1372,7 +1375,9 @@ export default function Page() {
     if (result.user.role === "admin") {
       setGameState(state);
       setIsOwnerAdmin(false);
-      setAdminTab("teams");
+      setAdminTabState("teams");
+      setOpenTabs([]);
+      setMinTabs([]);
       setIsAuthenticated(true);
       setError("");
       setScreen("admin-panel");
@@ -1391,7 +1396,7 @@ export default function Page() {
     setSelectedStationId(
       state.stations.find((station) => station.order === getNextOrder(team, state.stations))?.id ?? null,
     );
-  }, [loadTeamQrCards, setAdminTab]);
+  }, [loadTeamQrCards]);
 
   // Ověří přihlašovací údaje týmu a zahájí vytvoření serverové relace.
   const handleTeamLogin = async () => {
@@ -1594,7 +1599,9 @@ export default function Page() {
       setGameState(state);
       setAdminForm({ email: enteredEmail, password: "" });
       setIsOwnerAdmin(true);
-      setAdminTab("teams");
+      setAdminTabState("teams");
+      setOpenTabs([]);
+      setMinTabs([]);
       setIsAuthenticated(true);
       setError("");
       setScreen("admin-panel");
@@ -3615,7 +3622,7 @@ export default function Page() {
               setDeskMenu({ x: event.clientX, y: event.clientY });
             }}
           >
-            {deskMenu && (
+            {deskMenu && createPortal(
               <div className="os-menu-backdrop" onMouseDown={() => setDeskMenu(null)} onContextMenu={(event) => { event.preventDefault(); setDeskMenu(null); }}>
                 <div
                   className="os-menu"
@@ -3638,7 +3645,8 @@ export default function Page() {
                     </button>
                   ))}
                 </div>
-              </div>
+              </div>,
+              document.body,
             )}
             {isDesktop && (
               <div className="os-desktop-icons" aria-label="Zástupci na ploše">
