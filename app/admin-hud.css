@@ -643,7 +643,7 @@
 
   .admin-console .ops-bar-right {
     justify-content: flex-end;
-    padding-right: 10.5rem;
+    padding-right: 12.5rem;
   }
 
   .admin-console .ops-bar-clock {
@@ -707,7 +707,7 @@
   .admin-console .ops-fs {
     position: fixed;
     top: 6px;
-    right: 7.9rem;
+    right: calc(0.7rem + 36px);
     z-index: 61;
     display: grid;
     width: 30px;
@@ -1131,6 +1131,45 @@
 /* ===== Příkazová paleta (Ctrl+K) ===== */
 .ops-search { display: none; }
 
+@media (min-width: 900px) {
+  /* Čistší horní lišta: bez názvu pod-režimu a události, ovládání jako ikony */
+  .admin-console .ops-bar-id small,
+  .admin-console .ops-bar-ticker {
+    display: none;
+  }
+
+  .admin-console .ops-bar-right {
+    padding-right: 12.5rem;
+  }
+
+  .admin-console .ops-bar-wall {
+    font-family: var(--hud-mono);
+    font-size: 0.85rem;
+    color: #e5cb90;
+  }
+
+  .admin-console .admin-logout {
+    width: 30px;
+    padding: 0;
+    justify-content: center;
+    font-size: 0;
+    gap: 0;
+  }
+
+  .admin-console .admin-logout svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .admin-console .ops-fs {
+    right: calc(0.7rem + 36px);
+  }
+
+  .admin-console .ops-search {
+    right: calc(0.7rem + 72px);
+  }
+}
+
 .os-palette-backdrop {
   position: fixed;
   inset: 0;
@@ -1227,7 +1266,7 @@
   .admin-console .ops-search {
     position: fixed;
     top: 6px;
-    right: 10.6rem;
+    right: calc(0.7rem + 72px);
     z-index: 61;
     display: inline-flex;
     align-items: center;
@@ -1257,6 +1296,6 @@
   }
 
   .admin-console .ops-bar-right {
-    padding-right: 17.5rem;
+    padding-right: 12.5rem;
   }
 }

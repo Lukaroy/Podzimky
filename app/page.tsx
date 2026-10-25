@@ -503,7 +503,7 @@ function WallClock({ className = "" }: { className?: string }) {
   if (!now) return <span className={className} />;
   return (
     <span className={className}>
-      {now.toLocaleDateString("cs-CZ", { weekday: "short", day: "numeric", month: "numeric" })} {now.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })}
+      {now.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })}
     </span>
   );
 }
