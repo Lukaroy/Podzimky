@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircle, Send, X } from "lucide-react";
+import { MessageCircle, Send, Trash2, X } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type SupportMessage = {
@@ -15,9 +15,11 @@ type SupportMessage = {
 export function SupportChat({
   role,
   teamId,
+  canDelete = false,
 }: {
   role: "team" | "admin";
   teamId?: string;
+  canDelete?: boolean;
 }) {
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState("");
@@ -26,6 +28,7 @@ export function SupportChat({
   const [isOpen, setIsOpen] = useState(role === "admin");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const loadMessages = useCallback(async () => {
@@ -120,6 +123,29 @@ export function SupportChat({
     }
   };
 
+  const deleteChats = async (scope: "team" | "all") => {
+    const question = scope === "all"
+      ? "Smazat všechny konverzace podpory? Zmizí i správcům a nejde to vrátit."
+      : "Smazat tuto konverzaci? Zmizí i správcům a nejde to vrátit.";
+    if (isDeleting || !window.confirm(question)) return;
+    setIsDeleting(true);
+    setError("");
+    try {
+      const response = await fetch("/api/support", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(scope === "all" ? { all: true } : { teamId: activeTeamId }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Konverzaci se nepodařilo smazat.");
+      setMessages((current) => scope === "all" ? [] : current.filter((message) => message.teamId !== activeTeamId));
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Konverzaci se nepodařilo smazat.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const panel = (
     <section className="flex h-full min-h-0 flex-col bg-[#fffdfa] text-[#30251e]" aria-label="Podpora">
       <header className="flex items-center justify-between border-b border-[#eee5d6] px-4 py-3">
@@ -129,6 +155,26 @@ export function SupportChat({
           </p>
           <h2 className="text-lg font-bold">{role === "admin" ? "Zprávy týmů" : "Napište pořadateli"}</h2>
         </div>
+        {role === "admin" && canDelete && conversations.length > 0 && (
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void deleteChats("team")}
+              disabled={isDeleting || !activeTeamId}
+              className="inline-flex items-center gap-1 rounded-lg border border-[#e0c3bd] px-2.5 py-1.5 text-xs font-semibold text-[#8b2d2d] hover:bg-[#fbe8e4] disabled:opacity-50"
+            >
+              <Trash2 size={14} aria-hidden="true" /> Smazat chat
+            </button>
+            <button
+              type="button"
+              onClick={() => void deleteChats("all")}
+              disabled={isDeleting}
+              className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#8b2d2d] hover:bg-[#fbe8e4] disabled:opacity-50"
+            >
+              Smazat vše
+            </button>
+          </div>
+        )}
         {role === "team" && (
           <button
             type="button"

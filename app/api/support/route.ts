@@ -68,3 +68,32 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ message }, { status: 201 });
 }
+
+// Smaže konverzaci jednoho týmu, nebo všechny konverzace; smí to jen hlavní admin.
+export async function DELETE(request: Request) {
+  if (!verifyRequestOrigin(request)) {
+    return NextResponse.json({ error: "Požadavek byl odmítnut." }, { status: 403 });
+  }
+  const user = await getSession(getSessionToken(request));
+  if (!user || user.role !== "admin") {
+    return NextResponse.json({ error: "Přihlaste se jako administrátor." }, { status: 401 });
+  }
+  if (user.managerId) {
+    return NextResponse.json({ error: "Chat může mazat pouze hlavní administrátor." }, { status: 403 });
+  }
+
+  let body: { teamId?: unknown; all?: unknown };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Neplatný požadavek." }, { status: 400 });
+  }
+  if (body.all !== true && typeof body.teamId !== "string") {
+    return NextResponse.json({ error: "Vyberte konverzaci ke smazání." }, { status: 400 });
+  }
+
+  const result = await getPrisma().supportMessage.deleteMany({
+    ...(body.all === true ? {} : { where: { teamId: body.teamId as string } }),
+  });
+  return NextResponse.json({ deleted: result.count });
+}

@@ -4008,7 +4008,7 @@ export default function Page() {
                 </span>}
               </header>
 
-          {isTabOpen("support") && <OsWindow {...winProps("support")}><SupportChat role="admin" /></OsWindow>}
+          {isTabOpen("support") && <OsWindow {...winProps("support")}><SupportChat role="admin" canDelete /></OsWindow>}
 
           {isTabOpen("live") && isOwnerAdmin && (
             <OsWindow {...winProps("live")}>
