@@ -643,7 +643,24 @@
 
   .admin-console .ops-bar-right {
     justify-content: flex-end;
-    padding-right: 8.2rem;
+    padding-right: 10.5rem;
+  }
+
+  .admin-console .ops-bar-clock {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .admin-console .ops-bar-clock svg {
+    flex: 0 0 auto;
+  }
+
+  .admin-console .ops-bar-wall,
+  .admin-console .ops-bar-ticker {
+    line-height: 1;
   }
 
   .admin-console .ops-bar-ticker {
@@ -690,7 +707,7 @@
   .admin-console .ops-fs {
     position: fixed;
     top: 6px;
-    right: 6.2rem;
+    right: 7.9rem;
     z-index: 61;
     display: grid;
     width: 30px;
@@ -713,8 +730,14 @@
     top: 6px;
     right: 0.7rem;
     z-index: 61;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
     width: auto;
     height: 30px;
+    box-sizing: border-box;
+    line-height: 1;
+    white-space: nowrap;
     min-height: 30px;
     margin: 0;
     padding: 0 0.7rem;
@@ -957,5 +980,109 @@
     margin-left: 0.5rem;
     border-left: 1px solid rgba(229, 203, 144, 0.3);
     border-radius: 0 14px 14px 0;
+  }
+}
+
+/* ===== Modální okna jako okna operačního systému ===== */
+@media (min-width: 900px) {
+  .admin-dialog-backdrop {
+    background: rgba(18, 32, 25, 0.55);
+    backdrop-filter: blur(3px);
+  }
+
+  .admin-dialog,
+  .admin-dialog.admin-dialog-drawer {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #cdbb96;
+    border-radius: 12px;
+    background: #fbf6ea;
+    box-shadow: 0 1px 0 #fff inset, 0 28px 70px rgba(14, 24, 18, 0.5);
+  }
+
+  .admin-dialog.admin-dialog-drawer {
+    top: 56px;
+    right: 14px;
+    bottom: 14px;
+    max-height: none;
+    width: min(500px, calc(100vw - 28px));
+  }
+
+  /* Titulková lišta okna se třemi puntíky */
+  .admin-dialog::before {
+    flex: 0 0 auto;
+    height: 30px;
+    border-bottom: 1px solid #d9c9a5;
+    background:
+      radial-gradient(circle at 20px 15px, #c8452f 5px, transparent 5.5px),
+      radial-gradient(circle at 40px 15px, #d9a43f 5px, transparent 5.5px),
+      radial-gradient(circle at 60px 15px, #5f9a6b 5px, transparent 5.5px),
+      linear-gradient(#f3ead4, #eadfc3);
+    content: "";
+  }
+
+  .admin-dialog .admin-dialog-header {
+    flex: 0 0 auto;
+    align-items: center;
+    padding: 0.85rem 1.1rem;
+    border-bottom: 1px solid #e2d3b0;
+    background: #fbf6ea;
+  }
+
+  .admin-dialog .admin-dialog-header .admin-eyebrow {
+    margin: 0 0 0.15rem;
+    font-size: 0.6rem;
+  }
+
+  .admin-dialog .admin-dialog-title {
+    font-size: 1.05rem;
+    letter-spacing: 0.02em;
+    text-transform: none;
+  }
+
+  .admin-dialog .admin-dialog-header p:last-child {
+    margin-top: 0.2rem;
+    font-family: var(--font-hud-mono), ui-monospace, monospace;
+    font-size: 0.7rem;
+  }
+
+  .admin-dialog .admin-dialog-seal {
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 8px;
+    font-size: 1.05rem;
+  }
+
+  .admin-dialog .admin-dialog-close {
+    border-radius: 8px;
+  }
+
+  .admin-dialog .admin-dialog-body {
+    min-height: 0;
+    flex: 1;
+    max-height: none;
+    overflow-y: auto;
+  }
+
+  .admin-dialog:not(.admin-dialog-drawer) {
+    max-height: min(88dvh, 820px);
+  }
+
+  .admin-dialog .admin-primary-button,
+  .admin-dialog .admin-secondary-button {
+    clip-path: none;
+    border-radius: 8px;
+    letter-spacing: 0.05em;
+  }
+
+  .admin-dialog input,
+  .admin-dialog select,
+  .admin-dialog textarea {
+    border-radius: 8px !important;
+  }
+
+  .admin-dialog .admin-dialog-actions {
+    background: #f3ead4;
+    border-top: 1px solid #d9c9a5;
   }
 }
