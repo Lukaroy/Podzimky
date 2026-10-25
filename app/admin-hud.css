@@ -345,6 +345,12 @@
   box-shadow: 0 6px 18px rgba(35, 38, 30, 0.18);
 }
 
+.ops-bar-left,
+.ops-bar-center,
+.ops-bar-right {
+  display: contents;
+}
+
 .ops-bar-id {
   display: flex;
   align-items: baseline;
@@ -603,19 +609,54 @@
     display: none;
   }
 
-  /* Horní lišta */
+  /* Horní lišta: levá skupina, vystředěný střed, pravá skupina */
   .admin-console .ops-bar {
     position: relative;
     grid-area: bar;
-    flex-wrap: nowrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 1rem;
     margin: 0;
-    padding: 0 8.5rem 0 1rem;
+    padding: 0 1rem;
     border: 0;
     border-bottom: 1px solid rgba(229, 203, 144, 0.3);
     background: rgba(25, 42, 33, 0.97);
     box-shadow: 0 2px 14px rgba(20, 30, 24, 0.3);
     overflow: hidden;
     text-transform: none;
+  }
+
+  .admin-console .ops-bar-left,
+  .admin-console .ops-bar-center,
+  .admin-console .ops-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    min-width: 0;
+  }
+
+  .admin-console .ops-bar-center {
+    justify-content: center;
+    gap: 1.1rem;
+  }
+
+  .admin-console .ops-bar-right {
+    justify-content: flex-end;
+    padding-right: 8.2rem;
+  }
+
+  .admin-console .ops-bar-ticker {
+    flex: 0 1 auto;
+    max-width: 22rem;
+  }
+
+  .admin-console .admin-sidebar-nav .admin-sidebar-count {
+    display: none;
+  }
+
+  .admin-console .admin-sidebar-nav .admin-sidebar-count.is-alert {
+    display: block;
   }
 
   .admin-console .ops-bar-id small,

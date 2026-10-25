@@ -3168,7 +3168,7 @@ export default function Page() {
                 >
                   <AdminIcon name={item.icon} />
                   <span>{item.label}</span>
-                  {item.tab !== "support" && <span className="admin-sidebar-count">{item.count}</span>}
+                  {item.tab !== "support" && <span className={classNames("admin-sidebar-count", item.tab === "submissions" && item.count > 0 && "is-alert")}>{item.count}</span>}
                 </button>
               ))}
               {isOwnerAdmin && <button
@@ -3260,31 +3260,37 @@ export default function Page() {
           <main className="admin-main">
 
           <div className="ops-bar" role="status" aria-label="Stav operačního centra">
-            <div className="ops-bar-id">
-              <span className="ops-bar-led" aria-hidden="true" />
-              <b>Podzimky OS</b>
-              <small>Operační centrum</small>
+            <div className="ops-bar-left">
+              <div className="ops-bar-id">
+                <span className="ops-bar-led" aria-hidden="true" />
+                <b>Podzimky OS</b>
+                <small>Operační centrum</small>
+              </div>
+              {isOwnerAdmin && (
+                <span className={classNames("ops-chip", gameState.gameStartedAt && !gameState.gameStoppedAt && !gameState.gameClosedAt && "ops-chip-live")}>
+                  {gameState.gameClosedAt ? "Hra uzavřena" : gameState.gameStoppedAt ? "Pozastaveno" : gameState.gameStartedAt ? "Výprava běží" : "Čeká na start"}
+                </span>
+              )}
             </div>
-            {isOwnerAdmin && (
-              <span className={classNames("ops-chip", gameState.gameStartedAt && !gameState.gameStoppedAt && !gameState.gameClosedAt && "ops-chip-live")}>
-                {gameState.gameClosedAt ? "Hra uzavřena" : gameState.gameStoppedAt ? "Pozastaveno" : gameState.gameStartedAt ? "Výprava běží" : "Čeká na start"}
-              </span>
-            )}
-            <ElapsedClock startedAt={gameState.gameStartedAt} stoppedAt={gameState.gameStoppedAt} pausedMs={gameState.gamePausedMs} className="ops-bar-clock" />
-            <div className="ops-bar-stats">
-              <span><i>Týmy</i><b>{gameState.teams.length}</b></span>
-              <span><i>Stanoviště</i><b>{gameState.stations.length}</b></span>
-              <span><i>Přepady</i><b>{gameState.flashMissions.filter((mission) => !mission.archivedAt).length}</b></span>
-              <button
-                type="button"
-                className={classNames(pendingSubmissions.length > 0 && "ops-stat-alert")}
-                onClick={() => { setError(""); setAdminTab("submissions"); }}
-              >
-                <i>Ke schválení</i><b>{pendingSubmissions.length}</b>
-              </button>
+            <div className="ops-bar-center">
+              <ElapsedClock startedAt={gameState.gameStartedAt} stoppedAt={gameState.gameStoppedAt} pausedMs={gameState.gamePausedMs} className="ops-bar-clock" />
+              <div className="ops-bar-stats">
+                <span><i>Týmy</i><b>{gameState.teams.length}</b></span>
+                <span><i>Stanoviště</i><b>{gameState.stations.length}</b></span>
+                <span><i>Přepady</i><b>{gameState.flashMissions.filter((mission) => !mission.archivedAt).length}</b></span>
+                <button
+                  type="button"
+                  className={classNames(pendingSubmissions.length > 0 && "ops-stat-alert")}
+                  onClick={() => { setError(""); setAdminTab("submissions"); }}
+                >
+                  <i>Ke schválení</i><b>{pendingSubmissions.length}</b>
+                </button>
+              </div>
             </div>
-            {gameState.events[0] && <p className="ops-bar-ticker">{gameState.events[0].message}</p>}
-            <WallClock className="ops-bar-wall" />
+            <div className="ops-bar-right">
+              {gameState.events[0] && <p className="ops-bar-ticker">{gameState.events[0].message}</p>}
+              <WallClock className="ops-bar-wall" />
+            </div>
             <button type="button" className="ops-fs" onClick={toggleFullscreen} title="Celá obrazovka" aria-label="Přepnout celou obrazovku">⛶</button>
           </div>
 
