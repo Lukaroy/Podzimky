@@ -3361,7 +3361,7 @@ export default function Page() {
             )}
 
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
-              <section className="player-route order-2 rounded-2xl border border-[#e7d8c0] bg-[#fffdfa] p-3 shadow-[0_8px_24px_rgba(29,25,20,0.06)] lg:order-2">
+              <section className="player-route order-1 rounded-2xl border border-[#e7d8c0] bg-[#fffdfa] p-3 shadow-[0_8px_24px_rgba(29,25,20,0.06)] lg:order-2">
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-base font-bold text-[#241d1a]">Trasa</h2>
                   <span className="rounded-full bg-[#f5ebda] px-2.5 py-1 text-xs font-semibold text-[#795b34]">
@@ -3369,11 +3369,7 @@ export default function Page() {
                   </span>
                 </div>
 
-                <details className="player-station-list">
-                  <summary className="mb-2 cursor-pointer rounded-lg bg-[#faf5ec] px-3 py-2 text-xs font-semibold text-[#7c4a28]">
-                    Zobrazit průběh trasy
-                  </summary>
-                  <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
+                <div className="player-station-list space-y-2">
                   {gameState.stations.map((station) => {
                     const isCompleted = activeTeam.completedStations.includes(station.id);
                     const isCurrent = selectedStationId === station.id;
@@ -3386,33 +3382,37 @@ export default function Page() {
                         onClick={() => setSelectedStationId(station.id)}
                         disabled={!isCompleted && !isAvailable}
                         className={classNames(
-                          "flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition",
-                          isCompleted && "border-[#8bbd79] bg-[#edf9ec] text-[#234c2b]",
-                          !isCompleted && isCurrent && "border-[#d59a39] bg-[#fff2dc] text-[#624010]",
+                          "flex w-full items-start justify-between gap-3 rounded-xl border px-3 py-3 text-left transition",
+                          isCompleted && "border-[#c8ddca] bg-[#f1f7f0] text-[#234c2b]",
+                          !isCompleted && isCurrent && "border-[#c5d6c9] bg-[#f0f5ef] text-[#315343]",
                           !isCompleted && !isCurrent && isAvailable && "border-[#d9cab0] bg-[#faf6ef] text-[#3d3127]",
-                          !isAvailable && "border-[#e4ddd3] bg-[#f7f4f1] text-[#8d8076] opacity-70",
+                          !isAvailable && "border-[#e4ddd3] bg-[#f7f4f1] text-[#8d8076]",
                         )}
                       >
-                        <span className="flex items-center gap-3">
+                        <span className="flex min-w-0 items-start gap-3">
                           <span className="text-base font-black">{isCompleted ? "✓" : isAvailable ? (isScanned ? "●" : "○") : "–"}</span>
-                          <span>
+                          <span className="min-w-0">
                             <span className="block text-sm font-bold">Stanoviště {station.order}</span>
                             <span className="block text-xs opacity-80">
                               {isCompleted || isScanned ? station.title : isAvailable ? "Naskenujte QR kód" : "Uzamčeno"}
                             </span>
+                            {isAvailable && !isCompleted && station.clue && (
+                              <span className="player-route-clue mt-2 block text-sm leading-5">
+                                <span className="font-bold">Nápověda: </span>{station.clue}
+                              </span>
+                            )}
                           </span>
                         </span>
-                        <span className="text-xs font-bold uppercase tracking-[0.14em]">
+                        <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.1em]">
                           {isCompleted ? "Hotovo" : isAvailable ? (isScanned ? "Otevřeno" : "Čeká na QR") : "Zamčeno"}
                         </span>
                       </button>
                     );
                   })}
-                  </div>
-                </details>
+                </div>
               </section>
 
-              <section className="player-mission order-1 overflow-hidden rounded-2xl border border-[#e4d4ba] bg-[#fffdfa] shadow-[0_12px_30px_rgba(29,25,20,0.08)] lg:order-1">
+              <section className="player-mission order-2 overflow-hidden rounded-2xl border border-[#e4d4ba] bg-[#fffdfa] shadow-[0_12px_30px_rgba(29,25,20,0.08)] lg:order-1">
                 {hasFinishedGame ? (
                   <div className="player-finish p-6 text-center sm:p-8">
                     <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e8f5ed] text-[#25804a]"><CheckCircle2 size={30} /></span>

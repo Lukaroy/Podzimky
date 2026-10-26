@@ -5787,6 +5787,10 @@ body {
   box-shadow: none;
 }
 
+.player-route-clue {
+  display: none;
+}
+
 @media (max-width: 560px) {
   .player-next-step {
     flex-wrap: wrap;
@@ -5879,6 +5883,27 @@ body {
   .player-shell section.player-mission {
     border-radius: 0.9rem;
     box-shadow: 0 5px 16px rgba(49, 44, 34, 0.07);
+  }
+
+  .player-shell section.player-route {
+    padding: 0.85rem;
+  }
+
+  .player-route > div:first-child {
+    margin-bottom: 0.65rem;
+  }
+
+  .player-route-clue {
+    display: block;
+    color: #536456;
+  }
+
+  .player-route-clue .font-bold {
+    color: #386b5d;
+  }
+
+  .player-mission .player-clue {
+    display: none;
   }
 
   .player-mission-banner {
