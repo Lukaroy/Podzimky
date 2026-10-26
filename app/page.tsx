@@ -3149,30 +3149,26 @@ export default function Page() {
             <header className="player-header sticky top-2 z-20 mb-5 rounded-2xl border p-4 text-[#1e293b] shadow-sm sm:px-5">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  <span aria-hidden="true" className="player-seal flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold">龍</span>
+                  <span aria-hidden="true" className="player-seal flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"><MapPin size={20} /></span>
                   <div className="min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#8c929b]">Podzimky 2026</p>
                     <h1 className="truncate text-lg font-bold tracking-tight text-[#1f2937] sm:text-xl">{activeTeam.name}</h1>
-                    <ElapsedClock startedAt={gameState.gameStartedAt} stoppedAt={gameState.gameStoppedAt} pausedMs={gameState.gamePausedMs} className="player-clock mt-0.5 inline-flex items-center gap-1 font-mono text-xs font-semibold tabular-nums text-[#8b3329]" />
+                    <div className="player-header-meta">
+                      <span className="player-clock-label">Čas ve hře</span>
+                      <ElapsedClock startedAt={gameState.gameStartedAt} stoppedAt={gameState.gameStoppedAt} pausedMs={gameState.gamePausedMs} className="player-clock inline-flex items-center gap-1 font-mono text-xs font-semibold tabular-nums text-[#8b3329]" />
+                      <span className="player-status-pill" data-active={gameState.gameStartedAt ? "true" : "false"}>
+                        {gameState.gameStartedAt ? "Hra běží" : "Čeká se na start"}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                 <button
-                  onClick={() => {
-                    setScanMessage("Spouštím zadní kameru…");
-                    setScannerOpen(true);
-                  }}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#a4332b] px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-[#85271f] sm:px-4 sm:text-sm"
-                >
-                  <ScanLine size={16} />
-                  <span>Skenovat QR</span>
-                </button>
-                <button
                   onClick={() => void handleLogout()}
                   aria-label="Odhlásit se"
-                  className="inline-flex items-center gap-2 rounded-xl border border-[#e4e7eb] bg-white px-3 py-2.5 text-xs font-semibold text-[#596273] transition hover:bg-[#f6f7f9] sm:text-sm"
+                  className="player-logout-button inline-flex items-center gap-2 rounded-xl border border-[#e4e7eb] bg-white px-3 py-2.5 text-xs font-semibold text-[#596273] transition hover:bg-[#f6f7f9] sm:text-sm"
                 >
-                  <LogOut size={16} /><span className="hidden sm:inline">Odhlásit</span>
+                  <LogOut size={16} /><span className="hidden sm:inline">Odhlásit se</span>
                 </button>
                 </div>
               </div>
@@ -3185,8 +3181,8 @@ export default function Page() {
                 aria-valuenow={completedStationsCount}
               >
                 <div className="mb-2 flex items-center justify-between text-xs">
-                  <span className="text-[#6f7783]">Postup výpravy</span>
-                  <span className="font-semibold text-[#a4332b]">{completedStationsCount} / {gameState.stations.length}</span>
+                  <span className="text-[#6f7783]">Splněná stanoviště</span>
+                  <span className="font-semibold text-[#a4332b]">{completedStationsCount} z {gameState.stations.length}</span>
                 </div>
                 <div className="h-1.5 overflow-hidden rounded-full bg-[#eceef1]">
                   <div
@@ -3203,7 +3199,7 @@ export default function Page() {
                   {currentTeamPendingSubmission ? <Clock size={21} /> : <MapPin size={21} />}
                 </span>
                 <div className="player-next-step-copy">
-                  <p>Váš další krok</p>
+                  <p>Teď udělejte toto</p>
                   <h2>
                     {!gameState.gameStartedAt
                       ? "Čeká se na společný start"
@@ -3236,7 +3232,7 @@ export default function Page() {
                     }}
                     className="player-next-step-action"
                   >
-                    <ScanLine size={17} /> Naskenovat QR
+                    <ScanLine size={17} /> Naskenovat QR kód
                   </button>
                 )}
               </section>
@@ -3257,7 +3253,15 @@ export default function Page() {
             )}
 
             {gameState.gameStartedAt && !gameState.gameStoppedAt && !gameState.gameClosedAt && (
-                <section className="mb-4 rounded-2xl border border-[#e7d8c0] bg-[#fffdfa] p-4 shadow-[0_8px_24px_rgba(29,25,20,0.06)] sm:p-5">
+              <details className="player-optional mb-4">
+                <summary className="player-optional-summary">
+                  <span>
+                    <span className="player-optional-label">Vedlejší aktivita · volitelné</span>
+                    <span className="player-optional-title">Vyzvat soupeřící tým</span>
+                  </span>
+                  <span className="player-optional-count">Využito {activeTeam.flashMissionsUsed ?? 0} ze 3</span>
+                </summary>
+                <section className="player-optional-content rounded-2xl border border-[#e7d8c0] bg-[#fffdfa] p-4 shadow-[0_8px_24px_rgba(29,25,20,0.06)] sm:p-5">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#8e5d1d]">Týmový přepad</p>
@@ -3341,10 +3345,11 @@ export default function Page() {
                     </p>
                   )}
                 </section>
-              )}
+              </details>
+            )}
 
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
-              <section className="player-route order-2 rounded-2xl border border-[#e7d8c0] bg-[#fffdfa] p-3 shadow-[0_8px_24px_rgba(29,25,20,0.06)] lg:order-1">
+              <section className="player-route order-2 rounded-2xl border border-[#e7d8c0] bg-[#fffdfa] p-3 shadow-[0_8px_24px_rgba(29,25,20,0.06)] lg:order-2">
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-base font-bold text-[#241d1a]">Trasa</h2>
                   <span className="rounded-full bg-[#f5ebda] px-2.5 py-1 text-xs font-semibold text-[#795b34]">
@@ -3354,7 +3359,7 @@ export default function Page() {
 
                 <details className="player-station-list">
                   <summary className="mb-2 cursor-pointer rounded-lg bg-[#faf5ec] px-3 py-2 text-xs font-semibold text-[#7c4a28]">
-                    Zobrazit všechna stanoviště
+                    Zobrazit průběh trasy
                   </summary>
                   <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
                   {gameState.stations.map((station) => {
@@ -3395,7 +3400,7 @@ export default function Page() {
                 </details>
               </section>
 
-              <section className="player-mission order-1 overflow-hidden rounded-2xl border border-[#e4d4ba] bg-[#fffdfa] shadow-[0_12px_30px_rgba(29,25,20,0.08)] lg:order-2">
+              <section className="player-mission order-1 overflow-hidden rounded-2xl border border-[#e4d4ba] bg-[#fffdfa] shadow-[0_12px_30px_rgba(29,25,20,0.08)] lg:order-1">
                 {hasFinishedGame ? (
                   <div className="player-finish p-6 text-center sm:p-8">
                     <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e8f5ed] text-[#25804a]"><CheckCircle2 size={30} /></span>
