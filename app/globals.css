@@ -5802,3 +5802,147 @@ body {
     padding-inline: 0.7rem;
   }
 }
+
+.player-mobile-action {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .player-shell {
+    padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+  }
+
+  .player-shell::before {
+    opacity: 0.06;
+  }
+
+  .player-header {
+    top: 0;
+    margin-bottom: 0.75rem;
+    border-radius: 0 0 0.85rem 0.85rem;
+    padding: 0.65rem 0.75rem 0.7rem;
+    box-shadow: 0 4px 14px rgba(49, 44, 34, 0.08);
+  }
+
+  .player-header > div:first-child {
+    gap: 0.55rem;
+  }
+
+  .player-header .player-seal {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .player-header > div:first-child p {
+    display: none;
+  }
+
+  .player-header > div:first-child h1 {
+    font-family: var(--font-hud-display);
+    font-size: 1.05rem;
+  }
+
+  .player-header-meta {
+    gap: 0.25rem 0.45rem;
+    margin-top: 0.1rem;
+  }
+
+  .player-clock-label {
+    font-size: 0.65rem;
+  }
+
+  .player-status-pill {
+    padding: 0.1rem 0.4rem;
+    font-size: 0.62rem;
+  }
+
+  .player-header .player-logout-button {
+    width: 2.5rem;
+    min-height: 2.5rem;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .player-progress {
+    margin-top: 0.55rem !important;
+    padding-top: 0.5rem !important;
+  }
+
+  .player-progress > div:first-child {
+    margin-bottom: 0.35rem;
+  }
+
+  .player-next-step:not([data-state="waiting"]) {
+    display: none;
+  }
+
+  .player-shell section.player-mission {
+    border-radius: 0.9rem;
+    box-shadow: 0 5px 16px rgba(49, 44, 34, 0.07);
+  }
+
+  .player-mission-banner {
+    min-height: 0;
+    padding: 0.8rem 0.9rem;
+  }
+
+  .player-mission-banner > span:first-child {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .player-mission-banner h2 {
+    white-space: normal;
+    font-size: 1.15rem;
+    line-height: 1.3;
+  }
+
+  .player-clue {
+    padding: 0.9rem;
+  }
+
+  .player-clue > p:nth-child(2) {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  .player-inline-scan {
+    display: none;
+  }
+
+  .player-mobile-action {
+    position: fixed;
+    z-index: 40;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    gap: 0.4rem;
+    border-top: 1px solid #e3dccf;
+    background: rgba(255, 253, 248, 0.97);
+    padding: 0.55rem 1rem calc(0.65rem + env(safe-area-inset-bottom));
+    box-shadow: 0 -5px 18px rgba(49, 44, 34, 0.1);
+    backdrop-filter: blur(12px);
+  }
+
+  .player-mobile-action > span {
+    color: #536456;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .player-mobile-action > button {
+    display: flex;
+    min-height: 3.25rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    border: 0;
+    border-radius: 0.75rem;
+    background: #386b5d;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 750;
+  }
+}

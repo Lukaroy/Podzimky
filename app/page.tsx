@@ -3194,7 +3194,19 @@ export default function Page() {
             </header>
 
             {!hasFinishedGame && (
-              <section className="player-next-step" aria-label="Další krok výpravy">
+              <section
+                className="player-next-step"
+                data-state={
+                  !gameState.gameStartedAt
+                    ? "waiting"
+                    : currentTeamPendingSubmission
+                      ? "pending"
+                      : nextRouteStation && !activeTeam.scannedStationIds.includes(nextRouteStation.id)
+                        ? "finding"
+                        : "active"
+                }
+                aria-label="Další krok výpravy"
+              >
                 <span className="player-next-step-mark" aria-hidden="true">
                   {currentTeamPendingSubmission ? <Clock size={21} /> : <MapPin size={21} />}
                 </span>
@@ -3448,7 +3460,7 @@ export default function Page() {
                                 setScanMessage("Spouštím zadní kameru…");
                                 setScannerOpen(true);
                               }}
-                              className="mt-4 w-full rounded-lg bg-[#a4332b] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#85271f]"
+                              className="player-inline-scan mt-4 w-full rounded-lg bg-[#a4332b] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#85271f]"
                             >
                               Naskenovat QR a otevřít úkol
                             </button>
@@ -3689,6 +3701,22 @@ export default function Page() {
                 })()}
               </section>
             </div>
+
+            {nextRouteStation && !currentTeamPendingSubmission && !activeTeam.scannedStationIds.includes(nextRouteStation.id) && gameState.gameStartedAt && (
+              <div className="player-mobile-action">
+                <span>Stanoviště {nextRouteStation.order}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScanMessage("Spouštím zadní kameru…");
+                    setScannerOpen(true);
+                  }}
+                >
+                  <ScanLine size={19} />
+                  Naskenovat QR kód
+                </button>
+              </div>
+            )}
 
           </div>
         )
