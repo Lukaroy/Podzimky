@@ -3916,6 +3916,13 @@ video {
   color: #78351e;
 }
 
+.admin-station-pin {
+  background: #b5532a;
+  border: 3px solid #fff;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 40%);
+}
+
 .admin-team-map-footer {
   display: flex;
   flex-wrap: wrap;

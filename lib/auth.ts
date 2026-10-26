@@ -148,6 +148,9 @@ export function sanitizeGameState(state: GameState, user: SessionUser): GameStat
     const isCurrent = station.order === nextOrder;
     const visibleStation = { ...station };
     delete visibleStation.answer;
+    // Hráči nemají mapu, takže souřadnice stanovišť neodcházejí z API.
+    delete visibleStation.latitude;
+    delete visibleStation.longitude;
     if (visibleStation.formQuestions) {
       visibleStation.formQuestions = visibleStation.formQuestions.map((question) => ({ ...question, answer: undefined }));
     }

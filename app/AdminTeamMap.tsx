@@ -15,6 +15,8 @@ type TeamLocation = {
 
 const REFRESH_INTERVAL_MS = 10_000;
 
+type MapStation = { id: string; title: string; order: number; latitude?: number; longitude?: number };
+
 function formatUpdatedAt(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
@@ -22,7 +24,7 @@ function formatUpdatedAt(value: string) {
     : date.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
-export function AdminTeamMap() {
+export function AdminTeamMap({ stations = [] }: { stations?: MapStation[] }) {
   const [locations, setLocations] = useState<TeamLocation[]>([]);
   const [error, setError] = useState("");
   const [mapError, setMapError] = useState("");
@@ -32,6 +34,7 @@ export function AdminTeamMap() {
   const mapRef = useRef<Leaflet.Map | null>(null);
   const markerLayerRef = useRef<Leaflet.LayerGroup | null>(null);
   const currentLocationsRef = useRef(locations);
+  const stationsRef = useRef(stations);
   const refreshMarkersRef = useRef<() => void>(() => {});
   const initialFitDoneRef = useRef(false);
 
@@ -55,6 +58,21 @@ export function AdminTeamMap() {
         markerLayer.clearLayers();
         const currentLocations = currentLocationsRef.current;
         const markerBounds: Leaflet.LatLngExpression[] = [];
+
+        for (const station of stationsRef.current) {
+          if (station.latitude === undefined || station.longitude === undefined) continue;
+          const icon = loadedLeaflet.divIcon({
+            className: "admin-station-pin",
+            html: "",
+            iconSize: [26, 26],
+          });
+          const pin = loadedLeaflet.marker([station.latitude, station.longitude], { icon });
+          const label = loadedLeaflet.DomUtil.create("span");
+          label.textContent = `${station.order}. ${station.title}`;
+          pin.bindTooltip(label, { direction: "top", offset: [0, -12] });
+          pin.addTo(markerLayer);
+          markerBounds.push([station.latitude, station.longitude]);
+        }
 
         for (const location of currentLocations) {
           const ageMs = Date.now() - new Date(location.updatedAt).getTime();
@@ -111,8 +129,9 @@ export function AdminTeamMap() {
 
   useEffect(() => {
     currentLocationsRef.current = locations;
+    stationsRef.current = stations;
     refreshMarkersRef.current();
-  }, [locations]);
+  }, [locations, stations]);
 
   useEffect(() => {
     let isMounted = true;

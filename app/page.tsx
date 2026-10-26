@@ -131,6 +131,8 @@ type Station = {
   options?: string[];
   answer?: string;
   image?: string;
+  latitude?: number;
+  longitude?: number;
   formQuestions?: Array<{
     id: string;
     label: string;
@@ -139,6 +141,15 @@ type Station = {
     answer?: string;
   }>;
 };
+
+// Přijme souřadnice vložené z map, např. "50.0875, 14.4213" nebo "50,0875 N; 14,4213 E".
+function parseCoordinates(value: string) {
+  const numbers = (value.match(/-?\d+(?:[.,]\d+)?/g) ?? []).map((part) => Number(part.replace(",", ".")));
+  if (numbers.length !== 2 || !numbers.every(Number.isFinite)) return null;
+  const [latitude, longitude] = numbers;
+  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
+  return { latitude, longitude };
+}
 
 type Submission = {
   id: string;
@@ -1209,6 +1220,7 @@ export default function Page() {
     requiresApproval: true,
     answer: "",
     optionsText: "",
+    coordinates: "",
     formQuestions: [] as NonNullable<Station["formQuestions"]>,
     questionDraft: {
       label: "",
@@ -2318,8 +2330,15 @@ export default function Page() {
       return;
     }
 
+    const coordinates = adminStationForm.coordinates.trim() ? parseCoordinates(adminStationForm.coordinates) : null;
+    if (adminStationForm.coordinates.trim() && !coordinates) {
+      setError("Souřadnice zadejte jako zeměpisnou šířku a délku, např. 50.0875, 14.4213.");
+      return;
+    }
+
     const previousStation = gameState.stations.find((station) => station.id === editingStationId);
     const newStation: Station = {
+      ...(coordinates ?? {}),
       id: previousStation?.id ?? `station-${crypto.randomUUID().slice(0, 8)}`,
       order: previousStation?.order ?? gameState.stations.length + 1,
       title: qrOnly ? `Stanoviště ${gameState.stations.length + 1}` : adminStationForm.title.trim(),
@@ -2372,6 +2391,7 @@ export default function Page() {
       requiresApproval: true,
       answer: "",
       optionsText: "",
+      coordinates: "",
       formQuestions: [],
       questionDraft: { label: "", type: "text", optionsText: "", answer: "" },
     });
@@ -4135,7 +4155,7 @@ export default function Page() {
 
           {isTabOpen("map") && isOwnerAdmin && (
             <OsWindow {...winProps("map")}>
-              <AdminTeamMap />
+              <AdminTeamMap stations={gameState.stations} />
             </OsWindow>
           )}
 
@@ -4666,6 +4686,9 @@ export default function Page() {
                               requiresApproval: station.requiresApproval,
                               answer: station.answer ?? "",
                               optionsText: station.options?.join("\n") ?? "",
+                              coordinates: station.latitude !== undefined && station.longitude !== undefined
+                                ? `${station.latitude}, ${station.longitude}`
+                                : "",
                               formQuestions: station.formQuestions ?? [],
                               questionDraft: { label: "", type: "text", optionsText: "", answer: "" },
                             });
@@ -4829,6 +4852,16 @@ export default function Page() {
                       </button>
                     </div>
                   </div>
+                  <label className="admin-field-label md:col-span-2">
+                    Souřadnice na mapě (volitelné)
+                    <input
+                      value={adminStationForm.coordinates}
+                      onChange={(event) => setAdminStationForm((current) => ({ ...current, coordinates: event.target.value }))}
+                      placeholder="50.0875, 14.4213 – vložte z Mapy.cz / Google Map"
+                      inputMode="decimal"
+                      className="rounded-xl border border-[#d8c6a2] bg-white p-3 text-sm"
+                    />
+                  </label>
                   <details className="station-advanced-settings md:col-span-2">
                     <summary>Nápověda a pravidla</summary>
                   <label className="admin-field-label md:col-span-2">

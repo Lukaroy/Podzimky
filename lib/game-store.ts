@@ -28,6 +28,8 @@ export type Station = {
   options?: string[];
   answer?: string;
   image?: string;
+  latitude?: number;
+  longitude?: number;
   formQuestions?: Array<{
     id: string;
     label: string;
@@ -122,11 +124,20 @@ export function normalizeGameState(value?: Partial<GameState> | null): GameState
 
   return {
     stations: Array.isArray(safeValue.stations)
-      ? safeValue.stations.map((station) => ({
-          ...station,
-          clue: station.clue || "",
-          requiresApproval: station.requiresApproval ?? true,
-        }))
+      ? safeValue.stations.map((station) => {
+          const hasCoordinates =
+            typeof station.latitude === "number" && Number.isFinite(station.latitude) &&
+            Math.abs(station.latitude) <= 90 &&
+            typeof station.longitude === "number" && Number.isFinite(station.longitude) &&
+            Math.abs(station.longitude) <= 180;
+          return {
+            ...station,
+            clue: station.clue || "",
+            requiresApproval: station.requiresApproval ?? true,
+            latitude: hasCoordinates ? station.latitude : undefined,
+            longitude: hasCoordinates ? station.longitude : undefined,
+          };
+        })
       : [],
     teams: Array.isArray(safeValue.teams)
       ? safeValue.teams.map((team) => ({
