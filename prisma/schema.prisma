@@ -82,3 +82,13 @@ model SupportMessage {
   @@index([teamId, createdAt])
   @@map("support_messages")
 }
+
+model TeamLocation {
+  teamId    String   @id @map("team_id")
+  latitude  Float
+  longitude Float
+  accuracy  Float?
+  updatedAt DateTime @updatedAt @db.Timestamptz(3) @map("updated_at")
+
+  @@map("team_locations")
+}

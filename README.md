@@ -6,6 +6,7 @@ Webová týmová hra s QR stanovišti, úkoly ke schválení a galerií fotograf
 | --- | --- | --- |
 | Aplikace a API | Next.js, React, TypeScript | Hráčská hra, administrace a serverová pravidla |
 | Herní data | Prisma ORM, PostgreSQL na Neonu | Týmy, stanoviště, postup hry a provozní záznamy jako JSON stav |
+| Mapa týmů | Leaflet, souřadnicová mřížka | Poslední známá GPS poloha týmu, bez historie pohybu |
 | Přihlášení | Firebase Authentication | Ověření administrátora a Firebase účty vydané serverem pro týmy |
 | Média | Soukromý Vercel Blob | Nahrané fotografie a videa |
 | Nasazení | Vercel | Hosting Next.js aplikace a API |
@@ -29,6 +30,7 @@ Webová týmová hra s QR stanovišti, úkoly ke schválení a galerií fotograf
 | `app/page.tsx` | Hlavní obrazovka, přihlašovací formuláře, hráčský režim a administrační rozhraní |
 | `app/api/` | Serverová API: přihlášení, správa hry, týmové akce, podpora a média |
 | `app/SupportChat.tsx` | Týmový chat podpory a schránka správce |
+| `app/AdminTeamMap.tsx` | Mapa posledních známých poloh týmů pro hlavního administrátora |
 | `lib/game-store.ts` | Typy herních dat, jejich normalizace a čtení/zápis přes Prisma |
 | `lib/auth.ts` | Ověření relace, role, oprávnění a hashování hesel týmů |
 | `lib/firebase-client.ts` | Veřejná konfigurace Firebase pro prohlížeč |
@@ -49,6 +51,8 @@ Před akcí lze u stanoviště použít **Připravit jen QR** a vytisknout jeho 
 Další správci mohou spravovat týmy a stanoviště a sledovat čas, ale nemohou hru spustit, pozastavit ani restartovat a nemají přístup do galerie médií. Tyto ovládací prvky a galerie jsou vyhrazené hlavnímu administrátorovi.
 
 Hlavní administrátor má navíc v sekci **Živý přehled** nástroje pro nouzové zprávy týmům, ruční splnění nebo vrácení stanoviště a živý přehled postupu. Hru může uzavřít a vyhlásit výsledky podle počtu splněných stanovišť; při shodě týmy sdílejí pořadí. Uzavření je konečné a zablokuje další herní změny.
+
+Hlavní administrátor má také sekci **Mapa týmů**. Hráčský telefon může během běžící hry odeslat polohu, pokud hráč povolí přístup k poloze; poloha se odešle přibližně po 20 metrech pohybu nebo nejpozději po minutě. Aktualizace probíhá jen při otevřené a viditelné stránce. Databáze uchovává nejvýše jeden bod na tým, který se novou polohou přepíše; trasa ani historie pohybu se neukládá. Mapa se obnovuje po 10 sekundách a body starší než 2 minuty označuje jako neaktuální. Souřadnicová mřížka se generuje přímo v aplikaci a poloha se neposílá mapovému poskytovateli. Stanoviště zatím nemají uložené souřadnice, proto se na mapě zobrazují pouze týmy.
 
 Týmy mohou přes tlačítko **Podpora** otevřít soukromou konverzaci s pořadateli. Správci i hlavní administrátor mají v administraci společnou schránku a mohou týmům odpovídat; nové zprávy se průběžně načítají.
 

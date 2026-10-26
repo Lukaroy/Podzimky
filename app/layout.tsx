@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import "./admin-hud.css";
+import "leaflet/dist/leaflet.css";
 
 const hudDisplay = Space_Grotesk({
   subsets: ["latin", "latin-ext"],

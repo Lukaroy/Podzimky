@@ -3854,6 +3854,127 @@ video {
   }
 }
 
+.admin-team-map-card {
+  overflow: hidden;
+  border: 1px solid #dfd6c6;
+  border-radius: 0.9rem;
+  background: #fffdf8;
+  box-shadow: 0 8px 22px rgba(25, 19, 12, 0.05);
+}
+
+.admin-team-map-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.15rem 1.25rem;
+}
+
+.admin-team-map-heading h2 {
+  margin: 0.2rem 0 0;
+  color: #29372f;
+  font-size: 1.25rem;
+  font-weight: 750;
+}
+
+.admin-team-map-heading p:last-child {
+  margin: 0.35rem 0 0;
+  color: #716c60;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.admin-team-map-count {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid #d5e0d5;
+  border-radius: 999px;
+  background: #f0f5ef;
+  padding: 0.45rem 0.7rem;
+  color: #315343;
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.admin-team-map {
+  z-index: 0;
+  width: 100%;
+  height: min(68vh, 760px);
+  min-height: 420px;
+  background: #e8e5db;
+}
+
+.admin-team-map .leaflet-tooltip {
+  border: 1px solid #d8d0bf;
+  border-radius: 0.45rem;
+  background: #fffdf8;
+  padding: 0.25rem 0.45rem;
+  color: #29372f;
+  font-size: 0.72rem;
+  font-weight: 750;
+  box-shadow: 0 2px 8px rgba(38, 34, 26, 0.15);
+}
+
+.admin-team-map .team-map-grid-tile {
+  display: block;
+}
+
+.admin-team-map-error,
+.admin-team-map-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 1.25rem 1rem;
+  border: 1px solid #e6d3be;
+  border-radius: 0.65rem;
+  background: #fff8ec;
+  padding: 0.75rem;
+  color: #6a5132;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.admin-team-map-error {
+  border-color: #e2c2b9;
+  background: #fff0e8;
+  color: #78351e;
+}
+
+.admin-team-map-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  border-top: 1px solid #ebe4d9;
+  padding: 0.65rem 1.25rem;
+  color: #736d61;
+  font-size: 0.72rem;
+}
+
+@media (max-width: 560px) {
+  .admin-team-map-heading {
+    flex-direction: column;
+    padding: 0.9rem;
+  }
+
+  .admin-team-map {
+    height: 62vh;
+    min-height: 340px;
+  }
+
+  .admin-team-map-error,
+  .admin-team-map-empty {
+    margin-inline: 0.9rem;
+  }
+
+  .admin-team-map-footer {
+    padding-inline: 0.9rem;
+  }
+}
+
 @media (max-width: 420px) {
   .admin-sidebar-brand {
     padding-right: 5.5rem;

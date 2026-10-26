@@ -77,6 +77,7 @@ export async function DELETE(
     prisma.authSession.deleteMany({ where: { teamId } }),
     prisma.teamQrCredential.deleteMany({ where: { teamId } }),
     prisma.teamQrCard.updateMany({ where: { teamId }, data: { teamId: null } }),
+    prisma.teamLocation.deleteMany({ where: { teamId } }),
   ]);
 
   return NextResponse.json({ ok: true, state: sanitizeGameState(state, user) });

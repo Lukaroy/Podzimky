@@ -20,6 +20,7 @@ import {
   EyeOff,
   Images,
   LogOut,
+  Map as MapIcon,
   MapPin,
   MessageCircle,
   Plus,
@@ -38,6 +39,7 @@ import { type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactN
 
 import { getFirebaseAuth } from "@/lib/firebase-client";
 import { SupportChat } from "@/app/SupportChat";
+import { AdminTeamMap } from "@/app/AdminTeamMap";
 
 type StationType =
   | "photo"
@@ -51,7 +53,7 @@ type StationType =
 type SubmissionStatus = "pending" | "approved" | "rejected";
 type Screen = "team-login" | "admin-login" | "team-dashboard" | "admin-panel";
 type AuthVisualMode = "sunset" | "interior" | "lanterns";
-type AdminTab = "teams" | "stations" | "submissions" | "media" | "flash" | "managers" | "live" | "support";
+type AdminTab = "teams" | "stations" | "submissions" | "media" | "flash" | "managers" | "live" | "map" | "support";
 
 const WALLPAPERS = [
   { id: "parchment", label: "Pergamen" },
@@ -91,6 +93,7 @@ const ADMIN_TAB_TITLES: Record<AdminTab, string> = {
   flash: "Přepady",
   managers: "Správci",
   live: "Živý přehled",
+  map: "Mapa týmů",
   support: "Podpora",
 };
 
@@ -363,7 +366,7 @@ function AuthVisualModePicker({
 }
 
 // Vybere ikonu administrace podle právě vykreslované sekce.
-function AdminIcon({ name }: { name: "teams" | "stations" | "review" | "media" | "flash" | "live" | "support" }) {
+function AdminIcon({ name }: { name: "teams" | "stations" | "review" | "media" | "flash" | "live" | "map" | "support" }) {
   const icons = {
     teams: Users,
     stations: MapPin,
@@ -371,6 +374,7 @@ function AdminIcon({ name }: { name: "teams" | "stations" | "review" | "media" |
     media: Images,
     flash: Zap,
     live: Activity,
+    map: MapIcon,
     support: MessageCircle,
   };
   const Icon = icons[name];
@@ -1430,6 +1434,102 @@ export default function Page() {
       isMounted = false;
     };
   }, [isAuthenticated, screen, teamId]);
+
+  useEffect(() => {
+    if (
+      !isAuthenticated ||
+      screen !== "team-dashboard" ||
+      !teamId ||
+      !gameState.gameStartedAt ||
+      gameState.gameStoppedAt ||
+      gameState.gameClosedAt ||
+      !navigator.geolocation
+    ) {
+      return;
+    }
+
+    let isMounted = true;
+    let isRequestInProgress = false;
+    let lastSentPosition: GeolocationPosition | null = null;
+    let lastSentAt = 0;
+    let hasLoggedFailure = false;
+
+    const requestLocation = () => {
+      if (document.visibilityState !== "visible" || isRequestInProgress) return;
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          if (!isMounted) return;
+          const previous = lastSentPosition;
+          const elapsedSinceLastSend = Date.now() - lastSentAt;
+          if (previous) {
+            const radians = Math.PI / 180;
+            const latitudeDelta = (position.coords.latitude - previous.coords.latitude) * radians;
+            const longitudeDelta = (position.coords.longitude - previous.coords.longitude) * radians;
+            const firstLatitude = previous.coords.latitude * radians;
+            const secondLatitude = position.coords.latitude * radians;
+            const haversine = Math.sin(latitudeDelta / 2) ** 2 +
+              Math.cos(firstLatitude) * Math.cos(secondLatitude) *
+              Math.sin(longitudeDelta / 2) ** 2;
+            const distanceMeters = 6_371_000 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+            if (distanceMeters < 20 && elapsedSinceLastSend < 60_000) return;
+          }
+
+          isRequestInProgress = true;
+          void fetch("/api/team/location", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+            }),
+          })
+            .then(async (response) => {
+              const result = await response.json() as { error?: string };
+              if (!response.ok) throw new Error(result.error ?? "Polohu se nepodařilo odeslat.");
+              lastSentPosition = position;
+              lastSentAt = Date.now();
+              hasLoggedFailure = false;
+            })
+            .catch((locationError: unknown) => {
+              if (!hasLoggedFailure) {
+                console.warn("Team location update failed.", locationError);
+                hasLoggedFailure = true;
+              }
+            })
+            .finally(() => {
+              isRequestInProgress = false;
+            });
+        },
+        (locationError) => {
+          if (
+            isMounted &&
+            locationError.code !== 1 &&
+            !hasLoggedFailure
+          ) {
+            console.warn("Team location could not be read.", locationError);
+            hasLoggedFailure = true;
+          }
+        },
+        { enableHighAccuracy: false, maximumAge: 15_000, timeout: 12_000 },
+      );
+    };
+
+    requestLocation();
+    const interval = window.setInterval(requestLocation, 30_000);
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
+  }, [
+    gameState.gameClosedAt,
+    gameState.gameStartedAt,
+    gameState.gameStoppedAt,
+    isAuthenticated,
+    screen,
+    teamId,
+  ]);
 
   useEffect(() => {
     if (isLoadingGameState || !isAuthenticated) {
@@ -3766,6 +3866,7 @@ export default function Page() {
                 { tab: "support", label: "Podpora", icon: "support" as const, count: 0 },
                 ...(isOwnerAdmin ? [{ tab: "media" as const, label: "Galerie", icon: "media" as const, count: mediaSubmissions.length }] : []),
                 ...(isOwnerAdmin ? [{ tab: "live" as const, label: "Živý přehled", icon: "live" as const, count: gameState.teams.length }] : []),
+                ...(isOwnerAdmin ? [{ tab: "map" as const, label: "Mapa týmů", icon: "map" as const, count: 0 }] : []),
                 ...(isOwnerAdmin ? [{ tab: "managers" as const, label: "Správci", icon: "teams" as const, count: managers.length }] : []),
               ] as const).map((item) => (
                 <button
@@ -3993,6 +4094,7 @@ export default function Page() {
                   ...(isOwnerAdmin ? [
                     { tab: "media" as const, icon: "media" as const, count: mediaSubmissions.length },
                     { tab: "live" as const, icon: "live" as const, count: gameState.teams.length },
+                    { tab: "map" as const, icon: "map" as const, count: 0 },
                   ] : []),
                 ]).map((item) => (
                   <button
@@ -4016,7 +4118,7 @@ export default function Page() {
               <header className="module-toolbar">
                 <div className="module-toolbar-copy">
                   <p className="admin-eyebrow">{isOwnerAdmin ? "Hlavní pořadatel" : "Správce stanovišť"}</p>
-                  <h2>{adminTab === "teams" ? "Týmy" : adminTab === "stations" ? "Stanoviště" : adminTab === "submissions" ? "Schvalování" : adminTab === "media" ? "Galerie" : adminTab === "managers" ? "Správci" : adminTab === "live" ? "Živý přehled" : adminTab === "support" ? "Podpora" : "Přepady"}</h2>
+                  <h2>{adminTab === "teams" ? "Týmy" : adminTab === "stations" ? "Stanoviště" : adminTab === "submissions" ? "Schvalování" : adminTab === "media" ? "Galerie" : adminTab === "managers" ? "Správci" : adminTab === "map" ? "Mapa týmů" : adminTab === "live" ? "Živý přehled" : adminTab === "support" ? "Podpora" : "Přepady"}</h2>
                   <p className="module-toolbar-hint">
                     {adminTab === "teams"
                       ? "Vytvářejte týmy a sdílejte s nimi přihlašovací QR kódy."
@@ -4030,8 +4132,10 @@ export default function Page() {
                             ? "Vytvářejte týmové výzvy a sledujte jejich plnění."
                             : adminTab === "live"
                               ? "Sledujte postup týmů a stav celé výpravy."
-                              : adminTab === "media"
-                                ? "Prohlížejte si všechny nahrané důkazy a fotografie."
+                                : adminTab === "map"
+                                  ? "Sledujte poslední známou polohu týmů. Historie pohybu se neukládá."
+                                : adminTab === "media"
+                                  ? "Prohlížejte si všechny nahrané důkazy a fotografie."
                                 : "Přidejte správce, kteří pomohou s organizací výpravy."}
                   </p>
                 </div>
@@ -4042,6 +4146,12 @@ export default function Page() {
               </header>
 
           {isTabOpen("support") && <OsWindow {...winProps("support")}><SupportChat role="admin" canDelete /></OsWindow>}
+
+          {isTabOpen("map") && isOwnerAdmin && (
+            <OsWindow {...winProps("map")}>
+              <AdminTeamMap />
+            </OsWindow>
+          )}
 
           {isTabOpen("live") && isOwnerAdmin && (
             <OsWindow {...winProps("live")}>
