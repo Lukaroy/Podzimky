@@ -769,28 +769,6 @@ h3 {
     #fff8e8;
 }
 
-.player-phases {
-  padding: 2px;
-  border-radius: 0.75rem;
-  background: #f7f2e9;
-}
-
-.player-phase {
-  color: #8c8173;
-  background: #eee9e0;
-}
-
-.player-phase-current {
-  color: #fff8ed;
-  background: #8f3028;
-  box-shadow: 0 2px 7px rgba(92, 30, 23, 0.17);
-}
-
-.player-phase-done {
-  color: #684718;
-  background: #f1dfb6;
-}
-
 .player-waiting {
   border-color: #ead7a7;
   background: #fff8e8;
@@ -3917,10 +3895,6 @@ video {
   box-shadow: 0 2px 8px rgba(38, 34, 26, 0.15);
 }
 
-.admin-team-map .team-map-grid-tile {
-  display: block;
-}
-
 .admin-team-map-error,
 .admin-team-map-empty {
   display: flex;
@@ -4616,16 +4590,6 @@ video {
 .player-clue button:hover,
 .player-mission button.w-full:hover {
   background: #813228;
-}
-
-.player-phase-current {
-  background: #386b5d;
-  box-shadow: 0 2px 8px rgba(43, 83, 69, 0.18);
-}
-
-.player-phase-done {
-  background: #e8d5aa;
-  color: #664d24;
 }
 
 @media (max-width: 760px) {
@@ -5442,17 +5406,6 @@ video {
   background: #a44132;
 }
 
-.player-phase-current {
-  border-radius: 2px;
-  background: #3b6852;
-}
-
-.player-phase-done {
-  border-radius: 2px;
-  background: #e7d8b5;
-  color: #644b27;
-}
-
 @media (max-width: 760px) {
   .admin-shell.admin-console {
     grid-template-columns: minmax(0, 1fr);
@@ -5908,8 +5861,31 @@ body {
   box-shadow: none;
 }
 
-.player-route-clue {
-  display: none;
+.player-dashboard-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.player-dashboard-grid {
+  order: -1;
+  width: 100%;
+}
+
+.player-clue-instruction {
+  border-top: 1px solid #e3dbc9;
+  padding-top: 0.7rem;
+  color: #536456;
+}
+
+.player-station-list button:focus-visible,
+.player-mobile-action button:focus-visible {
+  outline: 3px solid #c99f50;
+  outline-offset: 3px;
+}
+
+.team-map-grid-tile {
+  display: block;
 }
 
 @media (max-width: 560px) {
@@ -6006,50 +5982,69 @@ body {
     box-shadow: 0 5px 16px rgba(49, 44, 34, 0.07);
   }
 
+  .player-dashboard-content {
+    gap: 0.85rem;
+  }
+
+  .player-dashboard-grid {
+    gap: 0.85rem;
+  }
+
   .player-shell section.player-route {
+    border-radius: 0.85rem;
     padding: 0.85rem;
+    box-shadow: 0 3px 12px rgba(49, 44, 34, 0.045);
   }
 
   .player-route > div:first-child {
     margin-bottom: 0.65rem;
   }
 
-  .player-route-clue {
-    display: block;
-    color: #536456;
-  }
-
-  .player-route-clue .font-bold {
-    color: #386b5d;
-  }
-
-  .player-mission .player-clue {
-    display: none;
-  }
-
   .player-mission-banner {
     min-height: 0;
-    padding: 0.8rem 0.9rem;
+    gap: 0.75rem;
+    background:
+      radial-gradient(ellipse at 100% 0, rgba(229, 200, 136, 0.15), transparent 50%),
+      linear-gradient(110deg, #263d33, #304d3e);
+    padding: 1rem;
   }
 
   .player-mission-banner > span:first-child {
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.9rem;
+    height: 2.9rem;
+    border-radius: 0.75rem !important;
   }
 
   .player-mission-banner h2 {
     white-space: normal;
-    font-size: 1.15rem;
-    line-height: 1.3;
+    font-size: 1.35rem;
+    line-height: 1.25;
+  }
+
+  .player-mission > div > .space-y-4 {
+    gap: 1rem;
+    padding: 1rem;
   }
 
   .player-clue {
-    padding: 0.9rem;
+    border-color: #ded2b8;
+    border-radius: 0.9rem;
+    background:
+      radial-gradient(ellipse at 100% 0, rgba(82, 124, 95, 0.08), transparent 58%),
+      #f8f5ed;
+    padding: 1rem;
+    box-shadow: inset 3px 0 #668471;
   }
 
   .player-clue > p:nth-child(2) {
-    font-size: 1rem;
-    line-height: 1.5;
+    margin-top: 0.65rem;
+    color: #34372f;
+    font-size: 1.05rem;
+    line-height: 1.6;
+  }
+
+  .player-clue-instruction {
+    line-height: 1.45;
   }
 
   .player-inline-scan {
@@ -6090,5 +6085,14 @@ body {
     color: #fff;
     font-size: 1rem;
     font-weight: 750;
+    box-shadow: 0 4px 12px rgba(38, 75, 62, 0.2);
+  }
+
+  .team-support-widget {
+    bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  }
+
+  .team-support-widget.is-open {
+    bottom: calc(0.75rem + env(safe-area-inset-bottom));
   }
 }

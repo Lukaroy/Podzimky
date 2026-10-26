@@ -272,7 +272,7 @@ export function SupportChat({
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-40">
+    <div className={`team-support-widget fixed bottom-4 right-4 z-40 ${isOpen ? "is-open" : ""}`}>
       {isOpen ? (
         <div className="h-[min(70vh,560px)] w-[min(92vw,400px)] overflow-hidden rounded-2xl border border-[#e3d9c9] shadow-[0_16px_45px_rgba(25,19,12,0.22)]">
           {panel}

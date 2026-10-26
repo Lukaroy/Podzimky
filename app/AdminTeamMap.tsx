@@ -42,48 +42,11 @@ export function AdminTeamMap() {
       if (!isMounted || !mapElementRef.current) return;
       const map = loadedLeaflet.map(mapElementRef.current, { scrollWheelZoom: true })
         .setView([49.8, 15.5], 7);
-      const CoordinateGrid = loadedLeaflet.GridLayer.extend({
-        createTile(this: Leaflet.GridLayer, coords: Leaflet.Coords) {
-          const size = this.getTileSize();
-          const tile = loadedLeaflet.DomUtil.create("canvas", "team-map-grid-tile") as HTMLCanvasElement;
-          tile.width = size.x;
-          tile.height = size.y;
-          const context = tile.getContext("2d");
-          if (!context) return tile;
-
-          context.fillStyle = "#f4f2e9";
-          context.fillRect(0, 0, size.x, size.y);
-          context.strokeStyle = "rgba(77, 97, 82, 0.22)";
-          context.fillStyle = "rgba(54, 74, 62, 0.78)";
-          context.lineWidth = 1;
-          context.font = "11px sans-serif";
-
-          for (let index = 0; index <= 4; index += 1) {
-            const offset = (size.x / 4) * index;
-            context.beginPath();
-            context.moveTo(offset, 0);
-            context.lineTo(offset, size.y);
-            context.stroke();
-            context.beginPath();
-            context.moveTo(0, offset);
-            context.lineTo(size.x, offset);
-            context.stroke();
-
-            const longitude = map.unproject(
-              loadedLeaflet.point(coords.x * size.x + offset, coords.y * size.y + size.y / 2),
-              coords.z,
-            ).lng;
-            const latitude = map.unproject(
-              loadedLeaflet.point(coords.x * size.x + size.x / 2, coords.y * size.y + offset),
-              coords.z,
-            ).lat;
-            context.fillText(`${longitude.toFixed(4)}°`, offset + 3, 13);
-            context.fillText(`${latitude.toFixed(4)}°`, 3, Math.max(25, offset - 3));
-          }
-          return tile;
-        },
-      });
-      new CoordinateGrid().addTo(map);
+      loadedLeaflet.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+        maxZoom: 17,
+        attribution:
+          'Mapový podklad &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA), data &copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>-přispěvatelé, SRTM',
+      }).addTo(map);
       const markerLayer = loadedLeaflet.layerGroup().addTo(map);
       mapRef.current = map;
       markerLayerRef.current = markerLayer;
@@ -195,7 +158,7 @@ export function AdminTeamMap() {
         <div>
           <p className="admin-eyebrow">Aktuální poloha · bez historie</p>
           <h2>Mapa týmů</h2>
-          <p>Souřadnicová mapa bez externího poskytovatele. Polohy se obnovují každých 10 sekund; starší než 2 minuty jsou neaktuální.</p>
+          <p>Turistická mapa s cestami a terénem. Polohy se obnovují každých 10 sekund; starší než 2 minuty jsou neaktuální.</p>
         </div>
         <div className="admin-team-map-count">
           <LocateFixed size={17} />
@@ -225,7 +188,7 @@ export function AdminTeamMap() {
       <div ref={mapElementRef} className="admin-team-map" aria-label="Mapa aktuálních poloh týmů" />
 
       <footer className="admin-team-map-footer">
-        <span>{latestLocation ? `Poslední poloha přijata ${formatUpdatedAt(latestLocation.updatedAt)}` : "Souřadnicová mapa čeká na první polohu."}</span>
+        <span>{latestLocation ? `Poslední poloha přijata ${formatUpdatedAt(latestLocation.updatedAt)}` : "Turistická mapa čeká na první polohu."}</span>
         <span>{lastRefresh ? `Obnoveno ${formatUpdatedAt(lastRefresh)}` : isLoading ? "Načítám polohy…" : "Čekám na polohy týmů…"}</span>
         <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} aria-hidden="true" />
       </footer>

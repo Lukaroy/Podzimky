@@ -3335,7 +3335,7 @@ export default function Page() {
                             : "Skvělá práce. Dokončili jste celou trasu."}
                   </span>
                 </div>
-                {nextRouteStation && !currentTeamPendingSubmission && !activeTeam.scannedStationIds.includes(nextRouteStation.id) && gameState.gameStartedAt && (
+                {nextRouteStation && selectedStationId === nextRouteStation.id && !currentTeamPendingSubmission && !activeTeam.scannedStationIds.includes(nextRouteStation.id) && gameState.gameStartedAt && (
                   <button
                     type="button"
                     onClick={() => {
@@ -3364,6 +3364,7 @@ export default function Page() {
               </div>
             )}
 
+            <div className="player-dashboard-content">
             {gameState.gameStartedAt && !gameState.gameStoppedAt && !gameState.gameClosedAt && (
               <details className="player-optional mb-4">
                 <summary className="player-optional-summary">
@@ -3460,8 +3461,8 @@ export default function Page() {
               </details>
             )}
 
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
-              <section className="player-route order-1 rounded-2xl border border-[#e7d8c0] bg-[#fffdfa] p-3 shadow-[0_8px_24px_rgba(29,25,20,0.06)] lg:order-2">
+            <div className="player-dashboard-grid grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
+              <section className="player-route order-2 rounded-2xl border border-[#e7d8c0] bg-[#fffdfa] p-3 shadow-[0_8px_24px_rgba(29,25,20,0.06)] lg:order-2">
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-base font-bold text-[#241d1a]">Trasa</h2>
                   <span className="rounded-full bg-[#f5ebda] px-2.5 py-1 text-xs font-semibold text-[#795b34]">
@@ -3496,11 +3497,6 @@ export default function Page() {
                             <span className="block text-xs opacity-80">
                               {isCompleted || isScanned ? station.title : isAvailable ? "Naskenujte QR kód" : "Uzamčeno"}
                             </span>
-                            {isAvailable && !isCompleted && station.clue && (
-                              <span className="player-route-clue mt-2 block text-sm leading-5">
-                                <span className="font-bold">Nápověda: </span>{station.clue}
-                              </span>
-                            )}
                           </span>
                         </span>
                         <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.1em]">
@@ -3512,7 +3508,7 @@ export default function Page() {
                 </div>
               </section>
 
-              <section className="player-mission order-2 overflow-hidden rounded-2xl border border-[#e4d4ba] bg-[#fffdfa] shadow-[0_12px_30px_rgba(29,25,20,0.08)] lg:order-1">
+              <section className="player-mission order-1 overflow-hidden rounded-2xl border border-[#e4d4ba] bg-[#fffdfa] shadow-[0_12px_30px_rgba(29,25,20,0.08)] lg:order-1">
                 {hasFinishedGame ? (
                   <div className="player-finish p-6 text-center sm:p-8">
                     <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e8f5ed] text-[#25804a]"><CheckCircle2 size={30} /></span>
@@ -3539,10 +3535,10 @@ export default function Page() {
                         </span>
                         <div className="min-w-0 flex-1">
                           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#efd9a7]">
-                            {isCompleted ? "Splněno" : isPending ? "Čeká na kontrolu" : isScanned ? "Aktuální úkol" : `Další stanoviště · ${station.order}`}
+                            {isCompleted ? "Stanoviště splněno" : isPending ? "Odpověď se kontroluje" : isScanned ? "Aktuální úkol" : `Další stanoviště · ${station.order}`}
                           </p>
                           <h2 className="mt-1 truncate text-xl font-bold text-white sm:text-2xl">
-                            {isCompleted || isScanned ? station.title : "Nápověda k místu"}
+                            {isCompleted || isScanned ? station.title : `Stanoviště ${station.order}`}
                           </h2>
                         </div>
                         {isPending && <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-[#e8c87f]" />}
@@ -3553,8 +3549,9 @@ export default function Page() {
 
                         {isAvailable && !isScanned && (
                           <div className="player-clue rounded-xl border p-4">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#2f6d67]">Nápověda k místu</p>
-                            <p className="mt-2 text-base leading-6 text-[#392d23]">{station.clue || "Nápovědu doplní organizátor."}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#2f6d67]">Jak najít stanoviště</p>
+                            <p className="mt-2 text-base leading-6 text-[#392d23]">{station.clue || "Počkejte na pokyny pořadatele."}</p>
+                            <p className="player-clue-instruction mt-3 text-xs font-semibold">Až dorazíte na místo, naskenujte QR kód stanoviště.</p>
                             <button
                               onClick={() => {
                                 setScanMessage("Spouštím zadní kameru…");
@@ -3566,18 +3563,6 @@ export default function Page() {
                             </button>
                           </div>
                         )}
-
-                        <div className="player-phases grid grid-cols-4 gap-1.5" aria-label="Fáze stanoviště">
-                          {["Najít", "Skenovat", "Splnit", "Schválení"].map((phase, index) => {
-                            const currentPhase = isCompleted ? 4 : isPending ? 3 : isScanned ? 2 : 0;
-                            const phaseStatus = index < currentPhase ? "done" : index === currentPhase ? "current" : "upcoming";
-                            return (
-                              <div key={phase} className={`player-phase player-phase-${phaseStatus} rounded-lg px-1.5 py-2 text-center`}>
-                                <span className="block text-[9px] font-bold uppercase tracking-wide sm:text-[10px]">{phase}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
 
                         {isAvailable && isScanned && !isCompleted && !isPending && (
                           <div className="rounded-lg bg-[#f8f3eb] px-3 py-2 text-sm leading-5 text-[#665544]">{station.description}</div>
@@ -3800,6 +3785,7 @@ export default function Page() {
                   );
                 })()}
               </section>
+            </div>
             </div>
 
             {nextRouteStation && !currentTeamPendingSubmission && !activeTeam.scannedStationIds.includes(nextRouteStation.id) && gameState.gameStartedAt && (
