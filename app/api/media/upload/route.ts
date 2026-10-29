@@ -57,7 +57,6 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Vercel Blob could not generate a client upload token.", error);
     return NextResponse.json(
       {
         code: "BLOB_TOKEN_GENERATION_FAILED",

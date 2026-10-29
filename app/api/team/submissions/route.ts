@@ -73,6 +73,7 @@ export async function POST(request: Request) {
   try {
     // Server kontroluje aktuální trasu, typ úkolu a důkaz v jedné aktualizaci.
     const nextState = await updateGameState((current) => {
+      if (!current.gameStartedAt) throw new Error("Hra ještě nezačala.");
       if (current.gameClosedAt) throw new Error("Hra je uzavřená.");
       if (current.gameStoppedAt) throw new Error("Hra byla ukončena.");
       const team = current.teams.find((item) => item.id === user.teamId);
@@ -143,7 +144,7 @@ export async function POST(request: Request) {
         stationId: station.id,
         teamId: team.id,
         status: station.requiresApproval ? "pending" : "approved",
-        content: station.task,
+        content,
         evidence: mediaUrl ? "Soubor nahrán" : content,
         ...(mediaUrl ? { mediaUrl } : {}),
         comment: "",

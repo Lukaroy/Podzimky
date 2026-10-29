@@ -68,6 +68,7 @@ export async function POST(request: Request) {
   try {
     // Ověření úkolu a uložení odpovědi proběhnou vůči jednomu aktuálnímu stavu.
     const state = await updateGameState((current) => {
+      if (!current.gameStartedAt) throw new Error("Hra ještě nezačala.");
       if (current.gameClosedAt) throw new Error("Hra je uzavřená.");
       if (current.gameStoppedAt) throw new Error("Hra je pozastavena.");
       const team = current.teams.find((item) => item.id === user.teamId);
@@ -109,7 +110,7 @@ export async function POST(request: Request) {
         missionId: mission.id,
         teamId: team.id,
         status: mission.requiresApproval ? "pending" : "approved",
-        content: mission.description,
+        content: answer || mission.description,
         evidence: mediaUrl ?? answer,
         ...(mediaUrl ? { mediaUrl } : {}),
         comment: "",

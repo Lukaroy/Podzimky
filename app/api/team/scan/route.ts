@@ -29,6 +29,7 @@ export async function POST(request: Request) {
   try {
     // Kontrola pořadí i zaznamenání skenu jsou chráněné souběžnou aktualizací.
     state = await updateGameState((current) => {
+      if (!current.gameStartedAt) throw new Error("Hra ještě nezačala.");
       if (current.gameClosedAt) throw new Error("Hra je uzavřená.");
       if (current.gameStoppedAt) throw new Error("Hra byla ukončena.");
       const team = current.teams.find((item) => item.id === user.teamId);
