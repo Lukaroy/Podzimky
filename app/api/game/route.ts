@@ -83,6 +83,21 @@ export async function POST(request: Request) {
     // Klientský snapshot slučujeme se serverem, aby refresh ani stará karta nevrátily čas či postup.
     const submittedTeams = new Map(payload.teams.map((team) => [team.id, team]));
     const isOutdatedGameState = payload.gameStartedAt !== current.gameStartedAt;
+
+    const currentMissions = new Map(current.flashMissions.map((mission) => [mission.id, mission]));
+    const submittedMissions = payload.flashMissions.map((mission) => {
+      const existingMission = currentMissions.get(mission.id);
+      currentMissions.delete(mission.id);
+      return existingMission?.archivedAt
+        ? { ...mission, archivedAt: existingMission.archivedAt }
+        : mission;
+    });
+    const activeMissionIds = new Set(
+      [...submittedMissions, ...currentMissions.values()]
+        .filter((mission) => !mission.archivedAt)
+        .map((mission) => mission.id),
+    );
+
     const mergedExistingTeams = current.teams.map((oldTeam) => {
       if (isOutdatedGameState) return oldTeam;
       const team = submittedTeams.get(oldTeam.id);
@@ -136,20 +151,6 @@ export async function POST(request: Request) {
     for (const event of payload.events) {
       if (!mergedEvents.has(event.id)) mergedEvents.set(event.id, event);
     }
-
-    const currentMissions = new Map(current.flashMissions.map((mission) => [mission.id, mission]));
-    const submittedMissions = payload.flashMissions.map((mission) => {
-      const existingMission = currentMissions.get(mission.id);
-      currentMissions.delete(mission.id);
-      return existingMission?.archivedAt
-        ? { ...mission, archivedAt: existingMission.archivedAt }
-        : mission;
-    });
-    const activeMissionIds = new Set(
-      [...submittedMissions, ...currentMissions.values()]
-        .filter((mission) => !mission.archivedAt)
-        .map((mission) => mission.id),
-    );
 
     return {
       ...payload,
